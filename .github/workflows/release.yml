@@ -1,0 +1,126 @@
+name: Release Management
+
+# 当给仓库打版本标签（git tag -a v1.0.0 -m ""）并推送到 GitHub时，自动运行。
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:  # Allow manual trigger
+
+permissions:
+  contents: write
+
+jobs:
+  # Build executables for Windows and macOS
+  build-executables:
+    name: Build Executables
+    strategy:
+      matrix:
+        os: [windows-latest, macos-latest]
+        include:
+          - os: windows-latest
+            platform: windows
+          - os: macos-latest
+            platform: macos
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install build dependencies (Windows)
+        if: matrix.os == 'windows-latest'
+        run: |
+          python -m pip install --upgrade pip
+          pip install pyinstaller pip-licenses tomli
+          # 安装项目核心依赖（构建脚本需要读取 pyproject.toml）
+          pip install -e .
+
+      - name: Install build dependencies (macOS)
+        if: matrix.os == 'macos-latest'
+        run: |
+          python3 -m pip install --upgrade pip
+          pip3 install pyinstaller pip-licenses tomli
+          # 安装项目核心依赖（构建脚本需要读取 pyproject.toml）
+          pip3 install -e .
+
+      - name: Install Inno Setup (Windows only)
+        if: matrix.os == 'windows-latest'
+        run: |
+          choco install innosetup -y
+          echo "C:\Program Files (x86)\Inno Setup 6" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+
+      - name: Build Windows
+        if: matrix.os == 'windows-latest'
+        run: python scripts/build/build_win.py
+
+      - name: Build macOS
+        if: matrix.os == 'macos-latest'
+        run: python3 scripts/build/build_darwin.py
+
+      - name: Build source ZIP (macOS only)
+        if: matrix.os == 'macos-latest'
+        run: python scripts/build/build_source.py --zip-only
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: executables-${{ matrix.platform }}
+          path: |
+            dist/*.exe
+            dist/*.app.zip
+            release/*.source.zip
+          retention-days: 7
+
+  # Create GitHub Release with all artifacts
+  create-release:
+    name: Create GitHub Release
+    needs: [build-executables]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Generate Release Notes
+        uses: orhun/git-cliff-action@v1
+        id: git-cliff
+        env:
+          TAG_NAME: ${{ github.ref_name }}
+        with:
+          config: cliff.toml
+          args: --tag "$TAG_NAME"
+
+      - name: Write release notes to file
+        run: echo '${{ steps.git-cliff.outputs.content }}' > release_notes.md
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          body_path: release_notes.md
+          draft: false
+          prerelease: ${{ contains(github.ref, 'alpha') || contains(github.ref, 'beta') || contains(github.ref, 'rc') }}
+          generate_release_notes: true
+          files: |
+            artifacts/**/*.exe
+            artifacts/**/*.app.zip
+            artifacts/**/*.source.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -1,0 +1,91 @@
+# MediaFactory Configuration Template
+# Copy this file to config.toml and fill in your values
+
+[whisper]
+# Faster Whisper transcription settings
+beam_size = 5
+patience = 1.0
+length_penalty = 1.0
+no_speech_threshold = 0.1
+condition_on_previous_text = false
+word_timestamps = true
+vad_filter = true
+vad_threshold = 0.5
+vad_min_speech_duration_ms = 250
+vad_min_silence_duration_ms = 100
+vad_speech_pad_ms = 30
+
+[model]
+local_model_path = "models"
+download_source = "https://huggingface.co"
+# Available translation models will be auto-detected at startup
+available_translation_models = [
+    "google/madlad400-7b-mt-bt",
+    "google/madlad400-3b-mt-fp16",
+    "google/madlad400-3b-mt",
+]
+whisper_models = [
+    "Systran/faster-whisper-large-v3",
+]
+
+[openai_compatible]
+# Current active preset: openai, deepseek, glm, qwen, moonshot, custom
+current_preset = "openai"
+
+[openai_compatible.openai]
+api_key = "your-openai-api-key-here"
+base_url = "https://api.openai.com/v1"
+model = "gpt-4o-mini"
+# max_tokens: Maximum output tokens (0 = use model default limit)
+# OpenAI gpt-4o-mini limit: 16384
+max_tokens = 0
+connection_available = false
+
+[openai_compatible.deepseek]
+api_key = "your-deepseek-api-key-here"
+base_url = "https://api.deepseek.com/v1"
+model = "deepseek-chat"
+# DeepSeek limit: 4096
+max_tokens = 0
+connection_available = false
+
+[openai_compatible.glm]
+api_key = "your-glm-api-key-here"
+base_url = "https://open.bigmodel.cn/api/paas/v4"
+model = "GLM-4-Flash-250414"
+# GLM-4-Flash limit: 4096 (configuring higher values will cause API error 1210)
+max_tokens = 0
+connection_available = false
+
+[openai_compatible.qwen]
+api_key = "your-qwen-api-key-here"
+base_url = "https://dashscope.aliyuncs.com/compatible-mode/v1"
+model = "qwen-turbo"
+# Qwen limit: 8192
+max_tokens = 0
+connection_available = false
+
+[openai_compatible.moonshot]
+api_key = "your-moonshot-api-key-here"
+base_url = "https://api.moonshot.cn/v1"
+model = "moonshot-v1-8k"
+# Moonshot limit: 8192
+max_tokens = 0
+connection_available = false
+
+[openai_compatible.custom]
+api_key = "your-api-key-here"
+base_url = "https://your-api-endpoint/v1"
+model = "your-model-name"
+# Set max_tokens according to your model's limit
+max_tokens = 0
+connection_available = false
+
+[llm_api]
+timeout = 100
+max_retries = 3
+rate_limit_enabled = true
+rate_limit_per_second = 5.0
+max_chars_per_request = 3000
+max_segments_per_request = 100
+max_tokens = 65536

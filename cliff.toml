@@ -1,0 +1,76 @@
+# git-cliff 配置文件
+# 文档: https://git-cliff.org/docs/configuration
+
+[changelog]
+# changelog 头部模板
+header = """
+# Changelog\n
+All notable changes to MediaFactory will be documented in this file.\n
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).\n
+"""
+
+# changelog body 模板
+body = """
+{% if version %}\
+## [{{ version | trim_start_matches(pat="v") }}]{% if date %} - {{ date | date(format="%Y-%m-%d") }}{% endif %}
+
+{% else %}\
+## [Unreleased]
+
+{% endif %}\
+{% for group, commits in commits | group_by(attribute="group") %}
+### {{ group }}
+{% for commit in commits %}
+{% if commit.scope %}**{{ commit.scope }}:** {% endif %}{{ commit.message | upper_first }}\
+{% if commit.remote.pr_number %} ([#{{ commit.remote.pr_number }}]({{ commit.remote.pr_url }})){% endif %}
+
+{% endfor %}
+{% endfor %}\n
+"""
+
+# 从 body 中移除额外的空白
+trim = true
+
+[git]
+# 解析 conventional commits
+conventional_commits = true
+
+# 过滤非 conventional commits
+filter_commits = true
+
+# commit 类型到 changelog 分组的映射
+commit_parsers = [
+  { message = "^feat", group = "Added" },
+  { message = "^fix", group = "Fixed" },
+  { message = "^refactor", group = "Changed" },
+  { message = "^perf", group = "Performance" },
+  { message = "^docs", group = "Documentation" },
+  { message = "^test", group = "Testing" },
+  # 跳过 chore 和 style 类型
+  { message = "^chore\\(release\\): prepare for", skip = true },
+  { message = "^chore", skip = true },
+  { message = "^style", skip = true },
+  { message = "^ci", skip = true },
+  { message = "^build", skip = true },
+]
+
+# 保护特定分支不被处理
+protect_breaking_commits = false
+
+# tag 过滤模式
+tag_pattern = "v[0-9]*"
+
+# 排序
+sort_commits = "oldest"
+
+# link_parsers 用于从 commit message 中提取链接
+link_parsers = [
+  { pattern = "#(\\d+)", href = "https://github.com/DragonL641/MediaFactory/issues/$1" },
+  { pattern = "PR #(\\d+)", href = "https://github.com/DragonL641/MediaFactory/pull/$1" },
+]
+
+# GitHub 集成（自动检测 remote）
+[remote]
+# 远程仓库配置
+github = { owner = "DragonL641", repo = "MediaFactory" }

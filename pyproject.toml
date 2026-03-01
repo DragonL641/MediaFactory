@@ -1,0 +1,234 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mediafactory"
+version = "0.1.0"
+description = "Extensible multimedia processing platform with plugin architecture"
+readme = "README.md"
+authors = [{name = "Dragon", email = "fldx123456@163.com"}]
+license = {text = "MIT"}
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Multimedia :: Video",
+    "Topic :: Multimedia :: Sound/Audio",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Software Development :: Libraries :: Application Frameworks",
+]
+keywords = ["media", "video", "audio", "subtitle", "whisper", "speech-recognition", "translation", "plugin", "extensible"]
+
+# ==============================================================================
+# Core dependencies (启动必需 - ~150MB)
+# ==============================================================================
+# 注意: numpy 和 typing-extensions 是间接依赖，无需显式声明
+# - numpy: 由 transformers (ml 依赖) 间接引入
+# - typing-extensions: 由 pydantic 间接引入
+dependencies = [
+    # GUI 框架 (锁定到 0.80.x 系列以保持 API 一致性)
+    "flet>=0.80.0,<0.90.0",
+    # 配置和日志
+    "loguru>=0.7.2",
+    "pydantic>=2.9.0,<3.0.0",
+    "pydantic-settings>=2.6.0",
+    "tomli>=2.0.1",
+    "tomli-w>=1.0.0",
+    # 系统资源监控
+    "psutil>=6.0.0",
+    # 音视频处理（FFmpeg 二进制）
+    "imageio-ffmpeg>=0.5.1",  # FFmpeg 二进制（~70MB）
+    # 进度显示
+    "tqdm>=4.66.0",
+    # 语言检测
+    "langdetect>=1.0.9",
+    # Hugging Face 模型下载 (限制版本以保持与 transformers 兼容)
+    "huggingface-hub>=0.23.0,<0.28.0",
+    # LLM API SDKs (远程翻译，无需本地模型)
+    "openai>=1.50.0",     # OpenAI SDK 支持 (统一后端)
+    "tenacity>=8.2.0",   # 重试机制
+]
+requires-python = ">=3.10"
+
+# ==============================================================================
+# Console scripts (命令行入口点)
+# ==============================================================================
+[project.scripts]
+mediafactory = "mediafactory.gui.flet.app:launch_gui"
+
+# ==============================================================================
+# Optional dependencies (可选功能依赖 - 可延迟安装)
+# ==============================================================================
+[project.optional-dependencies]
+# ML 依赖（本地 ASR 和翻译功能）
+# 这些依赖较大（~350MB），可在首次运行时通过安装向导下载
+ml = [
+    # PyTorch (锁定到 2.4.x 系列以保持兼容性)
+    "torch>=2.4.0,<2.6.0",
+    # Whisper (使用 faster-whisper)
+    "faster-whisper>=1.0.0",
+    # Transformers (锁定到 4.46.x 系列)
+    "transformers>=4.46.0,<5.0.0",
+    # 支持库
+    "sentencepiece>=0.1.99",
+    "accelerate>=1.0.0",
+]
+
+# PyTorch variations - 用户根据硬件选择合适的版本
+cpu = [
+    "mediafactory[ml]",
+    "torch>=2.4.0,<2.6.0",
+]
+
+# CUDA 版本（需要 NVIDIA GPU）
+cuda118 = [
+    "mediafactory[ml]",
+    "torch>=2.4.0,<2.6.0",
+]
+cuda121 = [
+    "mediafactory[ml]",
+    "torch>=2.4.0,<2.6.0",
+]
+cuda124 = [
+    "mediafactory[ml]",
+    "torch>=2.4.0,<2.6.0",
+]
+
+# GPU 版本别名（默认使用最新的 CUDA 12.4）
+gpu = [
+    "mediafactory[cuda124]",
+]
+
+# 完整安装（包含 ML）
+all = [
+    "mediafactory[gpu]",
+]
+
+##### Dependency Groups #####
+# PEP 735 dependency groups for local development (not published to PyPI)
+[dependency-groups]
+# 开发依赖（仅本地使用，不随包发布）
+dev = [
+    "torch>=2.4.0,<2.6.0",  # 开发环境默认使用 CPU 版本
+    "pytest>=7.0.0",
+    "pytest-cov>=4.0.0",
+    "black>=22.0.0",
+    "flake8>=5.0.0",
+    "mypy>=1.0.0",
+    "pre-commit>=3.0.0",  # Git hooks 代码检查
+    "build>=0.10.0",
+    "twine>=4.0.0",
+    "pyinstaller>=6.18.0",
+    "pillow>=10.0.0",  # 图标处理（PyInstaller 需要 Pillow 来转换 PNG→ICO）
+]
+
+##### Test Settings #####
+[tool.pytest.ini_options]
+minversion = "7.0"
+addopts = "-ra -q --cov=src/mediafactory --cov-report=html --cov-report=term-missing"
+testpaths = [
+    "tests",
+]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+markers = [
+    "unit: Unit tests",
+    "integration: Integration tests",
+    "e2e: End-to-end tests",
+    "slow: Slow running tests",
+    "requires_network: Tests requiring network access"
+]
+
+[tool.coverage.run]
+source = ["src/"]
+omit = [
+    "*/tests/*",
+    "*/venv/*",
+    "*/__pycache__/*",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    'if __name__ == ".*main.*":'
+]
+
+##### Build Settings #####
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-dir]
+"" = "src"
+
+##### Black Check Settings #####
+[tool.black]
+line-length = 88
+target-version = ['py313']
+include = '\\.pyi?$'
+extend-exclude = '''
+^/
+  # directories
+  \.eggs
+  | \.git
+  | \.hg
+  | \.mypy_cache
+  | \.tox
+  | \.venv
+  | build
+  | dist
+$
+'''
+
+##### Bandit Security Check Settings #####
+[tool.bandit]
+tests = [
+    # Include all tests except for the ones we want to exclude
+]
+skips = [
+    # Skip tests for issues that are not applicable to this project
+]
+exclude_dirs = ["tests/"]
+
+##### Flake8 Style Check Settings #####
+[tool.flake8]
+# Minimal flake8 settings for basic syntax checks
+max-line-length = 120
+extend-ignore = [
+    "F401",  # Ignore 'module imported but unused' warnings
+    "E203",  # Ignore 'whitespace before ':' which is not PEP 8 compliant'
+    "W503",  # Ignore 'line break before binary operator'
+]
+per-file-ignores = [
+    # Allow unused imports in __init__.py files
+    "__init__.py:F401",
+]
+max-complexity = 15  # Allow higher complexity for business logic
+
+##### Type & Annotation Check Settings #####
+[tool.mypy]
+python_version = "3.13"
+warn_unused_configs = false
+
+# Relax type checking significantly
+disallow_untyped_defs = false
+check_untyped_defs = false
+warn_redundant_casts = false
+warn_unused_ignores = false
+strict_equality = false
+disallow_incomplete_defs = false
+no_implicit_optional = false  # Allow implicit optional
+warn_return_any = false
+disallow_untyped_decorators = false
+warn_no_return = false
+warn_unreachable = false
