@@ -1,0 +1,6 @@
+[V4+ Styles]
+; 番剧风格 - 适合动漫、日剧类视频
+; 特点：柔和颜色、圆角边框、适中字号
+Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
+Style: Default,Microsoft YaHei,46,&H00e6e8f1,&H000000FF,&H00987f5,&H00000000,-1,0,0,0,100,100,2.6,0,1,2.6,2.6,2,10,10,20,1
+Style: Secondary,Microsoft YaHei,32,&H00e6e8f1,&H000000FF,&H00987f5,&H00000000,0,0,0,0,100,100,0,0,1,2.0,1.5,2,10,10,20,1

@@ -1,0 +1,8 @@
+[V4+ Styles]
+; 默认样式 - 适合大多数场景
+; 主字幕样式 (Default) - 用于单语字幕或双语的主字幕
+Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
+Style: Default,Microsoft YaHei,44,&H00FFFFFF,&H000000FF,&H00000000,&H00000000,-1,0,0,0,100,100,0,0,1,2,1,2,10,10,30,1
+
+; 副字幕样式 (Secondary) - 用于双语字幕的小字
+Style: Secondary,Microsoft YaHei,30,&H00FFFFFF,&H000000FF,&H00000000,&H00000000,0,0,0,0,100,100,0,0,1,1.5,0.5,2,10,10,30,1
