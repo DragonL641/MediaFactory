@@ -123,10 +123,21 @@ python -m mediafactory
 ### 安装开发依赖
 
 ```bash
-# 使用 uv 安装开发依赖（推荐）
+# 基础开发环境（GUI 和基本功能）
 uv sync --group dev
 
-# 或使用 pip（需要手动安装开发工具）
+# 完整开发环境（包含 ML 依赖 - 本地 ASR 和翻译）
+uv sync --group dev --extra ml
+```
+
+**依赖说明**：
+- `uv sync` - 仅核心依赖（GUI + LLM API 翻译）
+- `--group dev` - 开发工具（pytest、black、flake8 等）
+- `--extra ml` - ML 依赖（faster-whisper、transformers 等）
+
+### 使用 pip 安装（备选）
+
+```bash
 pip install -e ".[cpu]" && pip install pytest pytest-cov black flake8 mypy pre-commit build twine
 ```
 

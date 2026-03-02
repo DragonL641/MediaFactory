@@ -130,41 +130,19 @@ class TaskCard:
             )
 
         # 第一行：图标 + 名称 + 状态 + 摘要 + 按钮
-        # 失败时状态徽章添加 Tooltip
-        if is_failed and self.task.error:
-            status_badge = ft.Tooltip(
-                message=self._format_error_tooltip(),
-                content=ft.Container(
-                    content=ft.Text(
-                        status_text,
-                        size=10,
-                        color=status_color,
-                        weight=ft.FontWeight.W_500,
-                    ),
-                    padding=ft.padding.symmetric(horizontal=6, vertical=1),
-                    bgcolor=self._get_status_bgcolor(status_color),
-                    border_radius=self.theme.radius_sm,
-                ),
-                bgcolor=self.theme.color_scheme.error_container,
-                text_style=ft.TextStyle(
-                    color=self.theme.color_scheme.on_error_container,
-                    size=12,
-                ),
-                padding=10,
-                border_radius=8,
-            )
-        else:
-            status_badge = ft.Container(
-                content=ft.Text(
-                    status_text,
-                    size=10,
-                    color=status_color,
-                    weight=ft.FontWeight.W_500,
-                ),
-                padding=ft.padding.symmetric(horizontal=6, vertical=1),
-                bgcolor=self._get_status_bgcolor(status_color),
-                border_radius=self.theme.radius_sm,
-            )
+        # 状态徽章，失败时添加 tooltip 显示错误信息
+        status_badge = ft.Container(
+            content=ft.Text(
+                status_text,
+                size=10,
+                color=status_color,
+                weight=ft.FontWeight.W_500,
+            ),
+            padding=ft.padding.symmetric(horizontal=6, vertical=1),
+            bgcolor=self._get_status_bgcolor(status_color),
+            border_radius=self.theme.radius_sm,
+            tooltip=self._format_error_tooltip() if is_failed and self.task.error else None,
+        )
 
         row1_controls = [
             ft.Icon(

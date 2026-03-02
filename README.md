@@ -151,13 +151,25 @@ uv pip install torch --index-url https://download.pytorch.org/whl/cpu
 #### 5. Install Dependencies
 
 ```bash
+# Core dependencies only (GUI + LLM API translation)
 uv sync
+
+# OR: Full installation with ML dependencies (local ASR and translation)
+uv sync --extra ml
 ```
+
+**Dependency Options**:
+- `uv sync` - Core dependencies only (GUI + LLM API translation)
+- `--extra ml` - ML dependencies (faster-whisper, transformers, etc.)
 
 #### 6. (Optional) Install Development Tools
 
 ```bash
+# Development tools only
 uv sync --group dev
+
+# OR: Complete development environment (dev tools + ML dependencies)
+uv sync --group dev --extra ml
 ```
 
 #### 7. (Optional for Developers) Install Pre-commit Hooks

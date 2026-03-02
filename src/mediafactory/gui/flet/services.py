@@ -843,6 +843,13 @@ class TranslationService:
                     srt_engine = SRTEngine()
                     segments = srt_engine.parse(str(srt_path_obj))
 
+                    # 检测双语字幕，不支持翻译
+                    if srt_engine.detect_bilingual(segments):
+                        raise ValueError(
+                            "Bilingual subtitles detected. Translation of bilingual subtitles is not currently supported.\n\n"
+                            "Please use a single-language subtitle file for translation."
+                        )
+
                     if not segments:
                         return []
 

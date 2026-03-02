@@ -255,6 +255,26 @@ class SRTEngine:
         )
         return f"{hours:02d}:{minutes:02d}:{secs:02d}.{millis:03d}"
 
+    def detect_bilingual(
+        self, segments: List[Dict[str, Any]], threshold: float = 0.8
+    ) -> bool:
+        """检测字幕是否为双语字幕
+
+        双语字幕的典型特征：一个时间戳下有两行文字（一行原文，一行译文）
+
+        Args:
+            segments: 解析后的字幕分段列表
+            threshold: 判定阈值（默认80%，避免误报单语字幕中的少量多行注释）
+
+        Returns:
+            True 表示双语字幕，False 表示单语字幕
+        """
+        if not segments:
+            return False
+
+        multiline_count = sum(1 for seg in segments if "\n" in seg.get("text", ""))
+        return (multiline_count / len(segments)) >= threshold
+
     def generate_text_to_path(
         self,
         output_path: str,
