@@ -79,6 +79,10 @@ ml = [
     # 支持库
     "sentencepiece>=0.1.99",
     "accelerate>=1.0.0",
+    # 视频增强依赖
+    "spandrel>=0.4.0",           # 统一模型加载库
+    "facexlib>=0.3.0",           # 人脸检测库
+    "opencv-python>=4.8.0",      # 视频处理
 ]
 
 # PyTorch variations - 用户根据硬件选择合适的版本

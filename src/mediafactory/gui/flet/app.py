@@ -1,7 +1,7 @@
 """
 MediaFactory Flet 应用入口
 
-使用侧边栏导航布局。
+使用横向页签导航布局。
 """
 
 from typing import Optional, Callable, Dict, Any
@@ -10,7 +10,7 @@ import flet as ft
 
 from mediafactory.logging import log_info, log_error, setup_app_logging
 from mediafactory.gui.flet.theme import get_theme
-from mediafactory.gui.flet.components.sidebar import Sidebar, NAV_ITEMS
+from mediafactory.gui.flet.components.navigation import TopNavigation, NAV_ITEMS
 
 
 class AppInitializer:
@@ -84,14 +84,15 @@ class MediaFactoryApp:
     # 路由到页面ID的映射
     ROUTE_TO_PAGE = {
         "/tasks": "tasks",
-        "/settings": "settings",
+        "/models": "models",
+        "/llm-config": "llm_config",
     }
 
     PAGE_TO_ROUTE = {v: k for k, v in ROUTE_TO_PAGE.items()}
 
     def __init__(self, page: ft.Page):
         self.page = page
-        self._sidebar: Optional[Sidebar] = None
+        self._navigation: Optional[TopNavigation] = None
         self._content_area: Optional[ft.Container] = None
         self._current_page: str = "tasks"
 
@@ -138,11 +139,13 @@ class MediaFactoryApp:
         """加载页面构建器"""
         # 延迟导入以避免循环依赖
         from mediafactory.gui.flet.pages.tasks import build_tasks_page
-        from mediafactory.gui.flet.pages.settings import build_settings_page
+        from mediafactory.gui.flet.pages.models import build_models_page
+        from mediafactory.gui.flet.pages.llm_config import build_llm_config_page
 
         self._page_builders = {
             "tasks": build_tasks_page,
-            "settings": build_settings_page,
+            "models": build_models_page,
+            "llm_config": build_llm_config_page,
         }
 
         log_info("页面构建器加载完成")
@@ -151,8 +154,8 @@ class MediaFactoryApp:
         """构建UI"""
         theme = get_theme()
 
-        # 创建侧边栏
-        self._sidebar = Sidebar(
+        # 创建导航栏
+        self._navigation = TopNavigation(
             on_navigate=self._on_navigate,
             current_page=self._current_page,
         )
@@ -161,14 +164,18 @@ class MediaFactoryApp:
         self._content_area = ft.Container(
             content=self._build_page_content(self._current_page),
             expand=True,
-            padding=ft.padding.all(16),
+            padding=ft.padding.all(20),
             bgcolor=theme.color_scheme.surface_variant,
         )
 
-        # 主布局：侧边栏 + 内容区域
-        main_layout = ft.Row(
+        # 主布局：标题区域 → 导航栏 → 内容区域
+        main_layout = ft.Column(
             controls=[
-                self._sidebar.build(),
+                # 应用标题区域
+                self._build_app_header(),
+                # 导航栏
+                self._navigation.build(),
+                # 内容区域
                 self._content_area,
             ],
             spacing=0,
@@ -181,6 +188,42 @@ class MediaFactoryApp:
         self.page.update()
 
         log_info(f"UI构建完成，当前页面: {self._current_page}")
+
+    def _build_app_header(self) -> ft.Control:
+        """构建应用标题区域"""
+        theme = get_theme()
+
+        return ft.Container(
+            content=ft.Row(
+                controls=[
+                    ft.Icon(
+                        ft.Icons.VIDEO_LIBRARY,
+                        size=28,
+                        color=theme.color_scheme.primary,
+                    ),
+                    ft.Column(
+                        controls=[
+                            ft.Text(
+                                "MediaFactory",
+                                size=20,
+                                weight=ft.FontWeight.BOLD,
+                                color=theme.color_scheme.on_surface,
+                            ),
+                            ft.Text(
+                                "Version 3.2.0 | Multimedia Processing Platform",
+                                size=11,
+                                color=theme.color_scheme.on_surface_variant,
+                            ),
+                        ],
+                        spacing=2,
+                    ),
+                ],
+                spacing=12,
+                vertical_alignment=ft.CrossAxisAlignment.CENTER,
+            ),
+            padding=ft.padding.symmetric(horizontal=20, vertical=12),
+            bgcolor=theme.color_scheme.surface,
+        )
 
     def _build_page_content(self, page_id: str) -> ft.Control:
         """构建页面内容"""
@@ -217,15 +260,14 @@ class MediaFactoryApp:
         log_info(f"导航到页面: {page_id}")
         self._current_page = page_id
 
-        # 更新侧边栏选中状态
-        self._sidebar.set_current_page(page_id)
+        # 更新导航栏选中状态
+        self._navigation.set_current_page(page_id)
 
         # 更新内容区域
         self._content_area.content = self._build_page_content(page_id)
         self._content_area.update()
 
         # 更新页面标题
-        route = self.PAGE_TO_ROUTE.get(page_id, "/tools")
         page_title = next(
             (item["label"] for item in NAV_ITEMS if item["id"] == page_id),
             "MediaFactory",
@@ -244,8 +286,8 @@ class MediaFactoryApp:
         initial_page = self.ROUTE_TO_PAGE.get(initial_route, "tasks")
         self._current_page = initial_page
 
-        # 更新侧边栏状态
-        self._sidebar.set_current_page(initial_page)
+        # 更新导航栏状态
+        self._navigation.set_current_page(initial_page)
 
         # 更新内容区域
         self._content_area.content = self._build_page_content(initial_page)

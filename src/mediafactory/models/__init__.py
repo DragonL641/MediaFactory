@@ -22,16 +22,24 @@ from .model_registry import (
     get_whisper_model_info,
     is_model_commercial_use_allowed,
     select_best_translation_model,
+    # 增强模型相关函数（统一注册表）
+    get_all_enhancement_models,
+    get_enhancement_models_by_type,
+    get_enhancement_model_by_scale_and_type,
+    is_enhancement_model,
+    get_enhancement_models_dir,
+    get_model_local_path,
+    is_model_downloaded,
+    is_model_complete,
+    get_all_model_statuses,
+    ENHANCEMENT_MODEL_REGISTRY,
 )
 from .model_download import (
     delete_model,
     download_model,
-    get_all_model_statuses,
     get_downloaded_size,
     get_model_total_size,
     get_models_dir,
-    is_model_complete,
-    is_model_downloaded,
 )
 from .memory_detection import (
     MemoryInfo,
@@ -68,12 +76,9 @@ __all__ = [
     # Model Download
     "delete_model",
     "download_model",
-    "get_all_model_statuses",
     "get_downloaded_size",
     "get_model_total_size",
     "get_models_dir",
-    "is_model_complete",
-    "is_model_downloaded",
     # Memory Detection
     "MemoryInfo",
     "ModelRecommendation",
@@ -91,4 +96,15 @@ __all__ = [
     # Local Models
     "LocalModelManager",
     "local_model_manager",
+    # 视频增强模型（统一注册表）
+    "get_all_enhancement_models",
+    "get_enhancement_models_by_type",
+    "get_enhancement_model_by_scale_and_type",
+    "is_enhancement_model",
+    "get_enhancement_models_dir",
+    "get_model_local_path",
+    "is_model_downloaded",
+    "is_model_complete",
+    "get_all_model_statuses",
+    "ENHANCEMENT_MODEL_REGISTRY",
 ]

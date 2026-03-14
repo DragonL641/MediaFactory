@@ -35,7 +35,6 @@ from mediafactory.gui.flet.state import (
     TaskItem,
     TaskStatus,
     TaskConfig,
-    ModelInfo,
     ModelStatus,
 )
 
@@ -77,14 +76,12 @@ from mediafactory.gui.flet.components import (
     TaskCard,
     TaskConfigDialog,
     TASK_TYPES,
-    ModelStatusCard,
-    ModelStatusSection,
 )
+# ModelStatusCard 和 ModelStatusSection 已移至 Models 页面
 
 # 页面构建器
 from mediafactory.gui.flet.pages import (
     build_tasks_page,
-    build_settings_page,
 )
 
 __all__ = [
@@ -105,7 +102,6 @@ __all__ = [
     "TaskItem",
     "TaskStatus",
     "TaskConfig",
-    "ModelInfo",
     "ModelStatus",
     # 路由
     "Route",
@@ -135,11 +131,8 @@ __all__ = [
     "TaskCard",
     "TaskConfigDialog",
     "TASK_TYPES",
-    "ModelStatusCard",
-    "ModelStatusSection",
     # 页面
     "build_tasks_page",
-    "build_settings_page",
 ]
 
 # 从主模块导入版本号（单一真相源）

@@ -112,6 +112,13 @@ TASK_TYPES = [
         "desc": "Generate subtitles from video files",
         "input_type": "video",
     },
+    {
+        "id": "video_enhancement",
+        "name": "Video Enhancement",
+        "icon": ft.Icons.HIGH_QUALITY,
+        "desc": "Enhance video quality with AI upscaling",
+        "input_type": "video",
+    },
 ]
 
 # 任务类型名称映射
@@ -143,6 +150,25 @@ FILE_FILTERS = {
         "dialog_title": "Select SRT Subtitle File",
     },
 }
+
+# 视频增强预设选项
+ENHANCEMENT_PRESET_OPTIONS = [
+    {"value": "fast", "label": "Fast (Upscaling Only)"},
+    {"value": "balanced", "label": "Balanced (+ Denoise + Face)"},
+    {"value": "quality", "label": "Quality (Full Enhancement)"},
+]
+
+# 视频增强模型类型选项
+ENHANCEMENT_MODEL_OPTIONS = [
+    {"value": "general", "label": "General (Recommended)"},
+    {"value": "anime", "label": "Anime"},
+]
+
+# 视频增强放大倍数选项
+ENHANCEMENT_SCALE_OPTIONS = [
+    {"value": 2, "label": "2x"},
+    {"value": 4, "label": "4x"},
+]
 
 
 class TaskConfigDialog:
@@ -311,6 +337,8 @@ class TaskConfigDialog:
             controls.extend(self._build_transcription_config())
         elif self._selected_type == "subtitle_translation":
             controls.extend(self._build_subtitle_translation_config())
+        elif self._selected_type == "video_enhancement":
+            controls.extend(self._build_video_enhancement_config())
 
         return ft.Column(
             controls=controls,
@@ -785,6 +813,147 @@ class TaskConfigDialog:
             self._llm_preset_dropdown,
         ]
 
+    def _build_video_enhancement_config(self) -> List[ft.Control]:
+        """视频增强配置"""
+        self._input_path_field = ft.TextField(
+            label="Video File Path",
+            hint_text="Enter path or click Browse",
+            border_color=self.theme.color_scheme.outline,
+            expand=True,
+        )
+
+        # 预设模式选择
+        self._preset_dropdown = ft.Dropdown(
+            label="Preset Mode",
+            options=[
+                ft.dropdown.Option(opt["value"], opt["label"])
+                for opt in ENHANCEMENT_PRESET_OPTIONS
+            ],
+            value="fast",
+            width=280,
+            border_color=self.theme.color_scheme.outline,
+            on_select=self._on_enhancement_preset_change,
+        )
+
+        # 放大倍数
+        self._scale_dropdown = ft.Dropdown(
+            label="Scale",
+            options=[
+                ft.dropdown.Option(str(opt["value"]), opt["label"])
+                for opt in ENHANCEMENT_SCALE_OPTIONS
+            ],
+            value="4",
+            width=200,
+            border_color=self.theme.color_scheme.outline,
+        )
+
+        # 模型类型
+        self._model_type_dropdown = ft.Dropdown(
+            label="Model Type",
+            options=[
+                ft.dropdown.Option(opt["value"], opt["label"])
+                for opt in ENHANCEMENT_MODEL_OPTIONS
+            ],
+            value="general",
+            width=200,
+            border_color=self.theme.color_scheme.outline,
+        )
+
+        # 高级选项 - 去噪开关
+        self._denoise_switch = ft.Switch(
+            label="Enable Denoising",
+            value=False,
+            active_color=self.theme.color_scheme.primary,
+        )
+
+        # 高级选项 - 人脸修复开关
+        self._face_fix_switch = ft.Switch(
+            label="Enable Face Restoration",
+            value=False,
+            active_color=self.theme.color_scheme.primary,
+        )
+
+        # 高级选项 - 时序平滑开关
+        self._temporal_switch = ft.Switch(
+            label="Enable Temporal Smoothing",
+            value=False,
+            active_color=self.theme.color_scheme.primary,
+        )
+
+        return [
+            ft.Text(
+                "Input",
+                size=13,
+                weight=ft.FontWeight.W_500,
+                color=self.theme.color_scheme.on_surface,
+            ),
+            ft.Row(
+                controls=[
+                    self._input_path_field,
+                    ft.IconButton(
+                        icon=ft.Icons.FOLDER_OPEN,
+                        tooltip="Browse",
+                        on_click=lambda e: self._on_browse_click("video"),
+                        icon_color=self.theme.color_scheme.primary,
+                    ),
+                ],
+                spacing=4,
+                vertical_alignment=ft.CrossAxisAlignment.CENTER,
+            ),
+            ft.Container(height=16),
+            ft.Text(
+                "Enhancement Settings",
+                size=13,
+                weight=ft.FontWeight.W_500,
+                color=self.theme.color_scheme.on_surface,
+            ),
+            self._preset_dropdown,
+            ft.Container(height=8),
+            ft.Row(
+                controls=[
+                    self._scale_dropdown,
+                    self._model_type_dropdown,
+                ],
+                spacing=12,
+            ),
+            ft.Container(height=16),
+            ft.Text(
+                "Advanced Options",
+                size=13,
+                weight=ft.FontWeight.W_500,
+                color=self.theme.color_scheme.on_surface,
+            ),
+            self._denoise_switch,
+            self._face_fix_switch,
+            self._temporal_switch,
+        ]
+
+    def _on_enhancement_preset_change(self, e) -> None:
+        """预设模式变更 - 自动更新高级选项"""
+        preset = e.control.value
+
+        # 根据预设自动设置高级选项
+        if preset == "fast":
+            self._denoise_switch.value = False
+            self._face_fix_switch.value = False
+            self._temporal_switch.value = False
+        elif preset == "balanced":
+            self._denoise_switch.value = True
+            self._face_fix_switch.value = True
+            self._temporal_switch.value = False
+        elif preset == "quality":
+            self._denoise_switch.value = True
+            self._face_fix_switch.value = True
+            self._temporal_switch.value = True
+
+        # 更新UI
+        try:
+            self._denoise_switch.update()
+            self._face_fix_switch.update()
+            self._temporal_switch.update()
+        except Exception:
+            pass
+
     def _build_actions(self) -> List[ft.Control]:
         """构建操作按钮"""
         if self._step == 1:
@@ -1060,6 +1229,35 @@ class TaskConfigDialog:
         if hasattr(self, "_style_preset_dropdown") and self._style_preset_dropdown:
             style_preset = self._style_preset_dropdown.value or "default"
 
+        # 收集视频增强配置
+        enhancement_preset = "fast"
+        enhancement_scale = 4
+        enhancement_model = "general"
+        enhancement_denoise = False
+        enhancement_face_fix = False
+        enhancement_temporal = False
+
+        if hasattr(self, "_preset_dropdown") and self._preset_dropdown:
+            enhancement_preset = self._preset_dropdown.value or "fast"
+
+        if hasattr(self, "_scale_dropdown") and self._scale_dropdown:
+            try:
+                enhancement_scale = int(self._scale_dropdown.value or "4")
+            except ValueError:
+                enhancement_scale = 4
+
+        if hasattr(self, "_model_type_dropdown") and self._model_type_dropdown:
+            enhancement_model = self._model_type_dropdown.value or "general"
+
+        if hasattr(self, "_denoise_switch") and self._denoise_switch:
+            enhancement_denoise = self._denoise_switch.value
+
+        if hasattr(self, "_face_fix_switch") and self._face_fix_switch:
+            enhancement_face_fix = self._face_fix_switch.value
+
+        if hasattr(self, "_temporal_switch") and self._temporal_switch:
+            enhancement_temporal = self._temporal_switch.value
+
         # 验证必填项
         if not input_path:
             return None
@@ -1082,4 +1280,10 @@ class TaskConfigDialog:
             bilingual=bilingual,
             bilingual_layout=bilingual_layout,
             style_preset=style_preset,
+            enhancement_preset=enhancement_preset,
+            enhancement_scale=enhancement_scale,
+            enhancement_model=enhancement_model,
+            enhancement_denoise=enhancement_denoise,
+            enhancement_face_fix=enhancement_face_fix,
+            enhancement_temporal=enhancement_temporal,
         )

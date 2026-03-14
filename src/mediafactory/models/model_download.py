@@ -74,10 +74,14 @@ def get_downloaded_size(model_path: Path) -> int:
     return total_size
 
 
+# 模型文件最小大小阈值（1MB），用于检测不完整下载
+MIN_MODEL_FILE_SIZE = 1_000_000
+
+
 def is_model_complete(huggingface_id: str) -> bool:
     """验证模型是否完整下载。
 
-    检查模型目录是否存在，以及关键文件是否存在。
+    检查模型目录是否存在，关键文件是否存在，以及文件大小是否合理。
 
     Args:
         huggingface_id: HuggingFace 模型 ID
@@ -95,28 +99,67 @@ def is_model_complete(huggingface_id: str) -> bool:
     model_info = get_model_info(huggingface_id)
     if model_info is None:
         # 未知模型，只检查目录存在
+        log_info(f"Unknown model {huggingface_id}, skipping completeness check")
         return True
 
     # 检查 config.json 是否存在（所有模型都需要）
     if not (model_path / "config.json").exists():
+        log_info(f"Model {huggingface_id} incomplete: missing config.json")
         return False
 
     if model_info.model_type == ModelType.WHISPER:
         # Whisper 模型：需要 model.bin 或 model.safetensors
-        has_model_file = (model_path / "model.bin").exists() or (
-            model_path / "model.safetensors"
-        ).exists()
-        return has_model_file
+        model_bin = model_path / "model.bin"
+        model_safetensors = model_path / "model.safetensors"
+
+        if model_bin.exists():
+            size = model_bin.stat().st_size
+            if size < MIN_MODEL_FILE_SIZE:
+                log_info(f"Model {huggingface_id} incomplete: model.bin too small ({size} bytes)")
+                return False
+            return True
+
+        if model_safetensors.exists():
+            size = model_safetensors.stat().st_size
+            if size < MIN_MODEL_FILE_SIZE:
+                log_info(f"Model {huggingface_id} incomplete: model.safetensors too small ({size} bytes)")
+                return False
+            return True
+
+        log_info(f"Model {huggingface_id} incomplete: missing model file")
+        return False
     else:
         # 翻译模型：需要 model.safetensors 或 pytorch_model.bin
-        has_model_file = (model_path / "model.safetensors").exists() or (
-            model_path / "pytorch_model.bin"
-        ).exists()
+        model_safetensors = model_path / "model.safetensors"
+        pytorch_model = model_path / "pytorch_model.bin"
+
+        if model_safetensors.exists():
+            size = model_safetensors.stat().st_size
+            if size < MIN_MODEL_FILE_SIZE:
+                log_info(f"Model {huggingface_id} incomplete: model.safetensors too small ({size} bytes)")
+                return False
+            return True
+
+        if pytorch_model.exists():
+            size = pytorch_model.stat().st_size
+            if size < MIN_MODEL_FILE_SIZE:
+                log_info(f"Model {huggingface_id} incomplete: pytorch_model.bin too small ({size} bytes)")
+                return False
+            return True
+
         # GGUF 模型可能没有上述文件，检查 GGUF 文件
-        if not has_model_file:
-            gguf_files = list(model_path.glob("*.gguf"))
-            has_model_file = len(gguf_files) > 0
-        return has_model_file
+        gguf_files = list(model_path.glob("*.gguf"))
+        if gguf_files:
+            # 检查至少一个 GGUF 文件大小合理
+            for gguf_file in gguf_files:
+                size = gguf_file.stat().st_size
+                if size >= MIN_MODEL_FILE_SIZE:
+                    return True
+            log_info(f"Model {huggingface_id} incomplete: GGUF files too small")
+            return False
+
+        log_info(f"Model {huggingface_id} incomplete: missing model file")
+        return False
 
 
 def is_model_downloaded(huggingface_id: str) -> bool:

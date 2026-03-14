@@ -3,24 +3,23 @@
 """
 
 from mediafactory.gui.flet.components.status_banner import StatusBanner, BannerType
-from mediafactory.gui.flet.components.sidebar import Sidebar
+from mediafactory.gui.flet.components.navigation import TopNavigation, Sidebar, NAV_ITEMS
 from mediafactory.gui.flet.components.task_card import TaskCard
 from mediafactory.gui.flet.components.task_config_dialog import (
     TaskConfigDialog,
     TASK_TYPES,
     TASK_TYPE_NAMES,
 )
-from mediafactory.gui.flet.components.model_status_card import ModelStatusCard
-from mediafactory.gui.flet.components.model_status_section import ModelStatusSection
+# ModelStatusCard 和 ModelStatusSection 已移至 Models 页面
 
 __all__ = [
     "StatusBanner",
     "BannerType",
-    "Sidebar",
+    "TopNavigation",
+    "Sidebar",  # 别名，兼容旧代码
+    "NAV_ITEMS",
     "TaskCard",
     "TaskConfigDialog",
     "TASK_TYPES",
     "TASK_TYPE_NAMES",
-    "ModelStatusCard",
-    "ModelStatusSection",
 ]

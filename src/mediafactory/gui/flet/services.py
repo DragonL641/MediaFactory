@@ -902,11 +902,141 @@ class TranslationService:
             return ProcessingResult(success=False, error=str(e))
 
 
+class VideoEnhancementService:
+    """视频增强服务"""
+
+    def __init__(self):
+        self._engine = None
+        self._cancelled: bool = False
+
+    @property
+    def engine(self):
+        """获取视频增强引擎（懒加载）"""
+        if self._engine is None:
+            from mediafactory.engine.video_enhancement import VideoEnhancementEngine
+
+            self._engine = VideoEnhancementEngine()
+        return self._engine
+
+    def cancel(self) -> None:
+        """取消处理"""
+        self._cancelled = True
+
+    def reset(self) -> None:
+        """重置状态"""
+        self._cancelled = False
+
+    def _is_cancelled(self) -> bool:
+        """检查是否已取消"""
+        return self._cancelled
+
+    async def enhance_video(
+        self,
+        video_path: str,
+        output_path: Optional[str] = None,
+        preset: str = "fast",
+        scale: int = 4,
+        model_type: str = "general",
+        denoise: bool = False,
+        face_fix: bool = False,
+        temporal: bool = False,
+        progress_callback: Optional[Callable[[ProcessingProgress], None]] = None,
+    ) -> ProcessingResult:
+        """
+        增强视频
+
+        Args:
+            video_path: 输入视频路径
+            output_path: 输出视频路径（可选）
+            preset: 预设模式 (fast/balanced/quality)
+            scale: 放大倍数 (2/4)
+            model_type: 模型类型 (general/anime)
+            denoise: 是否启用去噪
+            face_fix: 是否启用人脸修复
+            temporal: 是否启用时序平滑
+            progress_callback: 进度回调
+
+        Returns:
+            ProcessingResult: 处理结果
+        """
+        self.reset()
+
+        try:
+            from mediafactory.engine.video_enhancement import (
+                VideoEnhancementEngine,
+                EnhancementConfig,
+                get_preset_config,
+            )
+
+            # 创建进度适配器
+            progress_adapter: ProgressCallback
+            if progress_callback:
+                progress_adapter = _ServiceProgressAdapter(
+                    callback=progress_callback,
+                    is_cancelled_func=self._is_cancelled,
+                )
+            else:
+                from mediafactory.core.progress_protocol import NO_OP_PROGRESS
+
+                progress_adapter = NO_OP_PROGRESS
+
+            # 创建配置
+            config = EnhancementConfig(
+                preset=preset,
+                scale=scale,
+                model_type=model_type,
+                denoise=denoise,
+                face_fix=face_fix,
+                temporal=temporal,
+            )
+
+            # 创建引擎
+            engine = VideoEnhancementEngine(config)
+
+            # 里程碑进度：开始
+            progress_adapter.update(0, "Starting video enhancement...")
+
+            loop = asyncio.get_event_loop()
+
+            # 在线程池中执行增强
+            def enhance():
+                return engine.enhance(
+                    video_path=video_path,
+                    output_path=output_path,
+                    progress=progress_adapter,
+                )
+
+            output = await loop.run_in_executor(None, enhance)
+
+            # 里程碑进度：完成
+            progress_adapter.update(100, "Video enhancement completed!")
+
+            return ProcessingResult(
+                success=True,
+                output_path=output,
+                metadata={
+                    "preset": preset,
+                    "scale": scale,
+                    "model_type": model_type,
+                    "denoise": denoise,
+                    "face_fix": face_fix,
+                    "temporal": temporal,
+                },
+            )
+
+        except Exception as e:
+            log_error_with_context(
+                "Video enhancement failed", e, {"video_path": str(video_path)}
+            )
+            return ProcessingResult(success=False, error=str(e))
+
+
 # 服务单例
 _subtitle_service: Optional[SubtitleService] = None
 _audio_service: Optional[AudioService] = None
 _transcription_service: Optional[TranscriptionService] = None
 _translation_service: Optional[TranslationService] = None
+_video_enhancement_service: Optional[VideoEnhancementService] = None
 
 
 def get_subtitle_service() -> SubtitleService:
@@ -939,6 +1069,14 @@ def get_translation_service() -> TranslationService:
     if _translation_service is None:
         _translation_service = TranslationService()
     return _translation_service
+
+
+def get_video_enhancement_service() -> VideoEnhancementService:
+    """获取视频增强服务单例"""
+    global _video_enhancement_service
+    if _video_enhancement_service is None:
+        _video_enhancement_service = VideoEnhancementService()
+    return _video_enhancement_service
 
 
 class ModelStatusService:

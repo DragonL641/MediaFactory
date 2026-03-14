@@ -4,8 +4,7 @@
 采用任务队列模式，支持：
 - 添加多个任务到队列
 - 批量启动/取消任务
-- 显示模型状态
-- LLM 快速开关
+- 创建各类多媒体处理任务
 """
 
 from typing import Dict, Any, Optional, List
@@ -18,7 +17,6 @@ from mediafactory.gui.flet.state import (
     TaskItem,
     TaskStatus,
     TaskConfig,
-    ModelStatus,
 )
 from mediafactory.gui.flet.async_handler import AsyncTaskManager
 from mediafactory.gui.flet.components.status_banner import show_success, show_error
@@ -27,13 +25,13 @@ from mediafactory.gui.flet.components.task_config_dialog import (
     TaskConfigDialog,
     TASK_TYPE_NAMES,
 )
-from mediafactory.gui.flet.components.model_status_section import ModelStatusSection
+# ModelStatusSection 已移至 Models 页面
 from mediafactory.gui.flet.services import (
     get_subtitle_service,
     get_audio_service,
     get_transcription_service,
     get_translation_service,
-    get_model_status_service,
+    get_video_enhancement_service,
 )
 from mediafactory.logging import log_info, log_error_with_context
 from mediafactory.utils.file_utils import open_file_location
@@ -47,13 +45,13 @@ class TasksPage:
         self.theme = get_theme()
         self.state = get_state()
         self.task_manager = AsyncTaskManager(page)
-        self.model_status_service = get_model_status_service()
 
         # 服务
         self._subtitle_service = get_subtitle_service()
         self._audio_service = get_audio_service()
         self._transcription_service = get_transcription_service()
         self._translation_service = get_translation_service()
+        self._video_enhancement_service = get_video_enhancement_service()
 
         # UI 组件
         self._content_area: Optional[ft.Column] = None
@@ -62,15 +60,14 @@ class TasksPage:
         self._start_all_btn: Optional[ft.ElevatedButton] = None
         self._cancel_all_btn: Optional[ft.OutlinedButton] = None
         self._clear_all_btn: Optional[ft.OutlinedButton] = None
-        self._model_status_section: Optional[ModelStatusSection] = None
+        # _model_status_section 已移至 Models 页面
 
         # 任务卡片缓存
         self._task_cards: Dict[str, TaskCard] = {}
 
     def build(self) -> ft.Control:
         """构建页面"""
-        # 初始化模型状态
-        self._init_model_status()
+        # 模型状态初始化已移至 Models 页面
 
         # 添加任务按钮
         self._add_btn = ft.ElevatedButton(
@@ -120,17 +117,7 @@ class TasksPage:
             expand=True,
         )
 
-        # 模型状态区域
-        self._model_status_section = ModelStatusSection(
-            page=self.page,
-            whisper_status=self.state.whisper_status,
-            translation_status=self.state.translation_status,
-            llm_status=self.state.llm_status,
-            on_model_click=self._on_model_click,
-            on_llm_toggle=self._on_llm_toggle,
-        )
-
-        # 主布局
+        # 主布局（模型状态区域已移至 Models 页面）
         return ft.Column(
             controls=[
                 # 任务队列区域
@@ -154,9 +141,6 @@ class TasksPage:
                     border=ft.border.all(1, self.theme.color_scheme.outline_variant),
                     expand=True,
                 ),
-                ft.Container(height=12),
-                # 模型状态区域
-                self._model_status_section.build(),
             ],
             spacing=0,
             expand=True,
@@ -247,48 +231,6 @@ class TasksPage:
             cards.append(card.build())
 
         return cards
-
-    def _init_model_status(self) -> None:
-        """初始化模型状态"""
-        if not self.state.whisper_status:
-            self.state.set_whisper_status(
-                self.model_status_service.get_whisper_status()
-            )
-        if not self.state.translation_status:
-            self.state.set_translation_status(
-                self.model_status_service.get_translation_status()
-            )
-        if not self.state.llm_status:
-            self.state.set_llm_status(self.model_status_service.get_llm_status())
-
-    def refresh_model_status(self) -> None:
-        """刷新模型状态并更新 UI"""
-        try:
-            # 刷新服务层数据
-            self.model_status_service.refresh_model_status()
-
-            # 更新状态对象
-            self.state.set_whisper_status(
-                self.model_status_service.get_whisper_status()
-            )
-            self.state.set_translation_status(
-                self.model_status_service.get_translation_status()
-            )
-
-            # 重建模型状态区域
-            self._model_status_section = ModelStatusSection(
-                page=self.page,
-                whisper_status=self.state.whisper_status,
-                translation_status=self.state.translation_status,
-                llm_status=self.state.llm_status,
-                on_model_click=self._on_model_click,
-                on_llm_toggle=self._on_llm_toggle,
-            )
-
-            # 刷新 UI
-            self._model_status_section.update()
-        except Exception as ex:
-            log_error_with_context("Failed to refresh model status", ex, {})
 
     def _on_add_task(self, e) -> None:
         """添加任务"""
@@ -488,6 +430,18 @@ class TasksPage:
                     progress_callback=progress_callback,
                 )
                 return _result_to_dict(result)
+            elif config.task_type == "video_enhancement":
+                result = await self._video_enhancement_service.enhance_video(
+                    video_path=config.input_path,
+                    preset=config.enhancement_preset,
+                    scale=config.enhancement_scale,
+                    model_type=config.enhancement_model,
+                    denoise=config.enhancement_denoise,
+                    face_fix=config.enhancement_face_fix,
+                    temporal=config.enhancement_temporal,
+                    progress_callback=progress_callback,
+                )
+                return _result_to_dict(result)
 
             return {"success": False, "error": "Unknown task type"}
         except Exception as ex:
@@ -540,23 +494,6 @@ class TasksPage:
         show_error(self.page, f"Task error: {error}")
         self._refresh_task_list()
         self._update_batch_buttons()
-
-    def _on_model_click(self, model_type: str) -> None:
-        """模型点击 - 跳转到 Models 页面"""
-        # 通过侧边栏导航到 models 页面
-        log_info(f"Navigate to models page for: {model_type}")
-
-    def _on_llm_toggle(self, enabled: bool) -> None:
-        """LLM 开关切换"""
-        self.model_status_service.set_llm_enabled(enabled)
-
-        # 更新状态
-        llm_status = self.model_status_service.get_llm_status()
-        self.state.set_llm_status(llm_status)
-
-        # 刷新模型状态区域
-        if self._model_status_section:
-            self._model_status_section.update_statuses(llm_status=llm_status)
 
     def _refresh_task_list(self) -> None:
         """刷新任务列表"""

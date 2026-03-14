@@ -53,6 +53,14 @@ class TaskConfig:
     # ASS字幕样式预设
     style_preset: str = "default"  # default, 科普风, 番剧风, 新闻风
 
+    # 视频增强参数
+    enhancement_preset: str = "fast"  # fast, balanced, quality
+    enhancement_scale: int = 4  # 2 或 4
+    enhancement_model: str = "general"  # general 或 anime
+    enhancement_denoise: bool = False
+    enhancement_face_fix: bool = False
+    enhancement_temporal: bool = False
+
 
 @dataclass
 class TaskItem:
@@ -70,19 +78,6 @@ class TaskItem:
     error_context: Optional[Dict[str, Any]] = None
     metadata: Dict[str, Any] = field(default_factory=dict)
     config: Optional[TaskConfig] = None
-
-
-@dataclass
-class ModelInfo:
-    """模型信息"""
-
-    id: str
-    name: str
-    model_type: str  # "whisper" or "translation"
-    size_gb: float
-    downloaded: bool = False
-    download_progress: float = 0.0
-    is_recommended: bool = False
 
 
 @dataclass
@@ -109,10 +104,6 @@ class AppState:
 
         # 配置
         self._config: Optional[AppConfig] = None
-
-        # 模型列表
-        self._whisper_models: List[ModelInfo] = []
-        self._translation_models: List[ModelInfo] = []
 
         # 任务队列
         self._tasks: List[TaskItem] = []
@@ -143,14 +134,6 @@ class AppState:
         if self._config is None:
             self._config = get_config()
         return self._config
-
-    @property
-    def whisper_models(self) -> List[ModelInfo]:
-        return self._whisper_models
-
-    @property
-    def translation_models(self) -> List[ModelInfo]:
-        return self._translation_models
 
     @property
     def tasks(self) -> List[TaskItem]:
@@ -197,16 +180,6 @@ class AppState:
     def reload_config(self) -> None:
         """重新加载配置"""
         self._config = get_config()
-        self.notify()
-
-    def set_whisper_models(self, models: List[ModelInfo]) -> None:
-        """设置 Whisper 模型列表"""
-        self._whisper_models = models
-        self.notify()
-
-    def set_translation_models(self, models: List[ModelInfo]) -> None:
-        """设置翻译模型列表"""
-        self._translation_models = models
         self.notify()
 
     def add_task(self, task: TaskItem) -> None:
