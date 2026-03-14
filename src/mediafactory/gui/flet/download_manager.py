@@ -7,6 +7,7 @@
 
 import shutil
 import threading
+import time
 from enum import Enum
 from pathlib import Path
 from typing import Callable, Dict, List, Optional, Tuple
@@ -14,6 +15,10 @@ from typing import Callable, Dict, List, Optional, Tuple
 from huggingface_hub import hf_hub_download, snapshot_download
 
 from mediafactory.logging import log_error, log_info
+
+# 重试配置
+MAX_RETRIES = 3  # 最大重试次数
+RETRY_DELAY = 5  # 重试间隔（秒）
 from mediafactory.models.model_registry import (
     MODEL_REGISTRY,
     DownloadMode,
@@ -66,6 +71,10 @@ class DownloadManager:
         self._cancel_requested: Dict[str, bool] = {}  # {model_id: cancel_flag}
         self._worker_thread: Optional[threading.Thread] = None
         self._running = False
+
+        # 轮询线程管理
+        self._poll_threads: Dict[str, threading.Thread] = {}
+        self._poll_stop_events: Dict[str, threading.Event] = {}
 
     def enqueue(self, model_id: str) -> bool:
         """
@@ -126,7 +135,7 @@ class DownloadManager:
         """
         callback_data = None
         success = False
-        
+
         with self._lock:
             # 检查是否在队列中
             if model_id in self._queue:
@@ -145,7 +154,11 @@ class DownloadManager:
                 log_info(f"Model {model_id} cancel requested")
                 callback_data = self._get_callback_data(model_id)
                 success = True
-        
+
+        # 停止进度轮询
+        if success:
+            self._stop_progress_polling(model_id)
+
         # 在锁外通知 UI
         if callback_data:
             self._notify_callbacks_unlocked(*callback_data)
@@ -262,6 +275,88 @@ class DownloadManager:
         message = self._messages.get(model_id, "")
         return (model_id, status, progress, message)
 
+    @staticmethod
+    def _format_size(size_bytes: int) -> str:
+        """格式化文件大小"""
+        if size_bytes < 1024:
+            return f"{size_bytes} B"
+        elif size_bytes < 1024 * 1024:
+            return f"{size_bytes / 1024:.1f} KB"
+        elif size_bytes < 1024 * 1024 * 1024:
+            return f"{size_bytes / (1024 * 1024):.1f} MB"
+        else:
+            return f"{size_bytes / (1024 * 1024 * 1024):.1f} GB"
+
+    def _start_progress_polling(self, model_id: str) -> None:
+        """启动进度轮询线程"""
+        stop_event = threading.Event()
+        self._poll_stop_events[model_id] = stop_event
+
+        def poll_progress():
+            """轮询下载进度"""
+            from mediafactory.models.model_download import get_downloaded_size, get_models_dir
+
+            # 获取模型总大小（从注册表）
+            model_info = MODEL_REGISTRY.get(model_id)
+            if not model_info:
+                return
+
+            total_size = model_info.model_size_mb * 1024 * 1024  # 转换为字节
+
+            while not stop_event.is_set():
+                try:
+                    # 根据下载模式确定路径
+                    if model_info.download_mode == DownloadMode.FILE:
+                        # 单文件模式
+                        filename = model_info.local_filename or model_info.huggingface_filename
+                        if filename:
+                            model_path = get_enhancement_models_dir() / filename
+                        else:
+                            model_path = get_enhancement_models_dir()
+                    else:
+                        # 仓库模式
+                        model_path = get_models_dir() / model_id
+
+                    downloaded = get_downloaded_size(model_path) if model_path.is_dir() else (
+                        model_path.stat().st_size if model_path.exists() else 0
+                    )
+
+                    if total_size > 0:
+                        progress = min(100, int(downloaded / total_size * 100))
+                        message = f"{progress}% ({self._format_size(downloaded)} / {self._format_size(total_size)})"
+
+                        # 更新状态
+                        callback_data = None
+                        with self._lock:
+                            if model_id in self._statuses:
+                                self._progress[model_id] = float(progress)
+                                self._messages[model_id] = message
+                                callback_data = self._get_callback_data(model_id)
+
+                        # 在锁外通知观察者
+                        if callback_data:
+                            self._notify_callbacks_unlocked(*callback_data)
+
+                except Exception as e:
+                    log_info(f"Poll progress error: {e}")
+
+                # 等待 1 秒
+                stop_event.wait(1.0)
+
+        thread = threading.Thread(target=poll_progress, daemon=True)
+        self._poll_threads[model_id] = thread
+        thread.start()
+
+    def _stop_progress_polling(self, model_id: str) -> None:
+        """停止进度轮询线程"""
+        if model_id in self._poll_stop_events:
+            self._poll_stop_events[model_id].set()
+        if model_id in self._poll_threads:
+            self._poll_threads[model_id].join(timeout=2.0)
+            del self._poll_threads[model_id]
+        if model_id in self._poll_stop_events:
+            del self._poll_stop_events[model_id]
+
     def _notify_callbacks_unlocked(self, model_id: str, status: DownloadStatus, 
                                     progress: float, message: str) -> None:
         """
@@ -345,7 +440,7 @@ class DownloadManager:
 
     def _download_repo(self, model_id: str, model_info) -> None:
         """
-        下载整个 HuggingFace 仓库
+        下载整个 HuggingFace 仓库（带重试机制）
 
         Args:
             model_id: 模型 ID
@@ -353,46 +448,81 @@ class DownloadManager:
         """
         from mediafactory.config import get_config
 
-        try:
-            config = get_config()
-            download_source = config.model.download_source
-            endpoint = None if download_source == "https://huggingface.co" else download_source
+        config = get_config()
+        download_source = config.model.download_source
+        endpoint = None if download_source == "https://huggingface.co" else download_source
+        local_path = get_models_base_dir() / model_id
 
-            # 更新状态
-            self._update_status(model_id, "Downloading from HuggingFace...")
+        # 更新状态
+        self._update_status(model_id, "Downloading from HuggingFace...")
 
-            # 检查是否被取消
-            if self._cancel_requested.get(model_id, False):
-                self._handle_cancel(model_id)
+        # 检查是否被取消
+        if self._cancel_requested.get(model_id, False):
+            self._handle_cancel(model_id)
+            return
+
+        # 启动进度轮询
+        self._start_progress_polling(model_id)
+
+        last_error = None
+        for attempt in range(MAX_RETRIES):
+            try:
+                # 检查是否被取消
+                if self._cancel_requested.get(model_id, False):
+                    self._stop_progress_polling(model_id)
+                    self._handle_cancel(model_id)
+                    return
+
+                # 更新重试状态
+                if attempt > 0:
+                    self._update_status(model_id, f"Retrying ({attempt + 1}/{MAX_RETRIES})...")
+                    log_info(f"Download retry {attempt + 1}/{MAX_RETRIES} for {model_id}")
+
+                # 执行下载（huggingface_hub 默认支持断点续传）
+                snapshot_download(
+                    repo_id=model_info.huggingface_repo,
+                    local_dir=str(local_path),
+                    endpoint=endpoint,
+                )
+
+                # 停止进度轮询
+                self._stop_progress_polling(model_id)
+
+                # 检查是否被取消
+                if self._cancel_requested.get(model_id, False):
+                    self._handle_cancel(model_id)
+                    return
+
+                # 验证下载完整性
+                if is_model_complete(model_id):
+                    self._handle_success(model_id)
+                else:
+                    self._handle_failure(model_id, "Download completed but verification failed")
                 return
 
-            # 执行下载
-            local_path = get_models_base_dir() / model_id
-            snapshot_download(
-                repo_id=model_info.huggingface_repo,
-                local_dir=str(local_path),
-                endpoint=endpoint,
-            )
+            except Exception as ex:
+                last_error = ex
+                error_msg = str(ex)[:100]
+                log_error(f"Download failed for {model_id} (attempt {attempt + 1}/{MAX_RETRIES}): {error_msg}")
 
-            # 检查是否被取消
-            if self._cancel_requested.get(model_id, False):
-                self._handle_cancel(model_id)
-                return
+                # 检查是否被取消
+                if self._cancel_requested.get(model_id, False):
+                    self._stop_progress_polling(model_id)
+                    self._handle_cancel(model_id)
+                    return
 
-            # 验证下载完整性
-            if is_model_complete(model_id):
-                self._handle_success(model_id)
-            else:
-                self._handle_failure(model_id, "Download completed but verification failed")
-
-        except Exception as ex:
-            error_msg = str(ex)[:100]
-            log_error(f"Download failed for {model_id}: {error_msg}")
-            self._handle_failure(model_id, error_msg)
+                # 非最后一次重试，等待后继续
+                if attempt < MAX_RETRIES - 1:
+                    self._update_status(model_id, f"Connection lost, retrying in {RETRY_DELAY}s...")
+                    time.sleep(RETRY_DELAY)
+                else:
+                    # 最后一次重试失败，停止进度轮询并处理失败
+                    self._stop_progress_polling(model_id)
+                    self._handle_failure(model_id, f"{error_msg} (after {MAX_RETRIES} retries)", clean_files=True)
 
     def _download_single_file(self, model_id: str, model_info) -> None:
         """
-        下载单个文件（增强模型）
+        下载单个文件（增强模型，带重试机制）
 
         Args:
             model_id: 模型 ID
@@ -400,64 +530,99 @@ class DownloadManager:
         """
         from mediafactory.config import get_config
 
-        try:
-            config = get_config()
-            download_source = config.model.download_source
-            endpoint = None if download_source == "https://huggingface.co" else download_source
+        config = get_config()
+        download_source = config.model.download_source
+        endpoint = None if download_source == "https://huggingface.co" else download_source
 
-            # 更新状态
-            self._update_status(model_id, "Downloading model file...")
+        # 更新状态
+        self._update_status(model_id, "Downloading model file...")
 
-            # 检查是否被取消
-            if self._cancel_requested.get(model_id, False):
-                self._handle_cancel(model_id)
+        # 检查是否被取消
+        if self._cancel_requested.get(model_id, False):
+            self._handle_cancel(model_id)
+            return
+
+        # 准备目录
+        models_dir = get_enhancement_models_dir()
+        models_dir.mkdir(parents=True, exist_ok=True)
+
+        local_filename = model_info.local_filename or model_info.huggingface_filename
+        if not local_filename:
+            self._handle_failure(model_id, "No filename specified", clean_files=True)
+            return
+
+        log_info(f"Downloading {model_id} from {model_info.huggingface_repo}/{model_info.huggingface_filename}")
+
+        # 启动进度轮询
+        self._start_progress_polling(model_id)
+
+        last_error = None
+        for attempt in range(MAX_RETRIES):
+            try:
+                # 检查是否被取消
+                if self._cancel_requested.get(model_id, False):
+                    self._stop_progress_polling(model_id)
+                    self._handle_cancel(model_id)
+                    return
+
+                # 更新重试状态
+                if attempt > 0:
+                    self._update_status(model_id, f"Retrying ({attempt + 1}/{MAX_RETRIES})...")
+                    log_info(f"Download retry {attempt + 1}/{MAX_RETRIES} for {model_id}")
+
+                # 使用 hf_hub_download 下载单个文件（默认支持断点续传）
+                downloaded_path = hf_hub_download(
+                    repo_id=model_info.huggingface_repo,
+                    filename=model_info.huggingface_filename,
+                    local_dir=str(models_dir),
+                    endpoint=endpoint,
+                )
+
+                # 停止进度轮询
+                self._stop_progress_polling(model_id)
+
+                # 检查是否被取消
+                if self._cancel_requested.get(model_id, False):
+                    self._handle_cancel(model_id)
+                    return
+
+                # 如果 local_filename 与 huggingface_filename 不同，需要重命名
+                downloaded_file = Path(downloaded_path)
+                target_file = models_dir / local_filename
+
+                if downloaded_file.exists() and downloaded_file != target_file:
+                    # 如果下载的文件在子目录中，移动到 enhancement 目录
+                    if target_file.exists():
+                        target_file.unlink()
+                    shutil.move(str(downloaded_file), str(target_file))
+                    log_info(f"Moved {downloaded_file} to {target_file}")
+
+                # 验证下载完整性
+                if is_model_complete(model_id):
+                    self._handle_success(model_id)
+                else:
+                    self._handle_failure(model_id, "Download completed but verification failed", clean_files=True)
                 return
 
-            # 准备目录
-            models_dir = get_enhancement_models_dir()
-            models_dir.mkdir(parents=True, exist_ok=True)
-            
-            local_filename = model_info.local_filename or model_info.huggingface_filename
-            if not local_filename:
-                self._handle_failure(model_id, "No filename specified")
-                return
+            except Exception as ex:
+                last_error = ex
+                error_msg = str(ex)[:100]
+                log_error(f"Download failed for {model_id} (attempt {attempt + 1}/{MAX_RETRIES}): {error_msg}")
 
-            log_info(f"Downloading {model_id} from {model_info.huggingface_repo}/{model_info.huggingface_filename}")
+                # 检查是否被取消
+                if self._cancel_requested.get(model_id, False):
+                    self._stop_progress_polling(model_id)
+                    self._handle_cancel(model_id)
+                    return
 
-            # 使用 hf_hub_download 下载单个文件
-            downloaded_path = hf_hub_download(
-                repo_id=model_info.huggingface_repo,
-                filename=model_info.huggingface_filename,
-                local_dir=str(models_dir),
-                endpoint=endpoint,
-            )
-
-            # 检查是否被取消
-            if self._cancel_requested.get(model_id, False):
-                self._handle_cancel(model_id)
-                return
-
-            # 如果 local_filename 与 huggingface_filename 不同，需要重命名
-            downloaded_file = Path(downloaded_path)
-            target_file = models_dir / local_filename
-            
-            if downloaded_file.exists() and downloaded_file != target_file:
-                # 如果下载的文件在子目录中，移动到 enhancement 目录
-                if target_file.exists():
-                    target_file.unlink()
-                shutil.move(str(downloaded_file), str(target_file))
-                log_info(f"Moved {downloaded_file} to {target_file}")
-
-            # 验证下载完整性
-            if is_model_complete(model_id):
-                self._handle_success(model_id)
-            else:
-                self._handle_failure(model_id, "Download completed but verification failed")
-
-        except Exception as ex:
-            error_msg = str(ex)[:100]
-            log_error(f"Download failed for {model_id}: {error_msg}")
-            self._handle_failure(model_id, error_msg)
+                # 非最后一次重试，等待后继续
+                if attempt < MAX_RETRIES - 1:
+                    self._update_status(model_id, f"Connection lost, retrying in {RETRY_DELAY}s...")
+                    time.sleep(RETRY_DELAY)
+                else:
+                    # 最后一次重试失败，停止进度轮询并处理失败
+                    self._stop_progress_polling(model_id)
+                    self._handle_failure(model_id, f"{error_msg} (after {MAX_RETRIES} retries)", clean_files=True)
 
     def _update_status(self, model_id: str, message: str, progress: float = None) -> None:
         """更新状态并通知回调"""
@@ -499,22 +664,25 @@ class DownloadManager:
             callback_data = self._get_callback_data(model_id)
         self._notify_callbacks_unlocked(*callback_data)
 
-    def _handle_failure(self, model_id: str, error_msg: str) -> None:
+    def _handle_failure(self, model_id: str, error_msg: str, clean_files: bool = True) -> None:
         """
         处理下载失败
 
         Args:
             model_id: 失败的模型 ID
             error_msg: 错误消息
+            clean_files: 是否清理不完整的文件（重试期间不清理）
         """
-        # 清理不完整的文件
-        self._cleanup_incomplete_files(model_id)
+        # 只在最终失败时清理文件
+        if clean_files:
+            self._cleanup_incomplete_files(model_id)
 
         callback_data = None
         with self._lock:
             self._statuses[model_id] = DownloadStatus.FAILED
             self._progress[model_id] = 0.0
-            self._messages[model_id] = f"Failed: {error_msg}"
+            # 提示用户可以重试
+            self._messages[model_id] = f"Failed: {error_msg}. Click Download to retry."
             log_error(f"Model {model_id} download failed: {error_msg}")
             callback_data = self._get_callback_data(model_id)
         self._notify_callbacks_unlocked(*callback_data)
@@ -571,6 +739,9 @@ class DownloadManager:
         Args:
             model_id: 模型 ID
         """
+        # 停止进度轮询
+        self._stop_progress_polling(model_id)
+
         with self._lock:
             self._statuses.pop(model_id, None)
             self._progress.pop(model_id, None)

@@ -39,7 +39,7 @@ DEFAULT_WHISPER_WORD_TIMESTAMPS = True
 # VAD filters out non-speech segments, reducing hallucinations in silence
 DEFAULT_WHISPER_VAD_FILTER = True
 DEFAULT_WHISPER_VAD_THRESHOLD = (
-    0.5  # Sensitivity (0.0-1.0, higher = less speech detected)
+    0.35  # 降低阈值提高语音检测敏感度，改善分段效果 (0.0-1.0, higher = less speech detected)
 )
 DEFAULT_WHISPER_VAD_MIN_SPEECH_DURATION_MS = 250  # Minimum speech segment length
 DEFAULT_WHISPER_VAD_MIN_SILENCE_DURATION_MS = 100  # Minimum silence for split

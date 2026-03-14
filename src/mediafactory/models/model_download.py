@@ -5,6 +5,7 @@
 """
 
 import shutil
+import time
 from pathlib import Path
 from typing import Optional, Callable, Tuple
 
@@ -17,6 +18,10 @@ from .model_registry import (
 )
 from ..config import get_app_root_dir
 from ..logging import log_error, log_exception, log_info
+
+# 重试配置
+MAX_RETRIES = 3  # 最大重试次数
+RETRY_DELAY = 5  # 重试间隔（秒）
 
 
 def get_models_dir() -> Path:
@@ -185,7 +190,7 @@ def download_model(
     custom_path: Optional[str] = None,
     download_source: Optional[str] = None,
 ) -> Path:
-    """从注册表下载模型。
+    """从注册表下载模型（带重试机制）。
 
     Args:
         huggingface_id: HuggingFace 模型 ID（如 "Systran/faster-whisper-large-v3"）
@@ -197,7 +202,7 @@ def download_model(
 
     Raises:
         ValueError: 模型 ID 未知
-        Exception: 下载失败
+        Exception: 下载失败（所有重试后）
     """
     model_info = get_model_info(huggingface_id)
     if model_info is None:
@@ -213,18 +218,38 @@ def download_model(
     # 处理下载源
     endpoint = None if download_source == "https://huggingface.co" else download_source
 
-    # 使用 snapshot_download 直接下载整个仓库
-    # 这是 HuggingFace 官方推荐的方式，会自动处理所有文件
-    snapshot_download(
-        repo_id=huggingface_id,
-        local_dir=str(local_path),
-        endpoint=endpoint,
-    )
+    # 带重试机制的下载
+    last_error = None
+    for attempt in range(MAX_RETRIES):
+        try:
+            if attempt > 0:
+                log_info(f"Retrying download ({attempt + 1}/{MAX_RETRIES}) for {huggingface_id}...")
+                time.sleep(RETRY_DELAY)
 
-    # 下载成功后更新配置文件
-    _update_config_after_download(huggingface_id, model_info.model_type)
+            # 使用 snapshot_download 直接下载整个仓库
+            # 这是 HuggingFace 官方推荐的方式，会自动处理所有文件
+            # huggingface_hub 默认支持断点续传
+            snapshot_download(
+                repo_id=huggingface_id,
+                local_dir=str(local_path),
+                endpoint=endpoint,
+            )
 
-    return local_path
+            # 下载成功后更新配置文件
+            _update_config_after_download(huggingface_id, model_info.model_type)
+
+            return local_path
+
+        except Exception as ex:
+            last_error = ex
+            log_error(f"Download failed for {huggingface_id} (attempt {attempt + 1}/{MAX_RETRIES}): {ex}")
+
+            # 非最后一次重试，继续尝试
+            if attempt < MAX_RETRIES - 1:
+                continue
+
+    # 所有重试都失败，抛出异常
+    raise Exception(f"Download failed after {MAX_RETRIES} retries: {last_error}")
 
 
 def delete_model(huggingface_id: str) -> Tuple[bool, str]:

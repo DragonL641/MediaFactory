@@ -456,7 +456,12 @@ class TasksPage:
             progress=progress,
             message=message,
         )
-        self._refresh_task_list()
+        # 进度更新频繁，使用更轻量的更新方式
+        try:
+            self._refresh_task_list()
+        except Exception:
+            # 进度更新失败不影响主流程
+            pass
 
     def _on_task_complete(self, task_id: str, result: Dict[str, Any]) -> None:
         """任务完成"""
@@ -469,7 +474,10 @@ class TasksPage:
                 output_path=result.get("output_path"),
             )
             output = result.get("output_path") or result.get("output") or "Done"
-            show_success(self.page, f"Task completed: {output}")
+            try:
+                show_success(self.page, f"Task completed: {output}")
+            except Exception as e:
+                log_error_with_context("Failed to show success banner", e, {})
         else:
             self.state.update_task(
                 task_id,
@@ -491,16 +499,25 @@ class TasksPage:
             status=TaskStatus.FAILED,
             message=error,
         )
-        show_error(self.page, f"Task error: {error}")
+        try:
+            show_error(self.page, f"Task error: {error}")
+        except Exception as e:
+            log_error_with_context("Failed to show error banner", e, {})
         self._refresh_task_list()
         self._update_batch_buttons()
 
     def _refresh_task_list(self) -> None:
         """刷新任务列表"""
         if self._task_list:
-            self._task_cards.clear()
-            self._task_list.controls = self._build_task_cards()
-            self._task_list.update()
+            try:
+                self._task_cards.clear()
+                self._task_list.controls = self._build_task_cards()
+                # 使用 page.update() 而不是 control.update()
+                # 这样更安全，可以同时更新整个页面
+                self.page.update()
+            except Exception as e:
+                # 如果更新失败，记录错误但不影响其他流程
+                log_error_with_context("Failed to refresh task list", e, {})
 
     def _update_batch_buttons(self) -> None:
         """更新批量操作按钮状态"""
