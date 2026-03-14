@@ -100,133 +100,64 @@ MediaFactory uses [uv](https://github.com/astral-sh/uv) for dependency managemen
 - **FFmpeg**: Included via imageio-ffmpeg (no manual installation needed)
 - **GPU** (optional): NVIDIA GPU with CUDA support for acceleration
 
-### Manual Install with uv
+### Choose Your Installation Method
 
-#### 1. Install uv
+#### Method 1: Using the Installer (Recommended)
 
-**macOS:**
-```bash
-brew install uv
-```
+Download the installer from [Releases](https://github.com/Dragon/MediaFactory/releases). The installer will automatically download all required dependencies (~350MB for ML models).
 
-**Linux:**
-```bash
-curl -LsSf https://astral.sh/uv/install.sh | sh
-```
+#### Method 2: Running from Source
 
-**Windows:**
-```cmd
-winget install astral-sh.uv
-```
-
-#### 2. Clone and Setup
-
+**For basic usage** (GUI + LLM API translation, ~150MB):
 ```bash
 git clone https://github.com/Dragon/MediaFactory.git
 cd MediaFactory
-```
-
-#### 3. Check Your Hardware (Optional)
-
-```bash
-# Detect GPU and get recommended configuration
-uv run python scripts/utils/check_gpu.py
-```
-
-#### 4. Install PyTorch
-
-**CPU Version (All platforms):**
-```bash
-uv pip install torch --index-url https://download.pytorch.org/whl/cpu
-```
-
-**CUDA Versions (NVIDIA GPU only):**
-
-| CUDA Version | Command |
-|--------------|--------|
-| CUDA 11.8 | `uv pip install torch --index-url https://download.pytorch.org/whl/cu118` |
-| CUDA 12.1 | `uv pip install torch --index-url https://download.pytorch.org/whl/cu121` |
-| CUDA 12.4 | `uv pip install torch --index-url https://download.pytorch.org/whl/cu124` |
-
-#### 5. Install Dependencies
-
-```bash
-# Core dependencies only (GUI + LLM API translation)
 uv sync
-
-# OR: Full installation with ML dependencies (local ASR and translation)
-uv sync --extra ml
+uv run mediafactory
 ```
 
-**Dependency Options**:
-- `uv sync` - Core dependencies only (GUI + LLM API translation)
-- `--extra ml` - ML dependencies (faster-whisper, transformers, etc.)
-
-#### 6. (Optional) Install Development Tools
-
+**For full functionality** (includes local ASR and translation, ~350MB):
 ```bash
-# Development tools only
-uv sync --group dev
-
-# OR: Complete development environment (dev tools + ML dependencies)
-uv sync --group dev --extra ml
+uv sync --extra ml
+uv run mediafactory
 ```
 
-#### 7. (Optional for Developers) Install Pre-commit Hooks
+#### Method 3: For Developers
+
+Install all dependencies including development tools:
+```bash
+uv sync --group dev
+```
+
+### PyTorch Installation
+
+The application will automatically detect your hardware (CPU/GPU) and guide you through the PyTorch installation on first run. No manual configuration needed.
+
+**For advanced users who want to pre-install PyTorch:**
+
+| Platform | Command |
+|----------|---------|
+| **CPU (All platforms)** | `uv pip install torch --index-url https://download.pytorch.org/whl/cpu` |
+| **CUDA 12.4 (NVIDIA GPU)** | `uv pip install torch --index-url https://download.pytorch.org/whl/cu124` |
+| **CUDA 11.8 (Older GPU)** | `uv pip install torch --index-url https://download.pytorch.org/whl/cu118` |
+
+**Note**: RTX 50-series (Blackwell architecture) requires PyTorch nightly builds with CUDA 12.8+ support.
+
+### Install Pre-commit Hooks (For Contributors)
 
 If you plan to contribute code, install pre-commit hooks to automatically check code quality before commits:
 
 ```bash
-# Install Git hooks for pre-commit
 pre-commit install
-
-# Run pre-commit manually on all files
 pre-commit run --all-files
 ```
 
-The project uses pre-commit for code quality checks:
-- **Black** - Code formatting
-- **Flake8** - Code linting
-- **Bandit** - Security checks
-
 ### Hardware Requirements
 
-#### CPU Version (Minimum)
-
-| Component | Requirement |
-|-----------|------------|
-| **Memory** | 4GB RAM |
-| **Storage** | 2GB available space |
-| **Compatibility** | All platforms (Windows/macOS/Linux) |
-
-#### GPU Version (Accelerated)
-
-| Component | Requirement |
-|-----------|------------|
-| **GPU** | NVIDIA GPU with CUDA support |
-| **VRAM** | 4GB minimum (8GB+ recommended) |
-| **Driver** | NVIDIA driver ≥ 510.0 |
-| **Storage** | 5GB available space |
-
-**Note**: RTX 50-series (Blackwell architecture) requires PyTorch nightly builds with CUDA 12.8+ support.
-
-### Advanced Options
-
-#### Install with extras
-
-```bash
-# CPU version
-uv sync --extra cpu
-
-# GPU version (default CUDA 12.4)
-uv sync --extra gpu
-
-# Specific CUDA version
-uv sync --extra cuda121
-
-# Complete installation (GPU + dev tools)
-uv sync --extra all
-```
+| Configuration | Memory | Storage | Notes |
+|---------------|--------|---------|-------|
+| **CPU Mode** | 4GB RAM | 2GB | All platforms |
+| **GPU Mode** | 8GB RAM | 5GB | NVIDIA GPU with 4GB+ VRAM |
 
 ### Download Models (Required)
 

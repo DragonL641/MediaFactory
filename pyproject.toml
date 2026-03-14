@@ -85,42 +85,22 @@ ml = [
     "opencv-python>=4.8.0",      # 视频处理
 ]
 
-# PyTorch variations - 用户根据硬件选择合适的版本
-cpu = [
-    "mediafactory[ml]",
-    "torch>=2.4.0,<2.6.0",
-]
-
-# CUDA 版本（需要 NVIDIA GPU）
-cuda118 = [
-    "mediafactory[ml]",
-    "torch>=2.4.0,<2.6.0",
-]
-cuda121 = [
-    "mediafactory[ml]",
-    "torch>=2.4.0,<2.6.0",
-]
-cuda124 = [
-    "mediafactory[ml]",
-    "torch>=2.4.0,<2.6.0",
-]
-
-# GPU 版本别名（默认使用最新的 CUDA 12.4）
-gpu = [
-    "mediafactory[cuda124]",
-]
-
-# 完整安装（包含 ML）
-all = [
-    "mediafactory[gpu]",
-]
-
 ##### Dependency Groups #####
 # PEP 735 dependency groups for local development (not published to PyPI)
 [dependency-groups]
 # 开发依赖（仅本地使用，不随包发布）
+# 包含所有 ML 依赖，确保开发者能测试完整功能
 dev = [
-    "torch>=2.4.0,<2.6.0",  # 开发环境默认使用 CPU 版本
+    # ML 依赖（从 ml 组引入）
+    "torch>=2.4.0,<2.6.0",
+    "faster-whisper>=1.0.0",
+    "transformers>=4.46.0,<5.0.0",
+    "sentencepiece>=0.1.99",
+    "accelerate>=1.0.0",
+    "spandrel>=0.4.0",
+    "facexlib>=0.3.0",
+    "opencv-python>=4.8.0",
+    # 开发工具
     "pytest>=7.0.0",
     "pytest-cov>=4.0.0",
     "black>=22.0.0",

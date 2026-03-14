@@ -32,64 +32,72 @@
 
 ## 安装
 
+MediaFactory 使用 [uv](https://github.com/astral-sh/uv) 进行依赖管理，提供快速且现代的 Python 环境管理。
+
 ### 系统要求
 
-- Python 3.10+
-- FFmpeg（包含在 imageio-ffmpeg 中，无需手动安装）
-- PyTorch（默认安装 CPU 版本）
+- **Python**: 3.10+（推荐 3.12）
+- **FFmpeg**: 通过 imageio-ffmpeg 自动包含（无需手动安装）
+- **GPU**（可选）: 支持 CUDA 的 NVIDIA GPU 用于加速
 
-### 安装
+### 选择安装方式
 
+#### 方式 1：使用安装程序（推荐）
+
+从 [Releases](https://github.com/Dragon/MediaFactory/releases) 下载安装程序。安装程序会自动下载所有必需的依赖（ML 模型约 350MB）。
+
+#### 方式 2：从源码运行
+
+**基础功能**（GUI + LLM API 翻译，约 150MB）：
 ```bash
 git clone https://github.com/Dragon/MediaFactory.git
 cd MediaFactory
-pip install -e .
+uv sync
+uv run mediafactory
 ```
 
-### GPU 加速（可选，仅限 Windows/Linux）
+**完整功能**（包含本地 ASR 和翻译，约 350MB）：
+```bash
+uv sync --extra ml
+uv run mediafactory
+```
 
-**注意**：默认安装使用仅 CPU 的 PyTorch 以确保最大兼容性。
+#### 方式 3：开发者安装
 
-#### RTX 50 系列 GPU（RTX 5070/5090，Blackwell 架构）
+安装所有依赖，包括开发工具：
+```bash
+uv sync --group dev
+```
 
-RTX 50 系列 GPU 需要使用 PyTorch 每夜构建版本和 CUDA 12.8 支持：
+### PyTorch 安装
+
+首次运行时，应用程序会自动检测硬件（CPU/GPU）并引导您完成 PyTorch 安装。无需手动配置。
+
+**高级用户如需预安装 PyTorch：**
+
+| 平台 | 命令 |
+|------|------|
+| **CPU（所有平台）** | `uv pip install torch --index-url https://download.pytorch.org/whl/cpu` |
+| **CUDA 12.4（NVIDIA GPU）** | `uv pip install torch --index-url https://download.pytorch.org/whl/cu124` |
+| **CUDA 11.8（旧版 GPU）** | `uv pip install torch --index-url https://download.pytorch.org/whl/cu118` |
+
+**注意**：RTX 50 系列（Blackwell 架构）需要 PyTorch 每夜构建版本和 CUDA 12.8+ 支持。
+
+### 安装 Pre-commit 钩子（贡献者）
+
+如果您计划贡献代码，请安装 pre-commit 钩子以在提交前自动检查代码质量：
 
 ```bash
-# 卸载现有 PyTorch
-pip uninstall torch torchaudio -y
-
-# 安装 PyTorch 每夜构建版本（CUDA 12.8，支持 sm_120）
-pip install --pre torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu128
-
-# 验证安装
-python -c "import torch; print('CUDA available:', torch.cuda.is_available()); print('Compute capability:', torch.cuda.get_device_capability(0) if torch.cuda.is_available() else 'N/A')"
+pre-commit install
+pre-commit run --all-files
 ```
 
-**预期输出**：`CUDA available: True`，`Compute capability: (12, 0)`
+### 硬件要求
 
-**重要提示**：每夜构建版本可能存在稳定性问题。
-
-#### 旧版 NVIDIA GPU（RTX 40 系列及以下）
-
-如需在 Windows 或 Linux 上使用旧版 NVIDIA GPU 加速：
-
-```bash
-# 卸载 CPU 版本
-pip uninstall torch torchaudio -y
-
-# 安装 CUDA 12.4 版本（推荐）
-pip install torch torchaudio --index-url https://download.pytorch.org/whl/cu124
-
-# 或 CUDA 11.8（如果 12.4 不兼容）
-pip install torch torchaudio --index-url https://download.pytorch.org/whl/cu118
-
-# 验证 CUDA 是否可用
-python -c "import torch; print('CUDA available:', torch.cuda.is_available())"
-```
-
-**预期输出**：`CUDA available: True`
-
-**macOS 用户**：不支持 GPU 加速（Faster Whisper 不支持 MPS）。
+| 配置 | 内存 | 存储 | 说明 |
+|------|------|------|------|
+| **CPU 模式** | 4GB RAM | 2GB | 所有平台 |
+| **GPU 模式** | 8GB RAM | 5GB | NVIDIA GPU，4GB+ 显存 |
 
 ### 下载模型（必需）
 
@@ -123,40 +131,15 @@ python -m mediafactory
 ### 安装开发依赖
 
 ```bash
-# 基础开发环境（GUI 和基本功能）
+# 安装完整开发环境（包含所有 ML 依赖和开发工具）
 uv sync --group dev
-
-# 完整开发环境（包含 ML 依赖 - 本地 ASR 和翻译）
-uv sync --group dev --extra ml
 ```
-
-**依赖说明**：
-- `uv sync` - 仅核心依赖（GUI + LLM API 翻译）
-- `--group dev` - 开发工具（pytest、black、flake8 等）
-- `--extra ml` - ML 依赖（faster-whisper、transformers 等）
 
 ### 使用 pip 安装（备选）
 
 ```bash
-pip install -e ".[cpu]" && pip install pytest pytest-cov black flake8 mypy pre-commit build twine
+pip install -e ".[ml]" && pip install pytest pytest-cov black flake8 mypy pre-commit build twine
 ```
-
-### 安装 Pre-commit 钩子
-
-项目使用 pre-commit 进行代码质量检查。如果您计划贡献代码，请安装 Git 钩子：
-
-```bash
-# 安装 pre-commit Git 钩子
-pre-commit install
-
-# 手动运行检查
-pre-commit run --all-files
-```
-
-代码质量检查工具包括：
-- **Black** - 代码格式化
-- **Flake8** - 代码检查
-- **Bandit** - 安全检查
 
 ---
 
