@@ -89,7 +89,7 @@ class FaceEnhancer(BaseEnhancer):
         """加载 CodeFormer 模型和人脸检测器"""
         try:
             import facexlib
-            from facexlib.detection import RetinaFace
+            from facexlib.detection import init_detection_model
         except ImportError as e:
             raise ImportError(
                 "请安装依赖: pip install facexlib\n"
@@ -107,10 +107,12 @@ class FaceEnhancer(BaseEnhancer):
                 "请在 Models 页面下载相应的人脸检测模型"
             )
 
-        self._face_detector = RetinaFace(
-            network_name="resnet50",
+        # 使用 facexlib 标准初始化函数，会自动处理权重加载
+        self._face_detector = init_detection_model(
+            model_name='retinaface_resnet50',
+            half=self.half_precision,
             device=self.device,
-            model_path=str(detection_path)
+            model_rootpath=str(detection_path.parent)
         )
 
         # 加载 CodeFormer 模型
