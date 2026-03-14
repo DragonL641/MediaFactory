@@ -29,12 +29,6 @@ ROUTES = [
         icon=ft.Icons.ASSIGNMENT_OUTLINED,
         builder=None,  # 在 app.py 中动态加载
     ),
-    Route(
-        path="/settings",
-        title="Settings",
-        icon=ft.Icons.SETTINGS_OUTLINED,
-        builder=None,
-    ),
 ]
 
 

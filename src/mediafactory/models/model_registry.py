@@ -1,16 +1,21 @@
 """Unified model registry for MediaFactory.
 
-This module provides a centralized registry for all models (Whisper and translation),
-with memory-aware selection and license tracking for commercial use compliance.
+This module provides a centralized registry for ALL models:
+- Whisper models (speech recognition)
+- Translation models (MADLAD400)
+- Enhancement models (Real-ESRGAN, NAFNet, CodeFormer)
+
+Supports memory-aware selection and license tracking for commercial use compliance.
 """
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Optional
+from pathlib import Path
+from typing import Any, Dict, List, Optional
 
 import psutil
 
-from ..logging import log_warning
+from ..logging import log_info, log_warning
 
 
 # Memory tier definitions (GB)
@@ -37,6 +42,16 @@ class ModelType(Enum):
 
     WHISPER = "whisper"
     TRANSLATION = "translation"
+    SUPER_RESOLUTION = "super_resolution"  # Real-ESRGAN
+    DENOISE = "denoise"  # NAFNet
+    FACE_RESTORE = "face_restore"  # CodeFormer, RetinaFace
+
+
+class DownloadMode(Enum):
+    """Download mode enumeration."""
+
+    REPO = "repo"  # Download entire HuggingFace repository (snapshot_download)
+    FILE = "file"  # Download single file (hf_hub_download)
 
 
 class LicenseType(Enum):
@@ -51,119 +66,220 @@ class ModelInfo:
     """Unified model information.
 
     Attributes:
-        model_id: Internal identifier (e.g., "whisper-large-v3", "madlad400-3b-q4k")
-        huggingface_id: HuggingFace model ID for downloading
+        huggingface_id: HuggingFace model ID (also serves as unique identifier)
         display_name: Human-readable display name
-        model_type: Type of model (WHISPER or TRANSLATION)
-        model_size_gb: Model file size in gigabytes
-        runtime_memory_gb: Estimated runtime memory usage in gigabytes (CPU)
-        recommended_system_gb: Recommended system RAM (can be manually set)
+        model_type: Type of model (WHISPER, TRANSLATION, SUPER_RESOLUTION, etc.)
+        model_size_mb: Model file size in megabytes
+        runtime_memory_mb: Estimated runtime memory usage in megabytes (CPU)
         license: Model license type
         language_support: Description of language support
         precision: Model precision (fp32, fp16, q4k, q8k)
+        
+        # Download configuration
+        download_mode: REPO for full repository, FILE for single file
+        huggingface_repo: HuggingFace repository ID (required for download)
+        huggingface_filename: Filename for single file download (optional)
+        local_filename: Local filename after download (optional, defaults to huggingface_filename)
+        
+        # Optional fields
+        recommended_system_mb: Recommended system RAM in MB (0 = auto-calculate)
         requires_prompt: Whether the model requires special prompt formatting
         description: Brief model description
         gguf_file: GGUF filename for quantized models (optional)
-        runtime_vram_gb: Estimated runtime VRAM usage for GPU (0 if not applicable)
-        recommended_vram_gb: Recommended VRAM for GPU (0 if not applicable)
+        runtime_vram_mb: Estimated runtime VRAM usage for GPU (0 if not applicable)
+        recommended_vram_mb: Recommended VRAM for GPU (0 if not applicable)
+        metadata: Additional model-specific metadata
     """
 
-    model_id: str
-    huggingface_id: str
+    huggingface_id: str  # 唯一标识，同时也是注册表的键
     display_name: str
     model_type: ModelType
-    model_size_gb: float
-    runtime_memory_gb: float
+    model_size_mb: int  # 统一使用 MB
+    runtime_memory_mb: int
     license: LicenseType
-    language_support: str
-    precision: str
-    recommended_system_gb: int = 0  # 0 means auto-calculate
+    
+    # 下载配置
+    download_mode: DownloadMode = DownloadMode.REPO
+    huggingface_repo: str = ""  # 默认与 huggingface_id 相同
+    huggingface_filename: Optional[str] = None  # 单文件下载时的文件名
+    local_filename: Optional[str] = None  # 本地保存的文件名
+    
+    # 可选字段
+    language_support: str = ""
+    precision: str = ""
+    recommended_system_mb: int = 0  # 0 means auto-calculate
     requires_prompt: bool = False
     description: str = ""
     gguf_file: Optional[str] = None  # GGUF filename for quantized models
-    runtime_vram_gb: float = 0.0  # GPU runtime VRAM
-    recommended_vram_gb: int = 0  # Recommended VRAM
+    runtime_vram_mb: int = 0  # GPU runtime VRAM
+    recommended_vram_mb: int = 0  # Recommended VRAM
+    metadata: Dict[str, Any] = field(default_factory=dict)
 
     def __post_init__(self):
-        """Calculate recommended system memory if not manually set."""
-        if self.recommended_system_gb == 0:
+        """Calculate defaults and validate."""
+        # 默认 huggingface_repo 与 huggingface_id 相同
+        if not self.huggingface_repo:
+            self.huggingface_repo = self.huggingface_id
+        
+        # 默认 local_filename 与 huggingface_filename 相同
+        if self.huggingface_filename and not self.local_filename:
+            self.local_filename = self.huggingface_filename
+        
+        # Calculate recommended system memory if not manually set
+        if self.recommended_system_mb == 0 and self.runtime_memory_mb > 0:
             # Formula: runtime_memory × 4, rounded up to nearest tier
-            self.recommended_system_gb = get_memory_tier(self.runtime_memory_gb * 4)
+            self.recommended_system_mb = get_memory_tier(self.runtime_memory_mb / 1024 * 4) * 1024
+
+    def __hash__(self):
+        return hash(self.huggingface_id)
+    
+    # 兼容属性（GB 单位）
+    @property
+    def model_size_gb(self) -> float:
+        return self.model_size_mb / 1024
+    
+    @property
+    def runtime_memory_gb(self) -> float:
+        return self.runtime_memory_mb / 1024
+    
+    @property
+    def recommended_system_gb(self) -> int:
+        return self.recommended_system_mb // 1024 if self.recommended_system_mb else 0
 
 
-# Unified model registry
 # Unified model registry
 # 键直接使用 huggingface_id，与 HuggingFace 一致
 MODEL_REGISTRY: dict[str, ModelInfo] = {
     # ========== Whisper Models ==========
     "Systran/faster-whisper-large-v3": ModelInfo(
-        model_id="Systran/faster-whisper-large-v3",  # 与 huggingface_id 一致
         huggingface_id="Systran/faster-whisper-large-v3",
         display_name="Whisper Large V3",
         model_type=ModelType.WHISPER,
-        model_size_gb=3.0,
-        runtime_memory_gb=10.0,
-        recommended_system_gb=16,  # Optimized for 16GB systems
+        model_size_mb=3072,  # 3 GB
+        runtime_memory_mb=10240,  # 10 GB
+        recommended_system_mb=16384,  # 16 GB
         license=LicenseType.MIT,
         language_support="99+ languages",
         precision="float16",
         description="Best quality Whisper model for transcription",
     ),
     # ========== Translation Models ==========
-    # 所有翻译模型使用 MADLAD400 (Apache 2.0 许可证，支持商用)
-    # GGUF Q4K 量化版本：磁盘占用小、内存占用低、质量接近原版
-    # 16GB 级别（CPU） / 8GB VRAM（GPU）
+    # MADLAD400 (Apache 2.0 许可证，支持商用)
+    # GGUF Q4K 量化版本
     "google/madlad400-3b-mt": ModelInfo(
-        model_id="google/madlad400-3b-mt",  # 与 huggingface_id 一致
         huggingface_id="google/madlad400-3b-mt",
         gguf_file="madlad400-3b.Q4_K_M.gguf",
         display_name="MADLAD400-3B (Q4K GGUF)",
         model_type=ModelType.TRANSLATION,
-        model_size_gb=2.0,
-        runtime_memory_gb=4.0,
-        runtime_vram_gb=3.0,
-        recommended_system_gb=16,
-        recommended_vram_gb=8,
+        model_size_mb=2048,  # 2 GB
+        runtime_memory_mb=4096,  # 4 GB
+        runtime_vram_mb=3072,  # 3 GB VRAM
+        recommended_system_mb=16384,  # 16 GB
+        recommended_vram_mb=8192,  # 8 GB VRAM
         license=LicenseType.APACHE_2_0,
         language_support="400+ languages",
         precision="q4k",
         requires_prompt=False,
         description="量化版 MADLAD400，支持所有语言对翻译 (GGUF格式)",
     ),
-    # 32GB 级别（CPU） / 12GB VRAM（GPU）
     "google/madlad400-7b-mt-bt": ModelInfo(
-        model_id="google/madlad400-7b-mt-bt",  # 与 huggingface_id 一致
         huggingface_id="google/madlad400-7b-mt-bt",
         gguf_file="madlad400-7b.Q4_K_M.gguf",
         display_name="MADLAD400-7B (Q4K GGUF)",
         model_type=ModelType.TRANSLATION,
-        model_size_gb=4.5,
-        runtime_memory_gb=7.0,
-        runtime_vram_gb=5.0,
-        recommended_system_gb=32,
-        recommended_vram_gb=12,
+        model_size_mb=4608,  # 4.5 GB
+        runtime_memory_mb=7168,  # 7 GB
+        runtime_vram_mb=5120,  # 5 GB VRAM
+        recommended_system_mb=32768,  # 32 GB
+        recommended_vram_mb=12288,  # 12 GB VRAM
         license=LicenseType.APACHE_2_0,
         language_support="400+ languages",
         precision="q4k",
         requires_prompt=False,
         description="高质量量化版 MADLAD400 (GGUF格式)",
     ),
-    # 64GB+ 级别（CPU） / 16GB+ VRAM（GPU）- 原生 FP16
-    "google/madlad400-3b-mt-fp16": ModelInfo(
-        model_id="google/madlad400-3b-mt-fp16",  # 与 huggingface_id 一致
-        huggingface_id="google/madlad400-3b-mt",
-        display_name="MADLAD400-3B (FP16 Native)",
-        model_type=ModelType.TRANSLATION,
-        model_size_gb=6.0,
-        runtime_memory_gb=10.0,
-        runtime_vram_gb=6.0,
-        recommended_system_gb=64,
-        recommended_vram_gb=16,
-        license=LicenseType.APACHE_2_0,
-        language_support="400+ languages",
-        precision="fp16",
-        requires_prompt=False,
-        description="原生 FP16 版本，最高质量 MADLAD400 翻译",
+    # ========== Enhancement Models: Super Resolution (Real-ESRGAN) ==========
+    "RealESRGAN_x4plus": ModelInfo(
+        huggingface_id="RealESRGAN_x4plus",
+        display_name="Real-ESRGAN x4 (General)",
+        model_type=ModelType.SUPER_RESOLUTION,
+        model_size_mb=64,
+        runtime_memory_mb=512,
+        license=LicenseType.MIT,
+        download_mode=DownloadMode.FILE,
+        huggingface_repo="ai-forever/Real-ESRGAN",
+        huggingface_filename="RealESRGAN_x4plus.pth",
+        description="4x 通用超分辨率模型，适合大多数视频",
+        metadata={"scale": 4, "type": "general"},
+    ),
+    "RealESRGAN_x2plus": ModelInfo(
+        huggingface_id="RealESRGAN_x2plus",
+        display_name="Real-ESRGAN x2 (General)",
+        model_type=ModelType.SUPER_RESOLUTION,
+        model_size_mb=64,
+        runtime_memory_mb=512,
+        license=LicenseType.MIT,
+        download_mode=DownloadMode.FILE,
+        huggingface_repo="ai-forever/Real-ESRGAN",
+        huggingface_filename="RealESRGAN_x2plus.pth",
+        description="2x 通用超分辨率模型，处理速度更快",
+        metadata={"scale": 2, "type": "general"},
+    ),
+    "RealESRGAN_x4plus_anime_6B": ModelInfo(
+        huggingface_id="RealESRGAN_x4plus_anime_6B",
+        display_name="Real-ESRGAN x4 (Anime)",
+        model_type=ModelType.SUPER_RESOLUTION,
+        model_size_mb=17,
+        runtime_memory_mb=256,
+        license=LicenseType.MIT,
+        download_mode=DownloadMode.FILE,
+        huggingface_repo="ai-forever/Real-ESRGAN",
+        huggingface_filename="RealESRGAN_x4plus_anime_6B.pth",
+        description="4x 动漫视频专用模型",
+        metadata={"scale": 4, "type": "anime"},
+    ),
+    # ========== Enhancement Models: Denoise (NAFNet) ==========
+    "NAFNet-GoPro-width64": ModelInfo(
+        huggingface_id="NAFNet-GoPro-width64",
+        display_name="NAFNet Denoiser (GoPro)",
+        model_type=ModelType.DENOISE,
+        model_size_mb=65,
+        runtime_memory_mb=512,
+        license=LicenseType.MIT,
+        download_mode=DownloadMode.FILE,
+        huggingface_repo="nyanko7/nafnet-models",
+        huggingface_filename="NAFNet-GoPro-width64.pth",
+        description="通用去噪模型，适合老视频和压缩噪点",
+        metadata={"type": "denoise"},
+    ),
+    # ========== Enhancement Models: Face Restore (CodeFormer) ==========
+    "CodeFormer": ModelInfo(
+        huggingface_id="CodeFormer",
+        display_name="CodeFormer",
+        model_type=ModelType.FACE_RESTORE,
+        model_size_mb=350,
+        runtime_memory_mb=1024,
+        license=LicenseType.MIT,
+        download_mode=DownloadMode.FILE,
+        huggingface_repo="Gourieff/ReActor",
+        huggingface_filename="models/facerestore_models/codeformer-v0.1.0.pth",
+        local_filename="codeformer.pth",
+        description="人脸修复模型，可修复模糊人脸",
+        metadata={"type": "face_restore"},
+    ),
+    "RetinaFace-R50": ModelInfo(
+        huggingface_id="RetinaFace-R50",
+        display_name="RetinaFace R50",
+        model_type=ModelType.FACE_RESTORE,
+        model_size_mb=105,
+        runtime_memory_mb=512,
+        license=LicenseType.MIT,
+        download_mode=DownloadMode.FILE,
+        huggingface_repo="Gourieff/ReActor",
+        huggingface_filename="models/facedetection/detection_Resnet50_Final.pth",
+        local_filename="Resnet50_Final.pth",
+        description="人脸检测模型，用于定位人脸位置",
+        metadata={"type": "face_detection"},
     ),
 }
 
@@ -362,3 +478,183 @@ def get_display_name(huggingface_id: str) -> str:
         return info.display_name
     # 不在注册表中，返回 ID 的最后部分
     return huggingface_id.split("/")[-1]
+
+
+# ==================== Enhancement Model Functions ====================
+
+def get_all_enhancement_models() -> List[ModelInfo]:
+    """获取所有增强模型。
+
+    Returns:
+        List of enhancement ModelInfo objects
+    """
+    enhancement_types = {ModelType.SUPER_RESOLUTION, ModelType.DENOISE, ModelType.FACE_RESTORE}
+    return [
+        info for info in MODEL_REGISTRY.values()
+        if info.model_type in enhancement_types
+    ]
+
+
+def get_enhancement_models_by_type(model_type: ModelType) -> List[ModelInfo]:
+    """按类型获取增强模型。
+
+    Args:
+        model_type: 模型类型 (SUPER_RESOLUTION, DENOISE, FACE_RESTORE)
+
+    Returns:
+        List of ModelInfo objects of the specified type
+    """
+    return [
+        info for info in MODEL_REGISTRY.values()
+        if info.model_type == model_type
+    ]
+
+
+def get_enhancement_model_by_scale_and_type(
+    scale: int,
+    model_subtype: str = "general"
+) -> Optional[str]:
+    """根据放大倍数和类型获取超分辨率模型名称。
+
+    Args:
+        scale: 放大倍数 (2 或 4)
+        model_subtype: 模型类型 ('general' 或 'anime')
+
+    Returns:
+        模型 ID
+    """
+    for model_id, info in MODEL_REGISTRY.items():
+        if info.model_type == ModelType.SUPER_RESOLUTION:
+            if (info.metadata.get("scale") == scale and
+                info.metadata.get("type") == model_subtype):
+                return model_id
+    return None
+
+
+def is_enhancement_model(model_id: str) -> bool:
+    """检查是否是增强模型。
+
+    Args:
+        model_id: 模型 ID
+
+    Returns:
+        True if the model is an enhancement model
+    """
+    info = MODEL_REGISTRY.get(model_id)
+    if info is None:
+        return False
+    return info.model_type in {ModelType.SUPER_RESOLUTION, ModelType.DENOISE, ModelType.FACE_RESTORE}
+
+
+# ==================== Model Storage Paths ====================
+
+def get_models_base_dir() -> Path:
+    """获取模型存储基础目录。"""
+    from ..config import get_app_root_dir
+    return get_app_root_dir() / "models"
+
+
+def get_enhancement_models_dir() -> Path:
+    """获取增强模型存储目录。"""
+    return get_models_base_dir() / "enhancement"
+
+
+def get_model_local_path(model_id: str) -> Optional[Path]:
+    """获取模型的本地存储路径。
+
+    Args:
+        model_id: 模型 ID
+
+    Returns:
+        模型本地路径，如果模型不存在返回 None
+    """
+    info = MODEL_REGISTRY.get(model_id)
+    if info is None:
+        return None
+    
+    if info.download_mode == DownloadMode.FILE:
+        # 单文件模型存储在 enhancement 目录
+        filename = info.local_filename or info.huggingface_filename
+        if filename:
+            path = get_enhancement_models_dir() / filename
+            return path if path.exists() else None
+    else:
+        # 仓库模型存储在以 huggingface_id 命名的目录
+        path = get_models_base_dir() / model_id
+        return path if path.exists() else None
+    
+    return None
+
+
+def is_model_downloaded(model_id: str) -> bool:
+    """检查模型是否已下载。
+
+    Args:
+        model_id: 模型 ID
+
+    Returns:
+        True if the model is downloaded
+    """
+    return get_model_local_path(model_id) is not None
+
+
+def is_model_complete(model_id: str) -> bool:
+    """检查模型是否完整下载（校验文件大小）。
+
+    Args:
+        model_id: 模型 ID
+
+    Returns:
+        True if the model is completely downloaded
+    """
+    info = MODEL_REGISTRY.get(model_id)
+    if info is None:
+        return False
+    
+    path = get_model_local_path(model_id)
+    if path is None:
+        return False
+    
+    if info.download_mode == DownloadMode.FILE:
+        # 单文件模型：校验文件大小（允许 5% 容差）
+        if not path.is_file():
+            return False
+        actual_size = path.stat().st_size
+        expected_size = info.model_size_mb * 1024 * 1024
+        tolerance = expected_size * 0.05
+        return abs(actual_size - expected_size) <= tolerance or actual_size > expected_size * 0.9
+    else:
+        # 仓库模型：检查 config.json 和模型文件
+        if not path.is_dir():
+            return False
+        config_file = path / "config.json"
+        if not config_file.exists():
+            return False
+        
+        # 检查模型文件
+        model_files = list(path.glob("*.bin")) + list(path.glob("*.safetensors")) + list(path.glob("*.gguf"))
+        if not model_files:
+            return False
+        
+        # 检查文件大小（至少 1MB）
+        for model_file in model_files:
+            if model_file.stat().st_size >= 1_000_000:
+                return True
+        
+        return False
+
+
+def get_all_model_statuses() -> Dict[str, bool]:
+    """获取所有模型的下载状态。
+
+    Returns:
+        {model_id: is_downloaded} 字典
+    """
+    return {model_id: is_model_downloaded(model_id) for model_id in MODEL_REGISTRY}
+
+
+# Backward compatibility alias
+ENHANCEMENT_MODEL_REGISTRY = {
+    model_id: info for model_id, info in MODEL_REGISTRY.items()
+    if is_enhancement_model(model_id)
+}
