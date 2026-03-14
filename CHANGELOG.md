@@ -18,4 +18,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Multiple subtitle formats (SRT, ASS)
 - Video composition with embedded subtitles
 
+### Architecture
+- **3-Layer Architecture** - GUI → Service → Engine separation
+- **Pipeline Pattern** - Composable processing stages
+- **Event System** - EventBus for decoupled components
+- **Type-Safe Config** - TOML + Pydantic v2 with hot reload
+
+### Engines
+- **AudioEngine** - Audio extraction with voice enhancement
+- **RecognitionEngine** - Faster Whisper with VAD support
+- **TranslationEngine** - Local models + LLM API backends
+- **SRTEngine** - SRT subtitle generation
+- **ASSEngine** - ASS subtitle with 5 style templates
+- **VideoComposer** - Subtitle embedding
+- **VideoEnhancementEngine** - Video quality enhancement
+
+### Features
+- High-quality audio extraction (48kHz stereo)
+- Faster Whisper (4-6x faster than OpenAI Whisper)
+- 30+ languages for transcription and translation
+- Bilingual subtitles (4 layout options)
+- Batch processing with recursive validation
+- Unified progress tracking with GUI bridge
+- Self-contained deployment
+
+### LLM Backends
+- OpenAI
+- DeepSeek
+- ZhipuAI GLM
+- Tongyi Qianwen
+- Moonshot
+- Custom OpenAI-compatible endpoints
+
 [0.1.0]: https://github.com/DragonL641/MediaFactory/releases/tag/v0.1.0

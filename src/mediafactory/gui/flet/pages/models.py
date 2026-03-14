@@ -40,8 +40,7 @@ def _get_models_by_type():
         model_data = {
             "id": model_id,
             "name": info.display_name,
-            "params": f"{info.model_size_mb} MB" if info.model_size_mb < 1024 else f"{info.model_size_mb / 1024:.1f} GB",
-            "precision": info.precision or info.metadata.get("type", "N/A"),
+            "size": f"{info.model_size_mb} MB" if info.model_size_mb < 1024 else f"{info.model_size_mb / 1024:.1f} GB",
             "runtime_memory": f"{info.runtime_memory_mb} MB" if info.runtime_memory_mb < 1024 else f"{info.runtime_memory_mb / 1024:.1f} GB",
             "description": info.description,
         }
@@ -64,7 +63,7 @@ class ModelsPage:
     """Models 页面 - 卡片式本地模型管理中心（使用 DownloadManager）"""
 
     # 卡片宽度
-    CARD_WIDTH = 200
+    CARD_WIDTH = 300
     # UI 更新轮询间隔（毫秒）
     UI_POLL_INTERVAL = 1000
 
@@ -257,9 +256,9 @@ class ModelsPage:
                     ),
                     ft.Divider(height=8, color=self.theme.color_scheme.outline_variant),
                     # 规格信息
-                    ft.Text(f"Params: {model['params']}", size=10, color=self.theme.color_scheme.on_surface_variant),
-                    ft.Text(f"Precision: {model['precision']}", size=10, color=self.theme.color_scheme.on_surface_variant),
-                    ft.Text(f"Memory: {model['runtime_memory']}", size=10, color=self.theme.color_scheme.on_surface_variant),
+                    ft.Text(f"Size: {model['size']}", size=10, color=self.theme.color_scheme.on_surface_variant),
+                    ft.Text(f"Memory Required: {model['runtime_memory']}", size=10, color=self.theme.color_scheme.on_surface_variant),
+                    ft.Text(f"Info: {model['description']}", size=10, color=self.theme.color_scheme.on_surface_variant, no_wrap=True, overflow=ft.TextOverflow.ELLIPSIS),
                     ft.Container(height=8),
                     # 操作区域
                     action_control,
@@ -289,108 +288,147 @@ class ModelsPage:
 
         if download_status == DownloadStatus.WAITING:
             # 排队中状态
-            return ft.Row(
-                controls=[
-                    ft.ProgressRing(width=12, height=12, stroke_width=2, color=self.theme.color_scheme.primary),
-                    ft.Text("Waiting...", size=10, color=self.theme.color_scheme.on_surface_variant),
-                    ft.Container(expand=True),
-                    ft.IconButton(
-                        icon=ft.Icons.CLOSE,
-                        icon_color=self.theme.color_scheme.error,
-                        icon_size=16,
-                        tooltip="Cancel",
-                        data={"id": model_id, "name": model_name, "is_enhancement": is_enhancement},
-                        on_click=self._on_cancel_click_wrapper,
-                        style=ft.ButtonStyle(padding=0),
-                    ),
-                ],
-                vertical_alignment=ft.CrossAxisAlignment.CENTER,
+            return ft.Container(
+                content=ft.Row(
+                    controls=[
+                        ft.ProgressRing(width=12, height=12, stroke_width=2, color=self.theme.color_scheme.primary),
+                        ft.Text("Waiting...", size=10, color=self.theme.color_scheme.on_surface_variant),
+                        ft.Container(expand=True),
+                        ft.IconButton(
+                            icon=ft.Icons.CLOSE,
+                            icon_color=self.theme.color_scheme.error,
+                            icon_size=16,
+                            tooltip="Cancel",
+                            data={"id": model_id, "name": model_name, "is_enhancement": is_enhancement},
+                            on_click=self._on_cancel_click_wrapper,
+                            style=ft.ButtonStyle(padding=0),
+                        ),
+                    ],
+                    vertical_alignment=ft.CrossAxisAlignment.CENTER,
+                ),
+                height=36,
             )
         elif download_status == DownloadStatus.DOWNLOADING:
             # 下载中状态
-            return ft.Column(
-                controls=[
-                    ft.ProgressBar(
-                        expand=True,
-                        height=4,
-                        value=progress / 100 if progress > 0 else None,
-                        color=self.theme.color_scheme.primary,
-                        bgcolor=self.theme.color_scheme.surface_variant,
-                    ),
-                    ft.Container(height=4),
-                    ft.Row(
-                        controls=[
-                            ft.Text(
-                                message if message else f"{int(progress)}%",
-                                size=9,
-                                color=self.theme.color_scheme.on_surface_variant,
-                                expand=True,
-                                no_wrap=True,
-                                overflow=ft.TextOverflow.ELLIPSIS,
-                            ),
-                            ft.IconButton(
-                                icon=ft.Icons.CLOSE,
-                                icon_color=self.theme.color_scheme.error,
-                                icon_size=16,
-                                tooltip="Cancel",
-                                data={"id": model_id, "name": model_name, "is_enhancement": is_enhancement},
-                                on_click=self._on_cancel_click_wrapper,
-                                style=ft.ButtonStyle(padding=0),
-                            ),
-                        ],
-                        vertical_alignment=ft.CrossAxisAlignment.CENTER,
-                    ),
-                ],
-                spacing=2,
+            return ft.Container(
+                content=ft.Column(
+                    controls=[
+                        ft.ProgressBar(
+                            expand=True,
+                            height=4,
+                            value=progress / 100 if progress > 0 else None,
+                            color=self.theme.color_scheme.primary,
+                            bgcolor=self.theme.color_scheme.surface_variant,
+                        ),
+                        ft.Container(height=4),
+                        ft.Row(
+                            controls=[
+                                ft.Text(
+                                    message if message else f"{int(progress)}%",
+                                    size=9,
+                                    color=self.theme.color_scheme.on_surface_variant,
+                                    expand=True,
+                                    no_wrap=True,
+                                    overflow=ft.TextOverflow.ELLIPSIS,
+                                ),
+                                ft.IconButton(
+                                    icon=ft.Icons.CLOSE,
+                                    icon_color=self.theme.color_scheme.error,
+                                    icon_size=16,
+                                    tooltip="Cancel",
+                                    data={"id": model_id, "name": model_name, "is_enhancement": is_enhancement},
+                                    on_click=self._on_cancel_click_wrapper,
+                                    style=ft.ButtonStyle(padding=0),
+                                ),
+                            ],
+                            vertical_alignment=ft.CrossAxisAlignment.CENTER,
+                        ),
+                    ],
+                    spacing=2,
+                ),
+                height=50,
             )
         elif download_status == DownloadStatus.FAILED:
             # 失败状态 - 显示重试按钮
-            return ft.Row(
-                controls=[
-                    ft.Icon(ft.Icons.ERROR_OUTLINE, size=16, color=self.theme.color_scheme.error),
-                    ft.Text("Failed", size=10, color=self.theme.color_scheme.error),
-                    ft.Container(expand=True),
-                    ft.ElevatedButton(
-                        "Retry",
-                        icon=ft.Icons.REFRESH,
-                        data={"id": model_id, "name": model_name, "is_enhancement": is_enhancement},
-                        on_click=self._on_download_click_wrapper,
-                        style=ft.ButtonStyle(
-                            color=self.theme.color_scheme.on_primary,
-                            bgcolor=self.theme.color_scheme.primary,
-                            padding=ft.padding.symmetric(horizontal=12, vertical=8),
+            return ft.Container(
+                content=ft.Row(
+                    controls=[
+                        ft.Icon(ft.Icons.ERROR_OUTLINE, size=16, color=self.theme.color_scheme.error),
+                        ft.Text("Failed", size=10, color=self.theme.color_scheme.error),
+                        ft.Container(expand=True),
+                        ft.ElevatedButton(
+                            "Retry",
+                            icon=ft.Icons.REFRESH,
+                            data={"id": model_id, "name": model_name, "is_enhancement": is_enhancement},
+                            on_click=self._on_download_click_wrapper,
+                            style=ft.ButtonStyle(
+                                color=self.theme.color_scheme.on_primary,
+                                bgcolor=self.theme.color_scheme.primary,
+                                padding=ft.padding.symmetric(horizontal=12, vertical=8),
+                            ),
                         ),
-                    ),
-                ],
-                vertical_alignment=ft.CrossAxisAlignment.CENTER,
+                    ],
+                    vertical_alignment=ft.CrossAxisAlignment.CENTER,
+                ),
+                height=36,
+            )
+        elif download_status == DownloadStatus.CANCELLED:
+            # 取消状态 - 显示重试按钮
+            return ft.Container(
+                content=ft.Row(
+                    controls=[
+                        ft.Icon(ft.Icons.CANCEL_OUTLINED, size=16, color=self.theme.color_scheme.outline),
+                        ft.Text("Cancelled", size=10, color=self.theme.color_scheme.outline),
+                        ft.Container(expand=True),
+                        ft.ElevatedButton(
+                            "Retry",
+                            icon=ft.Icons.REFRESH,
+                            data={"id": model_id, "name": model_name, "is_enhancement": is_enhancement},
+                            on_click=self._on_download_click_wrapper,
+                            style=ft.ButtonStyle(
+                                color=self.theme.color_scheme.on_primary,
+                                bgcolor=self.theme.color_scheme.primary,
+                                padding=ft.padding.symmetric(horizontal=12, vertical=8),
+                            ),
+                        ),
+                    ],
+                    vertical_alignment=ft.CrossAxisAlignment.CENTER,
+                ),
+                height=36,
             )
         elif self._deleting_models.get(model_id, False):
             # 删除中状态 - 显示进度指示器
-            return ft.Row(
-                controls=[
-                    ft.ProgressRing(width=14, height=14, stroke_width=2, color=self.theme.color_scheme.error),
-                    ft.Text("Deleting...", size=10, color=self.theme.color_scheme.on_surface_variant),
-                ],
-                vertical_alignment=ft.CrossAxisAlignment.CENTER,
+            return ft.Container(
+                content=ft.Row(
+                    controls=[
+                        ft.ProgressRing(width=14, height=14, stroke_width=2, color=self.theme.color_scheme.error),
+                        ft.Text("Deleting...", size=10, color=self.theme.color_scheme.on_surface_variant),
+                    ],
+                    vertical_alignment=ft.CrossAxisAlignment.CENTER,
+                ),
+                height=36,
             )
         elif downloaded:
             # 已下载 - 显示删除按钮
-            return ft.Row(
-                controls=[
-                    ft.Icon(ft.Icons.CHECK_CIRCLE, size=16, color=SEMANTIC_COLORS["success"]),
-                    ft.Text("Downloaded", size=10, color=SEMANTIC_COLORS["success"]),
-                    ft.Container(expand=True),
-                    ft.IconButton(
-                        icon=ft.Icons.DELETE_OUTLINE,
-                        icon_color=self.theme.color_scheme.error,
-                        icon_size=18,
-                        tooltip="Delete",
-                        data={"id": model_id, "name": model_name, "is_enhancement": is_enhancement},
-                        on_click=self._on_delete_click_wrapper,
-                        style=ft.ButtonStyle(padding=0),
-                    ),
-                ],
-                vertical_alignment=ft.CrossAxisAlignment.CENTER,
+            return ft.Container(
+                content=ft.Row(
+                    controls=[
+                        ft.Icon(ft.Icons.CHECK_CIRCLE, size=16, color=SEMANTIC_COLORS["success"]),
+                        ft.Text("Downloaded", size=10, color=SEMANTIC_COLORS["success"]),
+                        ft.Container(expand=True),
+                        ft.IconButton(
+                            icon=ft.Icons.DELETE_OUTLINE,
+                            icon_color=self.theme.color_scheme.error,
+                            icon_size=18,
+                            tooltip="Delete",
+                            data={"id": model_id, "name": model_name, "is_enhancement": is_enhancement},
+                            on_click=self._on_delete_click_wrapper,
+                            style=ft.ButtonStyle(padding=0),
+                        ),
+                    ],
+                    vertical_alignment=ft.CrossAxisAlignment.CENTER,
+                ),
+                height=36,
             )
         else:
             # 未下载 - 显示下载按钮
@@ -447,9 +485,8 @@ class ModelsPage:
         data = e.control.data
         model_id = data["id"]
         log_info(f"Cancel button clicked for model: {model_id}")
+        # cancel() will properly set CANCELLED status and clean up
         self._download_manager.cancel(model_id)
-        # 取消后清除状态，允许重试
-        self._download_manager.clear_status(model_id)
         self._refresh_page()
 
     def _on_delete_click_wrapper(self, e) -> None:
@@ -504,6 +541,10 @@ class ModelsPage:
             log_info(f"Model {model_id} already in queue")
             self._show_snackbar(f"Model '{model_name}' is already in queue", self.theme.color_scheme.primary)
             return
+
+        # Clear previous status (CANCELLED, FAILED, etc.) before starting new download
+        # This allows retry after cancellation or failure
+        self._download_manager.clear_status(model_id)
 
         # 加入下载队列
         self._download_manager.enqueue(model_id)

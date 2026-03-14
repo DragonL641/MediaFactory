@@ -6,6 +6,7 @@ MediaFactory 硬件检测模块
 import sys
 import platform
 import subprocess
+import shutil
 from pathlib import Path
 from typing import Optional, List, Dict
 
@@ -15,32 +16,71 @@ GPUInfo = Dict[str, Optional[str]]
 
 
 def check_nvidia_gpu() -> Optional[List[GPUInfo]]:
-    """检测 NVIDIA GPU 及 CUDA 版本
+    """检测 NVIDIA GPU
+
+    只需要检测 GPU 是否存在，不需要复杂的 CUDA 版本查询。
 
     Returns:
         包含 GPU 信息的字典列表，如果没有 GPU 返回 None
     """
+    # 方法1: 使用 nvidia-smi -L 检测 GPU 是否存在
     try:
         result = subprocess.run(
-            ["nvidia-smi", "--query-gpu=name,driver_version,cuda_version", "--format=csv,noheader"],
+            ["nvidia-smi", "-L"],
             capture_output=True,
             text=True,
             timeout=10
         )
         if result.returncode == 0 and result.stdout.strip():
-            lines = result.stdout.strip().split('\n')
+            # 解析 GPU 名称
+            # 格式: "GPU 0: NVIDIA GeForce RTX 5070 Ti (UUID: ...)"
             gpu_info = []
-            for line in lines:
-                parts = [p.strip() for p in line.split(',')]
-                if len(parts) >= 3:
-                    gpu_info.append({
-                        'name': parts[0],
-                        'driver': parts[1],
-                        'cuda': parts[2] if parts[2] != 'N/A' else None
-                    })
-            return gpu_info if gpu_info else None
+            for line in result.stdout.strip().split('\n'):
+                if line.startswith('GPU'):
+                    # 提取 GPU 名称
+                    # 格式: "GPU 0: NVIDIA GeForce RTX 5070 Ti (UUID: ...)"
+                    parts = line.split(':', 1)
+                    if len(parts) >= 2:
+                        name_part = parts[1].strip()
+                        # 去掉 UUID 部分
+                        if '(' in name_part:
+                            name = name_part.split('(')[0].strip()
+                        else:
+                            name = name_part
+                        gpu_info.append({
+                            'name': name,
+                            'driver': None,
+                            'cuda': None
+                        })
+            if gpu_info:
+                return gpu_info
     except (FileNotFoundError, subprocess.TimeoutExpired):
         pass
+    except Exception:
+        pass
+
+    # 方法2: 检查 nvidia-smi 命令是否存在
+    if shutil.which("nvidia-smi"):
+        try:
+            result = subprocess.run(
+                ["nvidia-smi"],
+                capture_output=True,
+                text=True,
+                timeout=10
+            )
+            if result.returncode == 0:
+                # nvidia-smi 能运行，说明有 GPU
+                # 尝试从输出提取信息
+                gpu_info = []
+                for line in result.stdout.split('\n'):
+                    if 'GPU' in line and 'Name' not in line:
+                        # 尝试提取 GPU 名称
+                        pass
+                # 如果无法解析，返回一个默认条目
+                return [{'name': 'NVIDIA GPU', 'driver': None, 'cuda': None}]
+        except Exception:
+            pass
+
     return None
 
 
@@ -62,39 +102,20 @@ def check_mps() -> bool:
 
 
 def get_recommended_cuda_version(gpu_info: Optional[List[GPUInfo]]) -> Optional[str]:
-    """根据 GPU 的 CUDA 版本推荐合适的 PyTorch CUDA 版本
+    """根据 GPU 推荐合适的 PyTorch CUDA 版本
 
     Args:
         gpu_info: GPU 信息列表
 
     Returns:
-        推荐的 CUDA 版本 (cu118, cu121, cu124)
+        推荐的 CUDA 版本 (cu118, cu121, cu124) 或 None
     """
     if not gpu_info:
         return None
 
-    # 获取第一个 GPU 的 CUDA 版本
-    cuda_version = gpu_info[0].get('cuda')
-    if not cuda_version:
-        return "cu124"  # 默认使用最新的
-
-    try:
-        major, minor = map(int, cuda_version.split('.'))
-
-        # CUDA 11.x → cu118
-        if major == 11:
-            return "cu118"
-        # CUDA 12.0-12.3 → cu121
-        elif major == 12 and minor < 4:
-            return "cu121"
-        # CUDA 12.4+ → cu124
-        elif major == 12 and minor >= 4:
-            return "cu124"
-        # 未知版本 → 使用最新的
-        else:
-            return "cu124"
-    except:
-        return "cu124"
+    # 对于现代 NVIDIA GPU，直接推荐 cu124
+    # CUDA 12.4 是目前最广泛支持的版本
+    return "cu124"
 
 
 def main():
@@ -132,11 +153,7 @@ def main():
     if gpu_info is not None:
         print("✅ 检测到 NVIDIA GPU:")
         for i, gpu in enumerate(gpu_info, 1):
-            print(f"   GPU {i}:")
-            print(f"      名称: {gpu['name']}")
-            print(f"      驱动: {gpu['driver']}")
-            if gpu['cuda']:
-                print(f"      CUDA: {gpu['cuda']}")
+            print(f"   GPU {i}: {gpu['name']}")
 
         recommended_cuda = get_recommended_cuda_version(gpu_info)
         print(f"\n   推荐安装: PyTorch {recommended_cuda} 版本")

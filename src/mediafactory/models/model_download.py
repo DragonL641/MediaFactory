@@ -57,25 +57,28 @@ def get_model_total_size(
 
 
 def get_downloaded_size(model_path: Path) -> int:
-    """计算本地已下载模型目录的总大小。
+    """计算本地已下载模型目录的总大小（包括 .cache 中的临时文件）。
 
     Args:
         model_path: 模型目录路径
 
     Returns:
-        已下载文件的总大小（字节）
+        已下载文件的总大小（字节），包括正在下载中的临时文件
     """
     if not model_path.exists():
         return 0
 
     total_size = 0
     for f in model_path.rglob("*"):
-        # 跳过 .cache 子目录和目录
-        if f.is_file() and ".cache" not in f.parts:
-            try:
-                total_size += f.stat().st_size
-            except OSError:
-                pass  # 忽略无法访问的文件
+        # 只计算文件，跳过目录
+        if not f.is_file():
+            continue
+        try:
+            # 包含 .cache 目录中的 .incomplete 临时文件
+            # huggingface_hub 下载大文件时会先写入 .cache，完成后才移动
+            total_size += f.stat().st_size
+        except OSError:
+            pass  # 忽略无法访问的文件
     return total_size
 
 
@@ -218,6 +221,26 @@ def download_model(
     # 处理下载源
     endpoint = None if download_source == "https://huggingface.co" else download_source
 
+    # 根据模型类型设置文件过滤规则
+    allow_patterns = None
+    ignore_patterns = None
+    if model_info.model_type == ModelType.TRANSLATION:
+        # 翻译模型：只下载 GGUF + tokenizer + config，排除大体积的 safetensors
+        allow_patterns = [
+            "*.gguf",           # GGUF 量化模型文件
+            "config.json",
+            "generation_config.json",
+            "tokenizer*",
+            "spiece*",
+            "special_tokens*",
+            "added_tokens*",
+        ]
+        ignore_patterns = [
+            "*.safetensors",    # 排除原始 fp32 模型（通常 10GB+）
+            "*.bin",            # 排除 pytorch_model.bin
+        ]
+        log_info(f"Translation model: using file filters to reduce download size")
+
     # 带重试机制的下载
     last_error = None
     for attempt in range(MAX_RETRIES):
@@ -233,6 +256,9 @@ def download_model(
                 repo_id=huggingface_id,
                 local_dir=str(local_path),
                 endpoint=endpoint,
+                local_dir_use_symlinks=False,  # 直接下载到目标目录，不使用缓存，便于进度追踪
+                allow_patterns=allow_patterns,
+                ignore_patterns=ignore_patterns,
             )
 
             # 下载成功后更新配置文件
@@ -276,25 +302,52 @@ def delete_model(huggingface_id: str) -> Tuple[bool, str]:
         log_error(f"delete_model failed: {error_msg}")
         return False, error_msg
 
-    try:
-        shutil.rmtree(model_path)
-        log_info(f"Model deleted: {huggingface_id}")
-    except PermissionError as e:
-        error_msg = f"Permission denied: {e}"
-        log_error(f"Failed to delete model {huggingface_id}: {error_msg}")
-        return False, error_msg
-    except OSError as e:
-        error_msg = f"OS error: {e}"
-        log_error(f"Failed to delete model {huggingface_id}: {error_msg}")
-        return False, error_msg
-    except Exception as e:
-        error_msg = f"Unexpected error: {e}"
-        log_exception(f"Failed to delete model {huggingface_id}")
-        return False, error_msg
+    # 尝试删除，带重试机制（处理文件被占用的情况）
+    max_retries = 3
+    retry_delay = 1  # 秒
 
-    # 删除成功后更新配置文件
-    _update_config_after_delete(huggingface_id, model_info.model_type)
-    return True, ""
+    for attempt in range(max_retries):
+        try:
+            # 先尝试清理 HuggingFace 缓存目录中的临时文件
+            cache_dir = model_path / ".cache"
+            if cache_dir.exists():
+                try:
+                    shutil.rmtree(cache_dir)
+                    log_info(f"Cleaned cache directory for {huggingface_id}")
+                except PermissionError:
+                    # 缓存目录可能正在被使用，继续尝试删除主目录
+                    pass
+
+            # 删除主目录
+            shutil.rmtree(model_path)
+            log_info(f"Model deleted: {huggingface_id}")
+
+            # 删除成功后更新配置文件
+            _update_config_after_delete(huggingface_id, model_info.model_type)
+            return True, ""
+
+        except PermissionError as e:
+            if attempt < max_retries - 1:
+                log_info(f"Delete failed (attempt {attempt + 1}/{max_retries}), retrying in {retry_delay}s...")
+                time.sleep(retry_delay)
+                retry_delay *= 2  # 指数退避
+            else:
+                error_msg = f"Permission denied: {e}"
+                log_error(f"Failed to delete model {huggingface_id}: {error_msg}")
+                # 提供更友好的错误提示
+                if ".incomplete" in str(e) or "being used by another process" in str(e):
+                    error_msg = f"模型正在下载或被其他进程占用，请稍后重试。\n详情: {e}"
+                return False, error_msg
+        except OSError as e:
+            error_msg = f"OS error: {e}"
+            log_error(f"Failed to delete model {huggingface_id}: {error_msg}")
+            return False, error_msg
+        except Exception as e:
+            error_msg = f"Unexpected error: {e}"
+            log_exception(f"Failed to delete model {huggingface_id}")
+            return False, error_msg
+
+    return False, "Unknown error"
 
 
 def get_all_model_statuses() -> dict[str, bool]:

@@ -35,8 +35,8 @@ OUTPUT_FORMAT_CONFIG = {
     "aac": {"ext": ".aac", "codec": "aac", "extra_args": ["-b:a", "192k"]},
 }
 
-# 危险字符
-DANGEROUS_CHARS = set(";|&`$()<>[]{}!*?~\\'\"")
+# 危险字符 (注意: 不包含反斜杠，因为它是 Windows 路径分隔符)
+DANGEROUS_CHARS = set(";|&`$()<>[]{}!*?~'\"")
 
 
 def validate_video_path(video_path: str) -> None:

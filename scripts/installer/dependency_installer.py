@@ -145,26 +145,47 @@ def download_uv_binary(
 
 
 def detect_cuda() -> Tuple[bool, Optional[str]]:
-    """检测 NVIDIA GPU 和 CUDA 版本
+    """检测 NVIDIA GPU
+
+    简化版：只检测 GPU 是否存在，不查询复杂的 CUDA 版本字段。
+    对于 PyTorch 安装，直接使用 cu124（最新稳定版）。
 
     Returns:
         (has_gpu, cuda_version) 元组
         - has_gpu: 是否检测到 NVIDIA GPU
-        - cuda_version: CUDA 版本 (如 "12.1") 或 None
+        - cuda_version: 固定返回 "12.4"（推荐安装 cu124）
     """
+    # 方法1: 使用 nvidia-smi -L 检测 GPU（这个命令最稳定）
     try:
         result = subprocess.run(
-            ["nvidia-smi", "--query-gpu=cuda_version", "--format=csv,noheader"],
+            ["nvidia-smi", "-L"],
             capture_output=True,
             text=True,
-            timeout=10,
+            timeout=10
         )
         if result.returncode == 0 and result.stdout.strip():
-            # 解析 CUDA 版本 (格式: "12.1")
-            cuda_version = result.stdout.strip().split("\n")[0].strip()
-            return True, cuda_version
+            # nvidia-smi -L 能运行，说明有 GPU
+            return True, "12.4"
     except (FileNotFoundError, subprocess.TimeoutExpired):
         pass
+    except Exception:
+        pass
+
+    # 方法2: 检查 nvidia-smi 命令是否存在且能运行
+    try:
+        result = subprocess.run(
+            ["nvidia-smi"],
+            capture_output=True,
+            text=True,
+            timeout=10
+        )
+        if result.returncode == 0:
+            return True, "12.4"
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        pass
+    except Exception:
+        pass
+
     return False, None
 
 

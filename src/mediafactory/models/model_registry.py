@@ -161,18 +161,18 @@ MODEL_REGISTRY: dict[str, ModelInfo] = {
         license=LicenseType.MIT,
         language_support="99+ languages",
         precision="float16",
-        description="Best quality Whisper model for transcription",
+        description="Best quality for transcription",
     ),
     # ========== Translation Models ==========
     # MADLAD400 (Apache 2.0 许可证，支持商用)
-    # GGUF Q4K 量化版本
+    # 注意：使用 allow_patterns 只下载 GGUF + tokenizer + config，排除 safetensors
     "google/madlad400-3b-mt": ModelInfo(
         huggingface_id="google/madlad400-3b-mt",
-        gguf_file="madlad400-3b.Q4_K_M.gguf",
+        gguf_file="model-q4k.gguf",  # 实际 GGUF 文件名
         display_name="MADLAD400-3B (Q4K GGUF)",
         model_type=ModelType.TRANSLATION,
-        model_size_mb=2048,  # 2 GB
-        runtime_memory_mb=4096,  # 4 GB
+        model_size_mb=1700,  # ~1.65 GB (GGUF q4k + tokenizer，排除 safetensors)
+        runtime_memory_mb=4096,  # 4 GB (加载 GGUF 时实际内存)
         runtime_vram_mb=3072,  # 3 GB VRAM
         recommended_system_mb=16384,  # 16 GB
         recommended_vram_mb=8192,  # 8 GB VRAM
@@ -180,14 +180,14 @@ MODEL_REGISTRY: dict[str, ModelInfo] = {
         language_support="400+ languages",
         precision="q4k",
         requires_prompt=False,
-        description="量化版 MADLAD400，支持所有语言对翻译 (GGUF格式)",
+        description="All-language translation (GGUF)",
     ),
     "google/madlad400-7b-mt-bt": ModelInfo(
         huggingface_id="google/madlad400-7b-mt-bt",
-        gguf_file="madlad400-7b.Q4_K_M.gguf",
+        gguf_file="model-q4k.gguf",
         display_name="MADLAD400-7B (Q4K GGUF)",
         model_type=ModelType.TRANSLATION,
-        model_size_mb=4608,  # 4.5 GB
+        model_size_mb=4800,  # ~4.7 GB (GGUF q4k 4.67GB + tokenizer ~21MB)
         runtime_memory_mb=7168,  # 7 GB
         runtime_vram_mb=5120,  # 5 GB VRAM
         recommended_system_mb=32768,  # 32 GB
@@ -196,7 +196,7 @@ MODEL_REGISTRY: dict[str, ModelInfo] = {
         language_support="400+ languages",
         precision="q4k",
         requires_prompt=False,
-        description="高质量量化版 MADLAD400 (GGUF格式)",
+        description="High-quality translation (GGUF)",
     ),
     # ========== Enhancement Models: Super Resolution (Real-ESRGAN) ==========
     "RealESRGAN_x4plus": ModelInfo(
@@ -209,20 +209,20 @@ MODEL_REGISTRY: dict[str, ModelInfo] = {
         download_mode=DownloadMode.FILE,
         huggingface_repo="lllyasviel/Annotators",
         huggingface_filename="RealESRGAN_x4plus.pth",
-        description="4x 通用超分辨率模型，适合大多数视频",
+        description="4x upscaling for most videos",
         metadata={"scale": 4, "type": "general"},
     ),
     "RealESRGAN_x2plus": ModelInfo(
         huggingface_id="RealESRGAN_x2plus",
         display_name="Real-ESRGAN x2 (General)",
         model_type=ModelType.SUPER_RESOLUTION,
-        model_size_mb=17,
+        model_size_mb=64,  # 实际大小
         runtime_memory_mb=512,
         license=LicenseType.MIT,
         download_mode=DownloadMode.FILE,
         huggingface_repo="nateraw/real-esrgan",
         huggingface_filename="RealESRGAN_x2plus.pth",
-        description="2x 通用超分辨率模型，处理速度更快",
+        description="2x upscaling, faster processing",
         metadata={"scale": 2, "type": "general"},
     ),
     "RealESRGAN_x4plus_anime_6B": ModelInfo(
@@ -235,7 +235,7 @@ MODEL_REGISTRY: dict[str, ModelInfo] = {
         download_mode=DownloadMode.FILE,
         huggingface_repo="Runware/upscaler",
         huggingface_filename="RealESRGAN_x4plus_anime_6B.pth",
-        description="4x 动漫视频专用模型",
+        description="4x upscaling for anime",
         metadata={"scale": 4, "type": "anime"},
     ),
     # ========== Enhancement Models: Denoise (NAFNet) ==========
@@ -243,13 +243,13 @@ MODEL_REGISTRY: dict[str, ModelInfo] = {
         huggingface_id="NAFNet-GoPro-width64",
         display_name="NAFNet Denoiser (GoPro)",
         model_type=ModelType.DENOISE,
-        model_size_mb=65,
+        model_size_mb=260,  # 实际大小
         runtime_memory_mb=512,
         license=LicenseType.MIT,
         download_mode=DownloadMode.FILE,
         huggingface_repo="nyanko7/nafnet-models",
         huggingface_filename="NAFNet-GoPro-width64.pth",
-        description="通用去噪模型，适合老视频和压缩噪点",
+        description="Denoise for old/compressed videos",
         metadata={"type": "denoise"},
     ),
     # ========== Enhancement Models: Face Restore (CodeFormer) ==========
@@ -257,14 +257,14 @@ MODEL_REGISTRY: dict[str, ModelInfo] = {
         huggingface_id="CodeFormer",
         display_name="CodeFormer",
         model_type=ModelType.FACE_RESTORE,
-        model_size_mb=365,
+        model_size_mb=360,  # 实际大小
         runtime_memory_mb=1024,
         license=LicenseType.MIT,
         download_mode=DownloadMode.FILE,
         huggingface_repo="alexgenovese/facerestore",
         huggingface_filename="codeformer-v0.1.0.pth",
         local_filename="codeformer.pth",
-        description="人脸修复模型，可修复模糊人脸",
+        description="Restore blurry faces",
         metadata={"type": "face_restore"},
     ),
     "RetinaFace-R50": ModelInfo(
@@ -278,7 +278,7 @@ MODEL_REGISTRY: dict[str, ModelInfo] = {
         huggingface_repo="licyk/sd-upscaler-models",
         huggingface_filename="GFPGAN/detection_Resnet50_Final.pth",
         local_filename="Resnet50_Final.pth",
-        description="人脸检测模型，用于定位人脸位置",
+        description="Detect face positions",
         metadata={"type": "face_detection"},
     ),
 }

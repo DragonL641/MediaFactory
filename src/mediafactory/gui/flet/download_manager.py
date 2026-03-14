@@ -1,27 +1,34 @@
 """
-下载队列管理器
+Download Queue Manager
 
-提供串行下载队列，线程安全的状态管理，以及下载失败时的清理功能。
-统一支持 HuggingFace 模型和增强模型的下载（全部通过 HuggingFace Hub）。
+Provides serial download queue, thread-safe state management, and cleanup on download failure.
+Supports both HuggingFace models and enhancement model downloads (all via HuggingFace Hub).
+Uses subprocess for downloads to enable true forced cancellation.
 """
 
+import gc
+import json
 import shutil
+import subprocess
+import sys
 import threading
 import time
 from enum import Enum
 from pathlib import Path
 from typing import Callable, Dict, List, Optional, Tuple
 
-from huggingface_hub import hf_hub_download, snapshot_download
-
 from mediafactory.logging import log_error, log_info
 
-# 重试配置
-MAX_RETRIES = 3  # 最大重试次数
-RETRY_DELAY = 5  # 重试间隔（秒）
+# Retry configuration
+MAX_RETRIES = 3  # Maximum retry attempts
+RETRY_DELAY = 5  # Retry interval (seconds)
+# Download timeout (seconds) - 1 hour default
+DOWNLOAD_TIMEOUT = 3600
+
 from mediafactory.models.model_registry import (
     MODEL_REGISTRY,
     DownloadMode,
+    ModelType,
     get_enhancement_models_dir,
     get_models_base_dir,
     is_model_complete,
@@ -29,22 +36,23 @@ from mediafactory.models.model_registry import (
 
 
 class DownloadStatus(Enum):
-    """下载状态枚举"""
+    """Download status enumeration"""
 
-    IDLE = "idle"  # 空闲，未下载
-    WAITING = "waiting"  # 排队中
-    DOWNLOADING = "downloading"  # 下载中
-    COMPLETED = "completed"  # 已完成
-    FAILED = "failed"  # 失败
-    CANCELLED = "cancelled"  # 已取消
-    DELETING = "deleting"  # 删除中
+    IDLE = "idle"  # Idle, not downloading
+    WAITING = "waiting"  # Queued
+    DOWNLOADING = "downloading"  # Downloading
+    COMPLETED = "completed"  # Completed
+    FAILED = "failed"  # Failed
+    CANCELLED = "cancelled"  # Cancelled
+    DELETING = "deleting"  # Deleting
 
 
 class DownloadManager:
     """
-    串行下载队列管理器（单例）
+    Serial Download Queue Manager (Singleton)
 
-    负责管理模型下载队列，提供线程安全的状态访问。
+    Manages model download queue, provides thread-safe state access.
+    Uses subprocess for downloads to enable true forced cancellation.
     """
 
     _instance = None
@@ -56,14 +64,14 @@ class DownloadManager:
         return cls._instance
 
     def __init__(self):
-        # 避免重复初始化
+        # Avoid repeated initialization
         if DownloadManager._initialized:
             return
         DownloadManager._initialized = True
 
         self._lock = threading.Lock()
-        self._queue: List[str] = []  # 排队中的 model_id 列表
-        self._current: Optional[str] = None  # 当前正在下载的 model_id
+        self._queue: List[str] = []  # Queued model_id list
+        self._current: Optional[str] = None  # Currently downloading model_id
         self._statuses: Dict[str, DownloadStatus] = {}  # {model_id: status}
         self._progress: Dict[str, float] = {}  # {model_id: progress_percent}
         self._messages: Dict[str, str] = {}  # {model_id: status message}
@@ -72,24 +80,28 @@ class DownloadManager:
         self._worker_thread: Optional[threading.Thread] = None
         self._running = False
 
-        # 轮询线程管理
+        # Polling thread management
         self._poll_threads: Dict[str, threading.Thread] = {}
         self._poll_stop_events: Dict[str, threading.Event] = {}
 
+        # Subprocess management
+        self._download_process: Optional[subprocess.Popen] = None
+        self._process_lock = threading.Lock()
+
     def enqueue(self, model_id: str) -> bool:
         """
-        将模型加入下载队列
+        Add model to download queue
 
         Args:
-            model_id: 模型 ID
+            model_id: Model ID
 
         Returns:
-            True 如果成功加入队列
+            True if successfully added to queue
         """
         callback_data = None
-        
+
         with self._lock:
-            # 检查是否已在队列中或正在下载
+            # Check if already in queue or downloading
             if model_id in self._queue:
                 log_info(f"Model {model_id} already in queue")
                 return False
@@ -97,57 +109,57 @@ class DownloadManager:
                 log_info(f"Model {model_id} already downloading")
                 return False
 
-            # 设置状态
+            # Set status
             if self._current is None:
-                # 队列为空，直接开始下载
+                # Queue empty, start download directly
                 self._current = model_id
                 self._statuses[model_id] = DownloadStatus.DOWNLOADING
                 self._progress[model_id] = 0.0
                 self._messages[model_id] = "Starting download..."
                 self._cancel_requested[model_id] = False
-                # 启动工作线程
+                # Start worker thread
                 self._start_worker()
             else:
-                # 加入队列
+                # Add to queue
                 self._queue.append(model_id)
                 self._statuses[model_id] = DownloadStatus.WAITING
                 self._progress[model_id] = 0.0
                 self._messages[model_id] = "Waiting in queue..."
 
             log_info(f"Model {model_id} enqueued, status: {self._statuses[model_id]}")
-            # 准备回调数据（在锁内）
+            # Prepare callback data (within lock)
             callback_data = self._get_callback_data(model_id)
-        
-        # 在锁外调用回调
+
+        # Call callback outside lock
         if callback_data:
             self._notify_callbacks_unlocked(*callback_data)
         return True
 
     def cancel(self, model_id: str) -> bool:
         """
-        取消下载（排队中或下载中）
+        Cancel download (queued or downloading)
 
         Args:
-            model_id: 模型 ID
+            model_id: Model ID
 
         Returns:
-            True 如果成功取消
+            True if successfully cancelled
         """
         callback_data = None
         success = False
 
         with self._lock:
-            # 检查是否在队列中
+            # Check if in queue
             if model_id in self._queue:
                 self._queue.remove(model_id)
-                # 清除状态，恢复到 IDLE（排队中没有文件被下载）
+                # Clear status, return to IDLE (no files downloaded while queued)
                 self._statuses.pop(model_id, None)
                 self._progress.pop(model_id, None)
                 self._messages.pop(model_id, None)
                 log_info(f"Model {model_id} cancelled from queue, status cleared")
                 callback_data = (model_id, DownloadStatus.IDLE, 0.0, "")
                 success = True
-            # 检查是否正在下载
+            # Check if currently downloading
             elif self._current == model_id:
                 self._cancel_requested[model_id] = True
                 self._messages[model_id] = "Cancelling..."
@@ -155,63 +167,67 @@ class DownloadManager:
                 callback_data = self._get_callback_data(model_id)
                 success = True
 
-        # 停止进度轮询
+        # Terminate subprocess (outside lock to avoid deadlock)
+        if success and self._current == model_id:
+            self._terminate_download_process()
+
+        # Stop progress polling
         if success:
             self._stop_progress_polling(model_id)
 
-        # 在锁外通知 UI
+        # Notify UI outside lock
         if callback_data:
             self._notify_callbacks_unlocked(*callback_data)
         return success
 
     def get_status(self, model_id: str) -> DownloadStatus:
         """
-        获取模型下载状态
+        Get model download status
 
         Args:
-            model_id: HuggingFace 模型 ID
+            model_id: HuggingFace model ID
 
         Returns:
-            当前下载状态
+            Current download status
         """
         with self._lock:
             return self._statuses.get(model_id, DownloadStatus.IDLE)
 
     def get_progress(self, model_id: str) -> float:
         """
-        获取模型下载进度
+        Get model download progress
 
         Args:
-            model_id: HuggingFace 模型 ID
+            model_id: HuggingFace model ID
 
         Returns:
-            下载进度 (0-100)
+            Download progress (0-100)
         """
         with self._lock:
             return self._progress.get(model_id, 0.0)
 
     def get_message(self, model_id: str) -> str:
         """
-        获取模型下载状态消息
+        Get model download status message
 
         Args:
-            model_id: HuggingFace 模型 ID
+            model_id: HuggingFace model ID
 
         Returns:
-            状态消息
+            Status message
         """
         with self._lock:
             return self._messages.get(model_id, "")
 
     def is_in_queue(self, model_id: str) -> bool:
         """
-        检查模型是否在队列中或正在下载
+        Check if model is in queue or downloading
 
         Args:
-            model_id: HuggingFace 模型 ID
+            model_id: HuggingFace model ID
 
         Returns:
-            True 如果在队列中或正在下载
+            True if in queue or downloading
         """
         with self._lock:
             return model_id in self._queue or self._current == model_id
@@ -220,10 +236,10 @@ class DownloadManager:
         self, callback: Callable[[str, DownloadStatus, float, str], None]
     ) -> None:
         """
-        注册状态变化回调函数
+        Register state change callback function
 
         Args:
-            callback: 回调函数，接收 (model_id, status, progress, message)
+            callback: Callback function, receives (model_id, status, progress, message)
         """
         with self._lock:
             if callback not in self._callbacks:
@@ -233,10 +249,10 @@ class DownloadManager:
         self, callback: Callable[[str, DownloadStatus, float, str], None]
     ) -> None:
         """
-        注销状态变化回调函数
+        Unregister state change callback function
 
         Args:
-            callback: 要注销的回调函数
+            callback: Callback function to unregister
         """
         with self._lock:
             if callback in self._callbacks:
@@ -244,16 +260,16 @@ class DownloadManager:
 
     def _notify_callbacks(self, model_id: str) -> None:
         """
-        通知所有回调函数状态变化（在锁内调用，会释放锁后调用回调）
+        Notify all callbacks of state change (called within lock, releases lock before calling callbacks)
 
         Args:
-            model_id: 状态变化的模型 ID
+            model_id: Model ID with state change
         """
-        # 获取回调数据（在锁内）
+        # Get callback data (within lock)
         callback_data = self._get_callback_data(model_id)
         callbacks = list(self._callbacks)
-        
-        # 在锁外调用回调
+
+        # Call callbacks outside lock
         for callback in callbacks:
             try:
                 callback(*callback_data)
@@ -262,10 +278,10 @@ class DownloadManager:
 
     def _get_callback_data(self, model_id: str) -> Tuple[str, DownloadStatus, float, str]:
         """
-        获取回调所需数据（在锁内调用）
+        Get callback required data (called within lock)
 
         Args:
-            model_id: 模型 ID
+            model_id: Model ID
 
         Returns:
             (model_id, status, progress, message)
@@ -277,7 +293,7 @@ class DownloadManager:
 
     @staticmethod
     def _format_size(size_bytes: int) -> str:
-        """格式化文件大小"""
+        """Format file size"""
         if size_bytes < 1024:
             return f"{size_bytes} B"
         elif size_bytes < 1024 * 1024:
@@ -288,33 +304,33 @@ class DownloadManager:
             return f"{size_bytes / (1024 * 1024 * 1024):.1f} GB"
 
     def _start_progress_polling(self, model_id: str) -> None:
-        """启动进度轮询线程"""
+        """Start progress polling thread"""
         stop_event = threading.Event()
         self._poll_stop_events[model_id] = stop_event
 
         def poll_progress():
-            """轮询下载进度"""
+            """Poll download progress"""
             from mediafactory.models.model_download import get_downloaded_size, get_models_dir
 
-            # 获取模型总大小（从注册表）
+            # Get model total size (from registry)
             model_info = MODEL_REGISTRY.get(model_id)
             if not model_info:
                 return
 
-            total_size = model_info.model_size_mb * 1024 * 1024  # 转换为字节
+            total_size = model_info.model_size_mb * 1024 * 1024  # Convert to bytes
 
             while not stop_event.is_set():
                 try:
-                    # 根据下载模式确定路径
+                    # Determine path based on download mode
                     if model_info.download_mode == DownloadMode.FILE:
-                        # 单文件模式
+                        # Single file mode
                         filename = model_info.local_filename or model_info.huggingface_filename
                         if filename:
                             model_path = get_enhancement_models_dir() / filename
                         else:
                             model_path = get_enhancement_models_dir()
                     else:
-                        # 仓库模式
+                        # Repository mode
                         model_path = get_models_dir() / model_id
 
                     downloaded = get_downloaded_size(model_path) if model_path.is_dir() else (
@@ -325,7 +341,7 @@ class DownloadManager:
                         progress = min(100, int(downloaded / total_size * 100))
                         message = f"{progress}% ({self._format_size(downloaded)} / {self._format_size(total_size)})"
 
-                        # 更新状态
+                        # Update status
                         callback_data = None
                         with self._lock:
                             if model_id in self._statuses:
@@ -333,14 +349,14 @@ class DownloadManager:
                                 self._messages[model_id] = message
                                 callback_data = self._get_callback_data(model_id)
 
-                        # 在锁外通知观察者
+                        # Notify observers outside lock
                         if callback_data:
                             self._notify_callbacks_unlocked(*callback_data)
 
                 except Exception as e:
                     log_info(f"Poll progress error: {e}")
 
-                # 等待 1 秒
+                # Wait 1 second
                 stop_event.wait(1.0)
 
         thread = threading.Thread(target=poll_progress, daemon=True)
@@ -348,7 +364,7 @@ class DownloadManager:
         thread.start()
 
     def _stop_progress_polling(self, model_id: str) -> None:
-        """停止进度轮询线程"""
+        """Stop progress polling thread"""
         if model_id in self._poll_stop_events:
             self._poll_stop_events[model_id].set()
         if model_id in self._poll_threads:
@@ -357,28 +373,50 @@ class DownloadManager:
         if model_id in self._poll_stop_events:
             del self._poll_stop_events[model_id]
 
-    def _notify_callbacks_unlocked(self, model_id: str, status: DownloadStatus, 
+    def _notify_callbacks_unlocked(self, model_id: str, status: DownloadStatus,
                                     progress: float, message: str) -> None:
         """
-        在锁外安全地通知所有回调
+        Safely notify all callbacks outside lock
 
         Args:
-            model_id: 模型 ID
-            status: 下载状态
-            progress: 进度
-            message: 状态消息
+            model_id: Model ID
+            status: Download status
+            progress: Progress
+            message: Status message
         """
         with self._lock:
             callbacks = list(self._callbacks)
-        
+
         for callback in callbacks:
             try:
                 callback(model_id, status, progress, message)
             except Exception as e:
                 log_error(f"Callback error: {e}")
 
+    def _terminate_download_process(self) -> None:
+        """Force terminate download subprocess"""
+        with self._process_lock:
+            if self._download_process is not None:
+                try:
+                    log_info("Terminating download subprocess...")
+                    self._download_process.terminate()  # Send SIGTERM
+                    # Wait up to 3 seconds for graceful termination
+                    try:
+                        self._download_process.wait(timeout=3)
+                        log_info("Download subprocess terminated gracefully")
+                    except subprocess.TimeoutExpired:
+                        # Force kill if process doesn't terminate
+                        log_info("Download subprocess did not terminate, force killing...")
+                        self._download_process.kill()
+                        self._download_process.wait(timeout=1)
+                        log_info("Download subprocess killed")
+                except Exception as e:
+                    log_error(f"Failed to terminate download process: {e}")
+                finally:
+                    self._download_process = None
+
     def _start_worker(self) -> None:
-        """启动工作线程"""
+        """Start worker thread"""
         if self._worker_thread is not None and self._worker_thread.is_alive():
             return
 
@@ -387,7 +425,7 @@ class DownloadManager:
         self._worker_thread.start()
 
     def _process_queue(self) -> None:
-        """处理下载队列的工作线程"""
+        """Worker thread for processing download queue"""
         while self._running:
             model_id = None
 
@@ -407,10 +445,10 @@ class DownloadManager:
                         break
                     model_id = self._current
 
-            # 执行下载
+            # Execute download
             self._download_model(model_id)
 
-            # 检查是否还有下一个任务
+            # Check for next task
             with self._lock:
                 self._current = None
                 if len(self._queue) == 0:
@@ -419,20 +457,20 @@ class DownloadManager:
 
     def _download_model(self, model_id: str) -> None:
         """
-        下载单个模型（统一入口）
+        Download single model (unified entry point)
 
-        根据模型的 download_mode 决定下载方式：
-        - REPO: 使用 snapshot_download 下载整个仓库
-        - FILE: 使用 hf_hub_download 下载单个文件
+        Downloads based on model's download_mode:
+        - REPO: Use snapshot_download to download entire repository
+        - FILE: Use hf_hub_download to download single file
 
         Args:
-            model_id: 模型 ID
+            model_id: Model ID
         """
         model_info = MODEL_REGISTRY.get(model_id)
         if not model_info:
             self._handle_failure(model_id, f"Unknown model: {model_id}")
             return
-        
+
         if model_info.download_mode == DownloadMode.FILE:
             self._download_single_file(model_id, model_info)
         else:
@@ -440,11 +478,11 @@ class DownloadManager:
 
     def _download_repo(self, model_id: str, model_info) -> None:
         """
-        下载整个 HuggingFace 仓库（带重试机制）
+        Download entire HuggingFace repository using subprocess (with retry mechanism)
 
         Args:
-            model_id: 模型 ID
-            model_info: 模型信息
+            model_id: Model ID
+            model_info: Model info
         """
         from mediafactory.config import get_config
 
@@ -453,51 +491,81 @@ class DownloadManager:
         endpoint = None if download_source == "https://huggingface.co" else download_source
         local_path = get_models_base_dir() / model_id
 
-        # 更新状态
+        # Update status
         self._update_status(model_id, "Downloading from HuggingFace...")
 
-        # 检查是否被取消
+        # Check if cancelled
         if self._cancel_requested.get(model_id, False):
             self._handle_cancel(model_id)
             return
 
-        # 启动进度轮询
+        # Start progress polling
         self._start_progress_polling(model_id)
+
+        # 根据模型类型设置文件过滤规则
+        allow_patterns = None
+        ignore_patterns = None
+        if model_info.model_type == ModelType.TRANSLATION:
+            # 翻译模型：只下载 GGUF + tokenizer + config，排除大体积的 safetensors
+            allow_patterns = [
+                "*.gguf",           # GGUF 量化模型文件
+                "config.json",
+                "generation_config.json",
+                "tokenizer*",
+                "spiece*",
+                "special_tokens*",
+                "added_tokens*",
+            ]
+            ignore_patterns = [
+                "*.safetensors",    # 排除原始 fp32 模型（通常 10GB+）
+                "*.bin",            # 排除 pytorch_model.bin
+            ]
+            log_info(f"Translation model: using file filters to reduce download size")
 
         last_error = None
         for attempt in range(MAX_RETRIES):
             try:
-                # 检查是否被取消
+                # Check if cancelled
                 if self._cancel_requested.get(model_id, False):
                     self._stop_progress_polling(model_id)
                     self._handle_cancel(model_id)
                     return
 
-                # 更新重试状态
+                # Update retry status
                 if attempt > 0:
                     self._update_status(model_id, f"Retrying ({attempt + 1}/{MAX_RETRIES})...")
                     log_info(f"Download retry {attempt + 1}/{MAX_RETRIES} for {model_id}")
 
-                # 执行下载（huggingface_hub 默认支持断点续传）
-                snapshot_download(
-                    repo_id=model_info.huggingface_repo,
-                    local_dir=str(local_path),
-                    endpoint=endpoint,
-                )
+                # Prepare subprocess parameters
+                params = {
+                    "mode": "repo",
+                    "repo_id": model_info.huggingface_repo,
+                    "local_dir": str(local_path),
+                    "endpoint": endpoint,
+                    "allow_patterns": allow_patterns,
+                    "ignore_patterns": ignore_patterns,
+                }
 
-                # 停止进度轮询
+                # Execute download in subprocess
+                success = self._run_download_subprocess(model_id, params)
+
+                # Stop progress polling
                 self._stop_progress_polling(model_id)
 
-                # 检查是否被取消
+                # If cancelled during subprocess execution
                 if self._cancel_requested.get(model_id, False):
                     self._handle_cancel(model_id)
                     return
 
-                # 验证下载完整性
-                if is_model_complete(model_id):
-                    self._handle_success(model_id)
+                if success:
+                    # Verify download integrity
+                    if is_model_complete(model_id):
+                        self._handle_success(model_id)
+                    else:
+                        self._handle_failure(model_id, "Download completed but verification failed")
                 else:
-                    self._handle_failure(model_id, "Download completed but verification failed")
+                    # Subprocess failed, will retry
+                    raise Exception("Subprocess download failed")
                 return
 
             except Exception as ex:
@@ -505,28 +573,28 @@ class DownloadManager:
                 error_msg = str(ex)[:100]
                 log_error(f"Download failed for {model_id} (attempt {attempt + 1}/{MAX_RETRIES}): {error_msg}")
 
-                # 检查是否被取消
+                # Check if cancelled
                 if self._cancel_requested.get(model_id, False):
                     self._stop_progress_polling(model_id)
                     self._handle_cancel(model_id)
                     return
 
-                # 非最后一次重试，等待后继续
+                # Not last retry, wait and continue
                 if attempt < MAX_RETRIES - 1:
                     self._update_status(model_id, f"Connection lost, retrying in {RETRY_DELAY}s...")
                     time.sleep(RETRY_DELAY)
                 else:
-                    # 最后一次重试失败，停止进度轮询并处理失败
+                    # Last retry failed, stop polling and handle failure
                     self._stop_progress_polling(model_id)
                     self._handle_failure(model_id, f"{error_msg} (after {MAX_RETRIES} retries)", clean_files=True)
 
     def _download_single_file(self, model_id: str, model_info) -> None:
         """
-        下载单个文件（增强模型，带重试机制）
+        Download single file (enhancement model, with retry mechanism)
 
         Args:
-            model_id: 模型 ID
-            model_info: 模型信息
+            model_id: Model ID
+            model_info: Model info
         """
         from mediafactory.config import get_config
 
@@ -534,15 +602,15 @@ class DownloadManager:
         download_source = config.model.download_source
         endpoint = None if download_source == "https://huggingface.co" else download_source
 
-        # 更新状态
+        # Update status
         self._update_status(model_id, "Downloading model file...")
 
-        # 检查是否被取消
+        # Check if cancelled
         if self._cancel_requested.get(model_id, False):
             self._handle_cancel(model_id)
             return
 
-        # 准备目录
+        # Prepare directory
         models_dir = get_enhancement_models_dir()
         models_dir.mkdir(parents=True, exist_ok=True)
 
@@ -553,55 +621,53 @@ class DownloadManager:
 
         log_info(f"Downloading {model_id} from {model_info.huggingface_repo}/{model_info.huggingface_filename}")
 
-        # 启动进度轮询
+        # Start progress polling
         self._start_progress_polling(model_id)
 
         last_error = None
         for attempt in range(MAX_RETRIES):
             try:
-                # 检查是否被取消
+                # Check if cancelled
                 if self._cancel_requested.get(model_id, False):
                     self._stop_progress_polling(model_id)
                     self._handle_cancel(model_id)
                     return
 
-                # 更新重试状态
+                # Update retry status
                 if attempt > 0:
                     self._update_status(model_id, f"Retrying ({attempt + 1}/{MAX_RETRIES})...")
                     log_info(f"Download retry {attempt + 1}/{MAX_RETRIES} for {model_id}")
 
-                # 使用 hf_hub_download 下载单个文件（默认支持断点续传）
-                downloaded_path = hf_hub_download(
-                    repo_id=model_info.huggingface_repo,
-                    filename=model_info.huggingface_filename,
-                    local_dir=str(models_dir),
-                    endpoint=endpoint,
-                )
+                # Prepare subprocess parameters
+                params = {
+                    "mode": "file",
+                    "repo_id": model_info.huggingface_repo,
+                    "filename": model_info.huggingface_filename,
+                    "local_dir": str(models_dir),
+                    "endpoint": endpoint,
+                    "local_filename": local_filename,
+                }
 
-                # 停止进度轮询
+                # Execute download in subprocess
+                success = self._run_download_subprocess(model_id, params)
+
+                # Stop progress polling
                 self._stop_progress_polling(model_id)
 
-                # 检查是否被取消
+                # If cancelled during subprocess execution
                 if self._cancel_requested.get(model_id, False):
                     self._handle_cancel(model_id)
                     return
 
-                # 如果 local_filename 与 huggingface_filename 不同，需要重命名
-                downloaded_file = Path(downloaded_path)
-                target_file = models_dir / local_filename
-
-                if downloaded_file.exists() and downloaded_file != target_file:
-                    # 如果下载的文件在子目录中，移动到 enhancement 目录
-                    if target_file.exists():
-                        target_file.unlink()
-                    shutil.move(str(downloaded_file), str(target_file))
-                    log_info(f"Moved {downloaded_file} to {target_file}")
-
-                # 验证下载完整性
-                if is_model_complete(model_id):
-                    self._handle_success(model_id)
+                if success:
+                    # Verify download integrity
+                    if is_model_complete(model_id):
+                        self._handle_success(model_id)
+                    else:
+                        self._handle_failure(model_id, "Download completed but verification failed", clean_files=True)
                 else:
-                    self._handle_failure(model_id, "Download completed but verification failed", clean_files=True)
+                    # Subprocess failed, will retry
+                    raise Exception("Subprocess download failed")
                 return
 
             except Exception as ex:
@@ -609,23 +675,138 @@ class DownloadManager:
                 error_msg = str(ex)[:100]
                 log_error(f"Download failed for {model_id} (attempt {attempt + 1}/{MAX_RETRIES}): {error_msg}")
 
-                # 检查是否被取消
+                # Check if cancelled
                 if self._cancel_requested.get(model_id, False):
                     self._stop_progress_polling(model_id)
                     self._handle_cancel(model_id)
                     return
 
-                # 非最后一次重试，等待后继续
+                # Not last retry, wait and continue
                 if attempt < MAX_RETRIES - 1:
                     self._update_status(model_id, f"Connection lost, retrying in {RETRY_DELAY}s...")
                     time.sleep(RETRY_DELAY)
                 else:
-                    # 最后一次重试失败，停止进度轮询并处理失败
+                    # Last retry failed, stop polling and handle failure
                     self._stop_progress_polling(model_id)
                     self._handle_failure(model_id, f"{error_msg} (after {MAX_RETRIES} retries)", clean_files=True)
 
+    def _run_download_subprocess(self, model_id: str, params: Dict) -> bool:
+        """
+        Run download in subprocess
+
+        Args:
+            model_id: Model ID
+            params: Download parameters dict
+
+        Returns:
+            True if download succeeded
+        """
+        # Get worker script path
+        worker_path = Path(__file__).parent / "download_worker.py"
+
+        # 记录下载源信息
+        endpoint = params.get("endpoint")
+        download_source = endpoint if endpoint else "https://huggingface.co"
+        log_info(f"[Download] Starting {model_id} from {download_source}")
+
+        with self._process_lock:
+            try:
+                # Start subprocess
+                self._download_process = subprocess.Popen(
+                    [sys.executable, str(worker_path), json.dumps(params)],
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    # Create new process group for clean termination
+                    creationflags=subprocess.CREATE_NEW_PROCESS_GROUP if sys.platform == "win32" else 0,
+                )
+            except Exception as e:
+                log_error(f"Failed to start download subprocess: {e}")
+                return False
+
+        # Thread to read stderr in real-time
+        stderr_lines: List[str] = []
+
+        def read_stderr():
+            """Read stderr lines and log them in real-time."""
+            if self._download_process is None:
+                return
+            try:
+                for line in self._download_process.stderr:
+                    line_str = line.decode().strip()
+                    if line_str:
+                        stderr_lines.append(line_str)
+                        log_info(f"[DownloadWorker] {line_str}")
+            except Exception:
+                pass
+
+        stderr_thread = threading.Thread(target=read_stderr, daemon=True)
+        stderr_thread.start()
+
+        # Monitor subprocess with timeout
+        start_time = time.time()
+
+        while True:
+            # Check if cancelled
+            if self._cancel_requested.get(model_id, False):
+                self._terminate_download_process()
+                stderr_thread.join(timeout=1.0)
+                return False
+
+            # Check if timeout
+            if time.time() - start_time > DOWNLOAD_TIMEOUT:
+                log_error(f"Download timeout for {model_id}")
+                self._terminate_download_process()
+                stderr_thread.join(timeout=1.0)
+                return False
+
+            # Check if process finished (non-blocking)
+            with self._process_lock:
+                if self._download_process is None:
+                    return False
+                return_code = self._download_process.poll()
+
+            if return_code is not None:
+                # Process finished
+                break
+
+            # Wait a bit before checking again
+            time.sleep(0.5)
+
+        # Wait for stderr thread to finish
+        stderr_thread.join(timeout=2.0)
+
+        # Get stdout
+        with self._process_lock:
+            if self._download_process is None:
+                return False
+            try:
+                stdout, _ = self._download_process.communicate(timeout=5)
+            except Exception:
+                stdout = b""
+            finally:
+                self._download_process = None
+
+        # Parse result
+        if return_code == 0:
+            try:
+                result = json.loads(stdout.decode())
+                if result.get("success"):
+                    log_info(f"[Download] Completed: {model_id}")
+                    return True
+                else:
+                    error = result.get("error", "Unknown error")
+                    log_error(f"Download subprocess failed: {error}")
+                    return False
+            except json.JSONDecodeError:
+                log_error(f"Invalid subprocess output: {stdout.decode()[:200]}")
+                return False
+        else:
+            error_msg = "\n".join(stderr_lines) if stderr_lines else "Process terminated abnormally"
+            log_error(f"Download subprocess failed with code {return_code}: {error_msg[:500]}")
+            return False
+
     def _update_status(self, model_id: str, message: str, progress: float = None) -> None:
-        """更新状态并通知回调"""
+        """Update status and notify callbacks"""
         callback_data = None
         with self._lock:
             self._messages[model_id] = message
@@ -635,7 +816,7 @@ class DownloadManager:
         self._notify_callbacks_unlocked(*callback_data)
 
     def _handle_success(self, model_id: str) -> None:
-        """处理下载成功"""
+        """Handle download success"""
         callback_data = None
         with self._lock:
             self._statuses[model_id] = DownloadStatus.COMPLETED
@@ -647,12 +828,19 @@ class DownloadManager:
 
     def _handle_cancel(self, model_id: str) -> None:
         """
-        处理取消下载
+        Handle download cancellation
 
         Args:
-            model_id: 被取消的模型 ID
+            model_id: Cancelled model ID
         """
-        # 清理不完整的文件
+        # Ensure subprocess is terminated
+        self._terminate_download_process()
+
+        # Wait for file handles to be released
+        gc.collect()
+        time.sleep(0.5)
+
+        # Clean up incomplete files
         self._cleanup_incomplete_files(model_id)
 
         callback_data = None
@@ -666,22 +854,26 @@ class DownloadManager:
 
     def _handle_failure(self, model_id: str, error_msg: str, clean_files: bool = True) -> None:
         """
-        处理下载失败
+        Handle download failure
 
         Args:
-            model_id: 失败的模型 ID
-            error_msg: 错误消息
-            clean_files: 是否清理不完整的文件（重试期间不清理）
+            model_id: Failed model ID
+            error_msg: Error message
+            clean_files: Whether to clean incomplete files (not cleaned during retries)
         """
-        # 只在最终失败时清理文件
+        # Only clean files on final failure
         if clean_files:
+            # Ensure subprocess is terminated before cleanup
+            self._terminate_download_process()
+            gc.collect()
+            time.sleep(0.5)
             self._cleanup_incomplete_files(model_id)
 
         callback_data = None
         with self._lock:
             self._statuses[model_id] = DownloadStatus.FAILED
             self._progress[model_id] = 0.0
-            # 提示用户可以重试
+            # Prompt user to retry
             self._messages[model_id] = f"Failed: {error_msg}. Click Download to retry."
             log_error(f"Model {model_id} download failed: {error_msg}")
             callback_data = self._get_callback_data(model_id)
@@ -689,18 +881,18 @@ class DownloadManager:
 
     def _cleanup_incomplete_files(self, model_id: str) -> None:
         """
-        清理不完整的模型文件
+        Clean up incomplete model files
 
         Args:
-            model_id: 要清理的模型 ID
+            model_id: Model ID to clean
         """
         model_info = MODEL_REGISTRY.get(model_id)
         if not model_info:
             return
-        
+
         try:
             if model_info.download_mode == DownloadMode.FILE:
-                # 单文件模型
+                # Single file model
                 filename = model_info.local_filename or model_info.huggingface_filename
                 if filename:
                     model_path = get_enhancement_models_dir() / filename
@@ -708,22 +900,41 @@ class DownloadManager:
                         model_path.unlink()
                         log_info(f"Cleaned up incomplete file for {model_id}")
             else:
-                # 仓库模型
+                # Repository model
                 model_path = get_models_base_dir() / model_id
                 if model_path.exists():
                     shutil.rmtree(model_path)
                     log_info(f"Cleaned up incomplete directory for {model_id}")
+        except PermissionError as ex:
+            # File still in use, retry after a short delay
+            log_error(f"Permission denied cleaning {model_id}, retrying after delay: {ex}")
+            time.sleep(1.0)
+            try:
+                if model_info.download_mode == DownloadMode.FILE:
+                    filename = model_info.local_filename or model_info.huggingface_filename
+                    if filename:
+                        model_path = get_enhancement_models_dir() / filename
+                        if model_path.exists():
+                            model_path.unlink()
+                            log_info(f"Cleaned up incomplete file for {model_id} (retry)")
+                else:
+                    model_path = get_models_base_dir() / model_id
+                    if model_path.exists():
+                        shutil.rmtree(model_path)
+                        log_info(f"Cleaned up incomplete directory for {model_id} (retry)")
+            except Exception as retry_ex:
+                log_error(f"Failed to cleanup incomplete files for {model_id} after retry: {retry_ex}")
         except Exception as ex:
             log_error(f"Failed to cleanup incomplete files for {model_id}: {ex}")
 
     def update_progress(self, model_id: str, progress: float, message: str = "") -> None:
         """
-        更新下载进度（供外部调用）
+        Update download progress (for external calls)
 
         Args:
-            model_id: 模型 ID
-            progress: 进度 (0-100)
-            message: 状态消息
+            model_id: Model ID
+            progress: Progress (0-100)
+            message: Status message
         """
         with self._lock:
             if self._current == model_id:
@@ -734,12 +945,12 @@ class DownloadManager:
 
     def clear_status(self, model_id: str) -> None:
         """
-        清除模型状态（用于重试）
+        Clear model status (for retry)
 
         Args:
-            model_id: 模型 ID
+            model_id: Model ID
         """
-        # 停止进度轮询
+        # Stop progress polling
         self._stop_progress_polling(model_id)
 
         with self._lock:
@@ -749,7 +960,7 @@ class DownloadManager:
             self._cancel_requested.pop(model_id, None)
 
 
-# 全局单例访问函数
+# Global singleton access function
 def get_download_manager() -> DownloadManager:
-    """获取 DownloadManager 单例"""
+    """Get DownloadManager singleton"""
     return DownloadManager()

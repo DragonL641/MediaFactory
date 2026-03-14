@@ -23,74 +23,97 @@
 
 - **高质量音频提取** - 48kHz 立体声，语音增强滤波
 - **语音转文字** - Faster Whisper（比 OpenAI Whisper 快 4-6 倍）
-- **翻译** - 本地模型（NLLB、M2M）或 LLM API（OpenAI、智谱 GLM）
+- **翻译** - 本地模型（MADLAD400）或 LLM API（OpenAI、DeepSeek、智谱 GLM 等）
 - **字幕生成** - 完整流程，翻译失败自动回退
-- **批量处理** - 高效多文件处理
-- **支持 30+ 种语言**的转录和翻译
+- **视频增强** - 画质提升、人脸增强、降噪处理
+- **批量处理** - 高效多文件处理，递归验证
+- **30+ 语言支持** - 转录和翻译
+- **统一进度跟踪** - 分阶段进度更新，GUI 桥接支持
+- **自包含部署** - 所有数据在安装目录，干净卸载
+- **安装向导** - 首次运行配置，硬件自动检测
+
+---
+
+### 竞品对比
+
+| 功能 | MediaFactory | pyVideoTrans | VideoCaptioner | SubtitleEdit |
+|------|:------------:|:------------:|:--------------:|:------------:|
+| **核心定位** | 多媒体平台 | 视频翻译 | LLM 字幕助手 | 字幕编辑器 |
+| **许可证** | MIT | GPL-3.0 | GPL-3.0 | GPL/LGPL |
+| **平台** | 跨平台 | 跨平台 | 跨平台 | Windows |
+| | | | | |
+| **语音识别** | ✅ Faster Whisper | ✅ 多种 | ✅ 多种 | ✅ Whisper |
+| **VAD 过滤** | ✅ Silero VAD | ✅ | ✅ | ❌ |
+| **翻译** | ✅ 本地 + LLM | ✅ 多种 | ✅ 多种 | ✅ Google/DeepL |
+| **批量翻译** | ✅ 递归验证 | ✅ | ✅ | ❌ |
+| | | | | |
+| **SRT 格式** | ✅ | ✅ | ✅ | ✅ |
+| **ASS 格式** | ✅ 5 种样式模板 | ✅ | ✅ 多种 | ✅ 完整编辑器 |
+| **双语字幕** | ✅ 4 种布局 | ✅ | ✅ | ❌ |
+| **软字幕嵌入** | ✅ mov_text | ✅ | ✅ | ✅ |
+| **硬字幕烧录** | ✅ | ✅ | ✅ | ✅ |
+| | | | | |
+| **TTS 配音** | ❌ | ✅ 多种 TTS | ❌ | ✅ Azure/ElevenLabs |
+| **声音克隆** | ❌ | ✅ F5-TTS | ❌ | ❌ |
+| **字幕编辑** | ❌ | ❌ | ❌ | ✅ 完整编辑器 |
+| **波形编辑器** | ❌ | ❌ | ❌ | ✅ 可视化同步 |
+| **300+ 格式** | ❌ | ❌ | ❌ | ✅ |
+| | | | | |
+| **GUI** | ✅ Flet | ✅ PySide6 | ✅ Qt | ✅ WinForms |
+| **CLI 模式** | ✅ | ❌ | ❌ | ✅ |
+| **Pipeline 编排** | ✅ 核心特性 | ✅ | ❌ | ❌ |
+| **事件系统** | ✅ EventBus | ❌ | ❌ | ❌ |
+| **配置系统** | ✅ TOML + Pydantic | ❌ | JSON | XML |
+| **批量处理** | ✅ | ✅ | ✅ | ✅ |
+
+### 为什么选择 MediaFactory？
+
+**架构优势**：
+- **三层架构** - GUI → Service → Pipeline → Engine
+- **Pipeline 架构** - ProcessingStage 模式，可组合工作流
+- **事件系统** - EventBus 解耦组件
+- **类型安全配置** - TOML + Pydantic v2，支持热重载
+
+**核心特性**：
+- 🚀 **Faster Whisper** - 比 OpenAI Whisper 快 4-6 倍
+- 🎯 **VAD 过滤** - 内置 Silero VAD，减少幻觉
+- 🌐 **统一 LLM 后端** - OpenAI 兼容 API，支持所有主流服务
+- 📝 **批量翻译** - 递归验证，自动修复
+- 🎨 **ASS 样式** - 5 种预设模板 + 自定义样式文件
+- 🔀 **双语支持** - 4 种布局选项
+- 📦 **自包含** - 所有数据在安装目录
+
+**MediaFactory 不是**：
+- 不是完整的字幕编辑器（手动编辑请使用 SubtitleEdit）
+- 不是视频配音工具（TTS/声音克隆请使用 pyVideoTrans）
+- 不是在线服务（完全本地处理）
 
 ---
 
 ## 安装
 
-MediaFactory 使用 [uv](https://github.com/astral-sh/uv) 进行依赖管理，提供快速且现代的 Python 环境管理。
+1. 克隆仓库：
+```bash
+git clone https://github.com/Dragon/MediaFactory.git
+cd MediaFactory
+```
+
+2. 运行安装脚本：
+```bash
+python scripts/setup_env.py
+```
+
+交互式脚本将会：
+- 检测您的硬件（GPU、CUDA 版本）
+- 询问您是使用者还是开发者
+- 安装相应的依赖
+- 可选下载 AI 模型
 
 ### 系统要求
 
 - **Python**: 3.10+（推荐 3.12）
 - **FFmpeg**: 通过 imageio-ffmpeg 自动包含（无需手动安装）
 - **GPU**（可选）: 支持 CUDA 的 NVIDIA GPU 用于加速
-
-### 选择安装方式
-
-#### 方式 1：使用安装程序（推荐）
-
-从 [Releases](https://github.com/Dragon/MediaFactory/releases) 下载安装程序。安装程序会自动下载所有必需的依赖（ML 模型约 350MB）。
-
-#### 方式 2：从源码运行
-
-**基础功能**（GUI + LLM API 翻译，约 150MB）：
-```bash
-git clone https://github.com/Dragon/MediaFactory.git
-cd MediaFactory
-uv sync
-uv run mediafactory
-```
-
-**完整功能**（包含本地 ASR 和翻译，约 350MB）：
-```bash
-uv sync --extra ml
-uv run mediafactory
-```
-
-#### 方式 3：开发者安装
-
-安装所有依赖，包括开发工具：
-```bash
-uv sync --group dev
-```
-
-### PyTorch 安装
-
-首次运行时，应用程序会自动检测硬件（CPU/GPU）并引导您完成 PyTorch 安装。无需手动配置。
-
-**高级用户如需预安装 PyTorch：**
-
-| 平台 | 命令 |
-|------|------|
-| **CPU（所有平台）** | `uv pip install torch --index-url https://download.pytorch.org/whl/cpu` |
-| **CUDA 12.4（NVIDIA GPU）** | `uv pip install torch --index-url https://download.pytorch.org/whl/cu124` |
-| **CUDA 11.8（旧版 GPU）** | `uv pip install torch --index-url https://download.pytorch.org/whl/cu118` |
-
-**注意**：RTX 50 系列（Blackwell 架构）需要 PyTorch 每夜构建版本和 CUDA 12.8+ 支持。
-
-### 安装 Pre-commit 钩子（贡献者）
-
-如果您计划贡献代码，请安装 pre-commit 钩子以在提交前自动检查代码质量：
-
-```bash
-pre-commit install
-pre-commit run --all-files
-```
 
 ### 硬件要求
 
@@ -99,19 +122,13 @@ pre-commit run --all-files
 | **CPU 模式** | 4GB RAM | 2GB | 所有平台 |
 | **GPU 模式** | 8GB RAM | 5GB | NVIDIA GPU，4GB+ 显存 |
 
-### 下载模型（必需）
+### 安装 Pre-commit 钩子（贡献者）
+
+如果您计划贡献代码，请安装 pre-commit 钩子：
 
 ```bash
-# 列出可用模型
-python scripts/utils/download_model.py --list
-
-# 下载推荐模型（如 google/madlad400-3b-mt）
-python scripts/utils/download_model.py google/madlad400-3b-mt
-```
-
-国内用户使用镜像加速：
-```bash
-python scripts/utils/download_model.py google/madlad400-3b-mt --source=https://hf-mirror.com
+pre-commit install
+pre-commit run --all-files
 ```
 
 ---
@@ -121,24 +138,14 @@ python scripts/utils/download_model.py google/madlad400-3b-mt --source=https://h
 ### GUI 应用
 
 ```bash
-python -m mediafactory
-```
+# 方式 1: 使用 console script
+uv run mediafactory
 
----
+# 方式 2: 使用 Python 模块
+uv run python -m mediafactory
 
-## 开发
-
-### 安装开发依赖
-
-```bash
-# 安装完整开发环境（包含所有 ML 依赖和开发工具）
-uv sync --group dev
-```
-
-### 使用 pip 安装（备选）
-
-```bash
-pip install -e ".[ml]" && pip install pytest pytest-cov black flake8 mypy pre-commit build twine
+# 方式 3: 使用 Python API
+uv run python -c "from mediafactory import launch_gui; launch_gui()"
 ```
 
 ---
@@ -166,17 +173,17 @@ enable_batch = true
 batch_size = 100
 ```
 
-支持的 LLM 后端：OpenAI、智谱 GLM。
+支持的 LLM 后端：OpenAI、DeepSeek、智谱 GLM、通义千问、Moonshot。
 
 ---
 
 ## 构建
 
-MediaFactory 支持多种打包方式，从简单的可执行文件到完整的安装程序。
+MediaFactory 支持多种打包方式，从独立可执行文件到完整安装程序。
 
 ### PyInstaller 构建
 
-创建完整的独立可执行文件，包含所有依赖：
+创建包含所有依赖的独立可执行文件：
 
 ```bash
 # 为当前平台构建
@@ -186,39 +193,44 @@ python scripts/pyinstaller/build_installer.py
 python scripts/pyinstaller/build_installer.py --clean
 ```
 
-**输出**: `dist/MediaFactory/` (目录形式)
+**输出**: `dist/MediaFactory.exe` (Windows) 或 `dist/MediaFactory.app` (macOS)
 
-**体积**: ~500MB-1GB（包含所有依赖）
+**体积**: ~200-500MB（不含 ML 依赖）
 
-#### 创建平台安装程序
+### 平台安装程序
 
-从 PyInstaller 构建结果创建安装程序：
-
-**macOS (.pkg 安装程序)**:
+**macOS (.dmg 磁盘镜像)**:
 ```bash
-bash scripts/build/macos/build_macos_pkg.sh
+python scripts/build/macos/create_dmg.py
 ```
-**输出**: `dist/MediaFactory-Installer-3.2.0.pkg`
+**输出**: `dist/MediaFactory-3.2.0.dmg`
 
 **Windows (.exe 安装程序)**:
 - 要求: [Inno Setup](https://jrsoftware.org/isdl.php) 6.0+
 ```bash
+python scripts/build/windows/package_windows.py
+# 或直接使用 Inno Setup
 iscc scripts/build/windows/installer_windows.iss
 ```
 **输出**: `dist/MediaFactory-Setup-3.2.0.exe`
-✅ **镜像选择**: 支持国内镜像加速
-✅ **完整向导**: 友好的图形化安装向导
 
-### 首次运行流程
+### 安装向导
 
-当用户首次运行安装程序时：
+用户首次运行 GUI 时，安装向导自动启动：
 
-1. **欢迎页面** - 介绍功能
-2. **环境检测** - 自动检测 NVIDIA GPU 和 CUDA 版本
-3. **镜像源选择** - 选择下载源（国内镜像/官方源）
-4. **配置文件生成** - 基于 `config.toml.example` 生成用户配置
-5. **依赖安装** - 使用 uv 快速安装 PyTorch 和其他依赖
-6. **模型下载** - 下载 Whisper 和翻译模型
+**功能**：
+- 快速安装（uv 下载依赖比 pip 快 10-100 倍）
+- 自动检测 GPU 和推荐 PyTorch 版本
+- 国内用户镜像选择
+- 友好的图形化向导
+
+**安装步骤**：
+1. 欢迎页面 - 介绍
+2. 硬件检测 - 自动检测 NVIDIA GPU 和 CUDA 版本
+3. 镜像选择 - 选择下载源（国内镜像/官方源）
+4. 配置生成 - 基于 `config.toml.example` 生成用户配置
+5. 依赖安装 - 安装 PyTorch 和其他依赖
+6. 模型下载 - 下载 Whisper 和翻译模型
 
 **预计时间**: 5-15 分钟（取决于网络速度）
 
@@ -230,8 +242,8 @@ iscc scripts/build/windows/installer_windows.iss
 ```python
 PRODUCT_NAME = "MediaFactory"
 PRODUCT_VERSION = "3.2.0"
-ENCRYPT_BYTECODE = True  # 加密字节码
-COMPRESS_OUTPUT = True   # 压缩输出
+ENCRYPT_BYTECODE = True
+COMPRESS_OUTPUT = True
 ```
 
 **`scripts/build/windows/installer_windows.iss`**:
@@ -252,6 +264,26 @@ COMPRESS_OUTPUT = True   # 压缩输出
 - [ ] 检查配置文件生成
 
 **注意**: 翻译模型（2GB+）不打包在安装程序中，用户需通过安装向导或手动下载。
+
+---
+
+## 故障排除
+
+### 常见问题
+
+| 问题 | 解决方案 |
+|------|----------|
+| **FFmpeg 未找到** | MediaFactory 使用内置 imageio-ffmpeg，无需手动安装 |
+| **内存不足 (OOM)** | 使用更小的 Whisper 模型（small 而非 large-v3），或强制 CPU 模式 |
+| **识别准确率低** | 尝试 `large-v3` 模型；确保音频源清晰；检查源语言设置 |
+| **翻译模型缺失** | 运行 `uv run python scripts/utils/download_model.py --list` 查看可用模型 |
+| **macOS GPU 未使用** | Faster Whisper 不支持 MPS；自动使用 CPU |
+| **API 翻译失败** | 检查 config.toml 中的 API key；验证网络连接和配额 |
+| **进度卡在 0%** | 确保使用 v3.0+；检查 GUI 回调；查看日志文件错误 |
+
+### 日志文件
+
+所有日志写入：`mediafactory_YYYYMMDD_HHMMSS.log`（在应用根目录）
 
 ---
 

@@ -12,8 +12,8 @@ Please read and follow our [Code of Conduct](CODE_OF_CONDUCT.md) to ensure a wel
 2. Create a feature branch: `git checkout -b feature/your-feature-name`
 3. Make your changes
 4. Add tests if applicable
-5. Ensure all tests pass: `pytest`
-6. Run code quality checks: `uv run black src/ tests/ && uv run isort src/ tests/ && uv run flake8 src/ tests/ && uv run mypy src/`
+5. Ensure all tests pass: `uv run pytest`
+6. Run code quality checks: `uv run black src/ tests/ && uv run flake8 src/ tests/`
 7. Commit your changes: `git commit -m 'Add some feature'`
 8. Push to your fork: `git push origin feature/your-feature-name`
 9. Create a Pull Request
@@ -25,18 +25,18 @@ Please read and follow our [Code of Conduct](CODE_OF_CONDUCT.md) to ensure a wel
 git clone https://github.com/yourusername/MediaFactory.git
 cd MediaFactory
 
-# Create virtual environment
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
+# Install uv (if not already installed)
+pip install uv
 
-# Install in development mode
-pip install -e .[dev]
+# Install development dependencies
+uv sync --group dev
 
 # Run tests
-pytest
+uv run pytest
 
 # Run code quality checks
-uv run black src/ tests/ && uv run isort src/ tests/ && uv run flake8 src/ tests/ && uv run mypy src/
+uv run black src/ tests/
+uv run flake8 src/ tests/
 ```
 
 ## Code Style
@@ -44,17 +44,14 @@ uv run black src/ tests/ && uv run isort src/ tests/ && uv run flake8 src/ tests
 We follow these coding standards:
 
 - **Formatting**: Black (line length 88)
-- **Imports**: isort
 - **Linting**: Flake8
-- **Type hints**: MyPy (strict mode)
+- **Type hints**: MyPy (relaxed mode)
 - **Docstrings**: Google style
-
-Run all checks with: `uv run black src/ tests/ && uv run isort src/ tests/ && uv run flake8 src/ tests/ && uv run mypy src/`
 
 ## Testing
 
 - Write tests for new features
-- Ensure existing tests pass: `pytest`
+- Ensure existing tests pass: `uv run pytest`
 - Maintain test coverage above 80%
 - Test on multiple Python versions (3.10+ including 3.13)
 

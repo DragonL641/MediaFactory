@@ -92,65 +92,28 @@ A professional multimedia processing platform for subtitle generation and video-
 
 ## Installation
 
-MediaFactory uses [uv](https://github.com/astral-sh/uv) for dependency management, providing fast and modern Python environment management.
+1. Clone the repository:
+```bash
+git clone https://github.com/Dragon/MediaFactory.git
+cd MediaFactory
+```
+
+2. Run the setup script:
+```bash
+python scripts/setup_env.py
+```
+
+The interactive script will:
+- Detect your hardware (GPU, CUDA version)
+- Ask if you're a user or developer
+- Install the appropriate dependencies
+- Optionally download AI models
 
 ### Requirements
 
 - **Python**: 3.10+ (3.12 recommended)
 - **FFmpeg**: Included via imageio-ffmpeg (no manual installation needed)
 - **GPU** (optional): NVIDIA GPU with CUDA support for acceleration
-
-### Choose Your Installation Method
-
-#### Method 1: Using the Installer (Recommended)
-
-Download the installer from [Releases](https://github.com/Dragon/MediaFactory/releases). The installer will automatically download all required dependencies (~350MB for ML models).
-
-#### Method 2: Running from Source
-
-**For basic usage** (GUI + LLM API translation, ~150MB):
-```bash
-git clone https://github.com/Dragon/MediaFactory.git
-cd MediaFactory
-uv sync
-uv run mediafactory
-```
-
-**For full functionality** (includes local ASR and translation, ~350MB):
-```bash
-uv sync --extra ml
-uv run mediafactory
-```
-
-#### Method 3: For Developers
-
-Install all dependencies including development tools:
-```bash
-uv sync --group dev
-```
-
-### PyTorch Installation
-
-The application will automatically detect your hardware (CPU/GPU) and guide you through the PyTorch installation on first run. No manual configuration needed.
-
-**For advanced users who want to pre-install PyTorch:**
-
-| Platform | Command |
-|----------|---------|
-| **CPU (All platforms)** | `uv pip install torch --index-url https://download.pytorch.org/whl/cpu` |
-| **CUDA 12.4 (NVIDIA GPU)** | `uv pip install torch --index-url https://download.pytorch.org/whl/cu124` |
-| **CUDA 11.8 (Older GPU)** | `uv pip install torch --index-url https://download.pytorch.org/whl/cu118` |
-
-**Note**: RTX 50-series (Blackwell architecture) requires PyTorch nightly builds with CUDA 12.8+ support.
-
-### Install Pre-commit Hooks (For Contributors)
-
-If you plan to contribute code, install pre-commit hooks to automatically check code quality before commits:
-
-```bash
-pre-commit install
-pre-commit run --all-files
-```
 
 ### Hardware Requirements
 
@@ -159,33 +122,13 @@ pre-commit run --all-files
 | **CPU Mode** | 4GB RAM | 2GB | All platforms |
 | **GPU Mode** | 8GB RAM | 5GB | NVIDIA GPU with 4GB+ VRAM |
 
-### Download Models (Required)
+### Install Pre-commit Hooks (For Contributors)
 
-MediaFactory requires translation models (not bundled in the installation package). Download separately:
-
-```bash
-# List available models
-uv run python scripts/utils/download_model.py --list
-
-# Download recommended model (e.g., google/madlad400-3b-mt)
-uv run python scripts/utils/download_model.py google/madlad400-3b-mt
-```
-
-**For users in China (use mirror):**
-```bash
-uv run python scripts/utils/download_model.py google/madlad400-3b-mt --source=https://hf-mirror.com
-```
-
-**Alternatively**: Run the GUI and use the Setup Wizard to download models automatically.
-
-### Verify Installation
+If you plan to contribute code, install pre-commit hooks:
 
 ```bash
-# Check PyTorch installation
-uv run python -c "import torch; print(f'PyTorch: {torch.__version__}'); print(f'CUDA available: {torch.cuda.is_available()}')"
-
-# Check Faster Whisper
-uv run python -c "import faster_whisper; print('Faster Whisper installed successfully')"
+pre-commit install
+pre-commit run --all-files
 ```
 
 ---

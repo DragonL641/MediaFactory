@@ -106,7 +106,7 @@ class LLMConfigPage:
                         spacing=8,
                     ),
                     padding=40,
-                    alignment=ft.alignment.center,
+                    alignment=ft.Alignment(0.0, 0.0),
                 )
             )
         else:

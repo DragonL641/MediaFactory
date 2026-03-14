@@ -27,11 +27,8 @@ classifiers = [
 keywords = ["media", "video", "audio", "subtitle", "whisper", "speech-recognition", "translation", "plugin", "extensible"]
 
 # ==============================================================================
-# Core dependencies (启动必需 - ~150MB)
+# Core dependencies (启动必需 - ~200MB)
 # ==============================================================================
-# 注意: numpy 和 typing-extensions 是间接依赖，无需显式声明
-# - numpy: 由 transformers (ml 依赖) 间接引入
-# - typing-extensions: 由 pydantic 间接引入
 dependencies = [
     # GUI 框架 (锁定到 0.80.x 系列以保持 API 一致性)
     "flet>=0.80.0,<0.90.0",
@@ -45,6 +42,9 @@ dependencies = [
     "psutil>=6.0.0",
     # 音视频处理（FFmpeg 二进制）
     "imageio-ffmpeg>=0.5.1",  # FFmpeg 二进制（~70MB）
+    # 视频处理核心依赖
+    "numpy>=1.24.0",
+    "opencv-python>=4.8.0",
     # 进度显示
     "tqdm>=4.66.0",
     # 语言检测
@@ -71,9 +71,10 @@ mediafactory = "mediafactory.gui.flet.app:launch_gui"
 # 这些依赖较大（~350MB），可在首次运行时通过安装向导下载
 ml = [
     # PyTorch (锁定到 2.4.x 系列以保持兼容性)
-    "torch>=2.4.0,<2.6.0",
+    "torch>=2.5.0",
     # Whisper (使用 faster-whisper)
     "faster-whisper>=1.0.0",
+    "gguf>=0.10.0",              # GGUF 模型加载支持
     # Transformers (锁定到 4.46.x 系列)
     "transformers>=4.46.0,<5.0.0",
     # 支持库
@@ -82,7 +83,6 @@ ml = [
     # 视频增强依赖
     "spandrel>=0.4.0",           # 统一模型加载库
     "facexlib>=0.3.0",           # 人脸检测库
-    "opencv-python>=4.8.0",      # 视频处理
 ]
 
 ##### Dependency Groups #####
@@ -92,14 +92,14 @@ ml = [
 # 包含所有 ML 依赖，确保开发者能测试完整功能
 dev = [
     # ML 依赖（从 ml 组引入）
-    "torch>=2.4.0,<2.6.0",
+    "torch>=2.5.0",
     "faster-whisper>=1.0.0",
+    "gguf>=0.10.0",
     "transformers>=4.46.0,<5.0.0",
     "sentencepiece>=0.1.99",
     "accelerate>=1.0.0",
     "spandrel>=0.4.0",
     "facexlib>=0.3.0",
-    "opencv-python>=4.8.0",
     # 开发工具
     "pytest>=7.0.0",
     "pytest-cov>=4.0.0",
