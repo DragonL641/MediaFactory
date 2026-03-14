@@ -137,7 +137,7 @@ class FaceEnhancer(BaseEnhancer):
             raise RuntimeError(f"加载的模型不是有效的图像模型: {type(self._model)}")
 
         self._model.to(self.device)
-        self._model.evaluation_mode()
+        self._model.eval()
 
         if self.half_precision:
             self._model.half()

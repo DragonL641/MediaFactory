@@ -456,12 +456,17 @@ class TasksPage:
             progress=progress,
             message=message,
         )
-        # 进度更新频繁，使用更轻量的更新方式
-        try:
-            self._refresh_task_list()
-        except Exception:
-            # 进度更新失败不影响主流程
-            pass
+        # 使用增量更新代替重建整个列表
+        task_card = self._task_cards.get(task_id)
+        if task_card:
+            try:
+                # 从任务列表中查找任务
+                task = next((t for t in self.state.tasks if t.id == task_id), None)
+                if task:
+                    task_card.update_task(task)
+                    task_card.update_ui()
+            except Exception as e:
+                log_error_with_context("Failed to update task card", e, {"task_id": task_id})
 
     def _on_task_complete(self, task_id: str, result: Dict[str, Any]) -> None:
         """任务完成"""
@@ -530,18 +535,17 @@ class TasksPage:
             for t in self.state.tasks
         )
 
-        if self._start_all_btn:
-            self._start_all_btn.disabled = not has_idle
-            self._start_all_btn.update()
-
-        if self._cancel_all_btn:
-            self._cancel_all_btn.disabled = not has_running
-            self._cancel_all_btn.update()
-
-        # Clear All: 有可清除任务且无运行中任务时可用
-        if self._clear_all_btn:
-            self._clear_all_btn.disabled = not has_cleared_status or has_running
-            self._clear_all_btn.update()
+        # 使用 page.update() 代替单个控件 update()，避免控件未添加到页面时报错
+        try:
+            if self._start_all_btn:
+                self._start_all_btn.disabled = not has_idle
+            if self._cancel_all_btn:
+                self._cancel_all_btn.disabled = not has_running
+            if self._clear_all_btn:
+                self._clear_all_btn.disabled = not has_cleared_status or has_running
+            self.page.update()
+        except Exception:
+            pass  # 页面可能已切换，忽略更新错误
 
 
 def build_tasks_page(page: ft.Page, params: Dict[str, Any]) -> ft.Control:

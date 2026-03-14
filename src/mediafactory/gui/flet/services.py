@@ -314,82 +314,19 @@ class SubtitleService:
                 style_preset=style_preset,
             )
 
-            # 里程碑进度：开始执行
-            progress_adapter.update(2, "Initializing pipeline...")
-
             # 在线程池中执行 Pipeline（Pipeline 是同步的）
+            # Pipeline 各阶段会通过 progress_callback 报告真实进度
             loop = asyncio.get_event_loop()
-
-            # 用于在 Pipeline 执行期间模拟平滑进度的标志和进度值
-            pipeline_running = True
-            current_progress = 2.0
-
-            def smooth_progress_task():
-                """在后台线程中模拟平滑进度增长"""
-                import time
-
-                nonlocal current_progress
-                # 进度增长配置：不同阶段有不同的增长速度和上限
-                stages_config = [
-                    (5, 15, 0.3, "Loading models..."),  # 模型加载: 5%->15%
-                    (15, 30, 0.2, "Extracting audio..."),  # 音频提取: 15%->30%
-                    (30, 60, 0.15, "Transcribing audio..."),  # 语音识别: 30%->60%
-                    (60, 85, 0.1, "Translating..."),  # 翻译: 60%->85%
-                    (85, 95, 0.05, "Generating subtitles..."),  # 字幕生成: 85%->95%
-                ]
-                stage_idx = 0
-
-                while pipeline_running and stage_idx < len(stages_config):
-                    start, end, speed, msg = stages_config[stage_idx]
-                    if current_progress < start:
-                        current_progress = start
-
-                    while pipeline_running and current_progress < end:
-                        time.sleep(0.5)  # 每0.5秒更新一次
-                        if not pipeline_running:
-                            break
-                        current_progress = min(current_progress + speed, end)
-                        try:
-                            progress_adapter.update(current_progress, msg)
-                        except Exception:
-                            pass  # 忽略进度更新错误
-
-                    stage_idx += 1
-
-                # 保持在95%直到完成
-                while pipeline_running and current_progress < 95:
-                    time.sleep(0.5)
-                    if not pipeline_running:
-                        break
-                    current_progress = min(current_progress + 0.5, 95)
-                    try:
-                        progress_adapter.update(current_progress, "Finalizing...")
-                    except Exception:
-                        pass
-
-            # 启动平滑进度任务
-            smooth_progress_future = loop.run_in_executor(None, smooth_progress_task)
-
-            try:
-                # 执行 Pipeline
-                result: PipelineResult = await loop.run_in_executor(
-                    None, pipeline.execute, context
-                )
-            finally:
-                # Pipeline 执行完成，停止平滑进度
-                pipeline_running = False
-                # 等待平滑进度任务结束
-                try:
-                    await asyncio.wait_for(smooth_progress_future, timeout=2.0)
-                except asyncio.TimeoutError:
-                    pass
+            result: PipelineResult = await loop.run_in_executor(
+                None, pipeline.execute, context
+            )
 
             # 里程碑进度：完成
             if result.success:
                 progress_adapter.update(100, "Subtitle generation completed!")
             else:
                 progress_adapter.update(
-                    current_progress, f"Failed: {result.error_message}"
+                    -1, f"Failed: {result.error_message}"
                 )
 
             # 转换 PipelineResult 到 ProcessingResult

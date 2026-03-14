@@ -84,7 +84,7 @@ class Denoiser(BaseEnhancer):
 
         # 移动到设备
         self._model.to(self.device)
-        self._model.evaluation_mode()
+        self._model.eval()
 
         # 半精度
         if self.half_precision:

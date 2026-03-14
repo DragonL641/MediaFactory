@@ -353,3 +353,117 @@ class TaskCard:
     def update_task(self, task: TaskItem) -> None:
         """更新任务数据"""
         self.task = task
+
+    def update_ui(self) -> None:
+        """增量更新UI组件（不重建整个组件）
+
+        直接更新已渲染的组件属性，避免重建整个列表。
+        适用于高频进度更新场景。
+        """
+        if not self._component:
+            return
+
+        try:
+            # 获取内部组件引用
+            container = self._component
+            column = container.content
+            if not column or not column.controls:
+                return
+
+            row1 = column.controls[0]
+
+            # 状态颜色映射
+            status_colors = {
+                TaskStatus.RUNNING: self.theme.color_scheme.primary,
+                TaskStatus.COMPLETED: self.theme.color_scheme.tertiary,
+                TaskStatus.FAILED: self.theme.color_scheme.error,
+                TaskStatus.CANCELLED: self.theme.color_scheme.outline,
+                TaskStatus.PENDING: self.theme.color_scheme.tertiary,
+                TaskStatus.IDLE: self.theme.color_scheme.outline,
+            }
+            status_color = status_colors.get(
+                self.task.status, self.theme.color_scheme.outline
+            )
+
+            # 状态文本映射
+            status_text_map = {
+                TaskStatus.RUNNING: "Running",
+                TaskStatus.COMPLETED: "Done",
+                TaskStatus.FAILED: "Failed",
+                TaskStatus.CANCELLED: "Cancelled",
+                TaskStatus.PENDING: "Pending",
+                TaskStatus.IDLE: "Ready",
+            }
+            status_text = status_text_map.get(self.task.status, "Unknown")
+
+            # 更新第一行中的图标颜色（第1个控件）
+            if row1.controls:
+                icon_ctrl = row1.controls[0]
+                if isinstance(icon_ctrl, ft.Icon):
+                    icon_ctrl.color = status_color
+
+            # 更新状态徽章（第3个控件，索引2）
+            if len(row1.controls) > 2:
+                status_badge = row1.controls[2]
+                if isinstance(status_badge, ft.Container):
+                    badge_text = status_badge.content
+                    if isinstance(badge_text, ft.Text):
+                        badge_text.value = status_text
+                        badge_text.color = status_color
+
+                    status_badge.bgcolor = self._get_status_bgcolor(status_color)
+                    status_badge.tooltip = (
+                        self._format_error_tooltip()
+                        if self.task.status == TaskStatus.FAILED and self.task.error
+                        else None
+                    )
+
+            # 更新第二行（进度条行）
+            is_running = self.task.status == TaskStatus.RUNNING
+
+            if is_running:
+                # 如果第二行不存在，需要重建组件
+                if len(column.controls) < 2:
+                    self._component = None
+                    self.build()
+                    return
+
+                row2 = column.controls[1]
+                if not isinstance(row2, ft.Row):
+                    return
+
+                row2_controls = row2.controls
+
+                # 更新进度条（第1个控件）
+                if row2_controls:
+                    progress_bar = row2_controls[0]
+                    if isinstance(progress_bar, ft.ProgressBar):
+                        progress_bar.value = (
+                            self.task.progress / 100 if self.task.progress > 0 else None
+                        )
+                        progress_bar.color = status_color
+
+                # 更新百分比文本（第2个控件）
+                if len(row2_controls) > 1:
+                    percent_text = row2_controls[1]
+                    if isinstance(percent_text, ft.Text):
+                        percent_text.value = f"{self.task.progress:.0f}%"
+                        percent_text.color = status_color
+
+                # 更新消息文本（第3个控件）
+                if len(row2_controls) > 2:
+                    msg_text = row2_controls[2]
+                    if isinstance(msg_text, ft.Text):
+                        msg_text.value = (
+                            f" • {self.task.message}" if self.task.message else ""
+                        )
+
+            # 更新容器透明度（取消状态变淡）
+            container.opacity = 0.7 if self.task.status == TaskStatus.CANCELLED else 1.0
+
+            # 触发UI更新
+            self._component.update()
+
+        except Exception:
+            # 如果增量更新失败，标记需要重建
+            self._component = None
