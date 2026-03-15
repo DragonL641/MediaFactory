@@ -357,6 +357,38 @@ def get_total_vram_gb() -> float:
     return 0.0
 
 
+def get_available_memory_for_device(device: str = "cpu") -> float:
+    """获取指定设备的可用内存 (GB)。
+
+    Args:
+        device: 设备类型 ("cuda" 或 "cpu")
+
+    Returns:
+        可用内存 (GB)，GPU 返回 VRAM，CPU 返回 RAM
+    """
+    if device == "cuda":
+        return get_available_vram_gb()
+    return get_available_memory_gb()
+
+
+def get_required_memory_for_model(model_id: str, device: str = "cpu") -> float:
+    """获取模型在指定设备上运行所需的内存 (GB)。
+
+    Args:
+        model_id: 模型 ID (HuggingFace ID)
+        device: 设备类型 ("cuda" 或 "cpu")
+
+    Returns:
+        所需内存 (GB)，GPU 返回 VRAM 需求，CPU 返回 RAM 需求
+    """
+    info = MODEL_REGISTRY.get(model_id)
+    if info is None:
+        return 0.0
+    if device == "cuda":
+        return info.runtime_vram_gb
+    return info.runtime_memory_gb
+
+
 def get_whisper_model_info() -> ModelInfo:
     """Get the fixed Whisper model information.
 

@@ -88,8 +88,8 @@ def get_translation_model(
         )
         all_models = get_all_translation_models()
         for model_info in all_models:
-            if model_info.model_id in downloaded_models:
-                best_model_id = model_info.model_id
+            if model_info.huggingface_id in downloaded_models:
+                best_model_id = model_info.huggingface_id
                 actual_device = "cpu"  # Force CPU for safety
                 log_warning(
                     f"[TranslationRuntime] Forcing model: {model_info.display_name} "
