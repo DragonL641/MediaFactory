@@ -53,7 +53,7 @@ We follow these coding standards:
 - Write tests for new features
 - Ensure existing tests pass: `uv run pytest`
 - Maintain test coverage above 80%
-- Test on multiple Python versions (3.10+ including 3.13)
+- Test on multiple Python versions (3.11, 3.12, 3.13)
 
 ## Documentation
 

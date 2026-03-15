@@ -181,21 +181,7 @@ if ICON_PATH:
 # =============================================================================
 
 if IS_WINDOWS:
-    # Windows: one-file 单文件模式
-    exe_kwargs['exclude_binaries'] = False
-    exe = EXE(**exe_kwargs)
-    
-    coll = COLLECT(
-        exe,
-        a.binaries,
-        a.datas,
-        strip=strip,
-        upx=False,
-        upx_exclude=[],
-        name=PROJECT_NAME,
-    )
-    
-    # 将单文件输出到 dist 根目录
+    # Windows: onefile 单文件模式（只需要单个 EXE）
     EXE(
         pyz,
         a.scripts,
@@ -206,7 +192,7 @@ if IS_WINDOWS:
         debug=False,
         bootloader_ignore_signals=False,
         strip=strip,
-        upx=False,
+        upx=UPX_AVAILABLE,
         console=False,
         disable_windowed_traceback=False,
         argv_emulation=False,

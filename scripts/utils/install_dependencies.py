@@ -26,22 +26,22 @@ from pathlib import Path
 # 配置
 # ============================================================================
 
-# PyTorch 索引 URL（根据 CUDA 版本选择）
+# PyTorch 索引 URL（简化为 cpu 和 cu124）
 PYTORCH_INDEX_URLS = {
     "cpu": "https://download.pytorch.org/whl/cpu",
-    "cu118": "https://download.pytorch.org/whl/cu118",
-    "cu121": "https://download.pytorch.org/whl/cu121",
     "cu124": "https://download.pytorch.org/whl/cu124",
 }
 
-# 核心依赖包（所有平台都需要）
-CORE_PACKAGES = [
-    "torch>=2.0.0",
-    "transformers>=4.21.0",
+# ML 依赖包（与 pyproject.toml 中的 core 组一致）
+ML_PACKAGES = [
+    "torch>=2.5.0",
     "faster-whisper>=1.0.0",
+    "gguf>=0.10.0",
+    "transformers>=4.46.0,<5.0.0",
     "sentencepiece>=0.1.99",
-    "accelerate>=0.20.3",
-    "psutil>=5.8.0",
+    "accelerate>=1.0.0",
+    "spandrel>=0.4.0",
+    "facexlib>=0.3.0",
 ]
 
 # 中国镜像源（用于国内用户）
@@ -84,19 +84,18 @@ def get_python_executable() -> str:
 
 def detect_hardware() -> str:
     """
-    检测硬件并返回推荐的 PyTorch 版本
+    检测硬件并返回推荐的 PyTorch 版本（固定 cu124）
 
     Returns:
-        "cpu", "cu118", "cu121", "cu124"
+        "cpu" 或 "cu124"
     """
     log_info("检测硬件配置...")
 
     system = platform.system()
 
-    # Windows: 检测 NVIDIA GPU 和 CUDA 版本
+    # Windows: 检测 NVIDIA GPU
     if system == "Windows":
         try:
-            # 尝试运行 nvidia-smi
             result = subprocess.run(
                 ["nvidia-smi"],
                 capture_output=True,
@@ -104,25 +103,8 @@ def detect_hardware() -> str:
                 timeout=5,
             )
             if result.returncode == 0:
-                # 解析 CUDA 版本
-                for line in result.stdout.split('\n'):
-                    if "CUDA Version:" in line:
-                        # 提取版本号（例如 "CUDA Version: 12.4" -> "12.4"）
-                        version_str = line.split("CUDA Version:")[-1].strip()
-                        version = version_str.split()[0]
-                        major_minor = ".".join(version.split(".")[:2])
-                        if major_minor == "12.4":
-                            log_info("检测到 NVIDIA GPU (CUDA 12.4)")
-                            return "cu124"
-                        elif major_minor == "12.1":
-                            log_info("检测到 NVIDIA GPU (CUDA 12.1)")
-                            return "cu121"
-                        elif major_minor == "11.8":
-                            log_info("检测到 NVIDIA GPU (CUDA 11.8)")
-                            return "cu118"
-                        # 默认使用最新的 CUDA 12.4
-                        log_info(f"检测到 NVIDIA GPU (CUDA {major_minor}, 使用 12.4)")
-                        return "cu124"
+                log_info("检测到 NVIDIA GPU，使用 CUDA 12.4")
+                return "cu124"
         except (FileNotFoundError, subprocess.TimeoutExpired):
             pass
 

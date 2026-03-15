@@ -24,7 +24,7 @@ If applicable, add screenshots to help explain your problem.
 
 ## Environment (please complete the following information):
  - MediaFactory Version: [e.g. 3.2.0]
- - Python Version: [e.g. 3.10.7]
+ - Python Version: [e.g. 3.12.0]
  - Operating System: [e.g. Ubuntu 20.04, macOS 12.0, Windows 10]
  - FFmpeg Version: [e.g. 4.4.1]
 

@@ -583,37 +583,26 @@ class SetupWizard:
             return False
 
     def _install_project_dependencies(self) -> bool:
-        """安装项目依赖（包含 ML 可选依赖）"""
-        # 使用 uv pip install -e .[ml] 以 editable 模式安装项目 + ML 依赖
-        # 这样 python -m mediafactory 才能正常工作
-        cmd = [sys.executable, "-m", "uv", "pip", "install", "-e", ".[ml]"]
+        """安装项目依赖"""
+        # 使用 uv sync --group core 安装核心依赖（含 ML）
+        # 如果是开发者，使用 uv sync --all-groups 安装所有依赖
+        if self.is_developer:
+            cmd = [sys.executable, "-m", "uv", "sync", "--all-groups"]
+        else:
+            cmd = [sys.executable, "-m", "uv", "sync", "--group", "core"]
 
         if self.use_china_mirror:
-            cmd.extend(["--index-url", "https://pypi.tuna.tsinghua.edu.cn/simple"])
+            os.environ["UV_INDEX_URL"] = "https://pypi.tuna.tsinghua.edu.cn/simple"
 
         try:
             result = subprocess.run(
-                cmd, capture_output=True, text=True, timeout=300,
+                cmd, capture_output=True, text=True, timeout=600,
                 cwd=str(self.project_root)
             )
             if result.returncode != 0:
                 return False
         except Exception:
             return False
-
-        # 如果是开发者，额外安装开发依赖 (使用 uv sync --group dev)
-        if self.is_developer:
-            dev_cmd = [sys.executable, "-m", "uv", "sync", "--group", "dev"]
-            if self.use_china_mirror:
-                os.environ["UV_INDEX_URL"] = "https://pypi.tuna.tsinghua.edu.cn/simple"
-            try:
-                result = subprocess.run(
-                    dev_cmd, capture_output=True, text=True, timeout=300,
-                    cwd=str(self.project_root)
-                )
-                # 开发依赖安装失败不阻止整体流程
-            except Exception:
-                pass
 
         return True
 

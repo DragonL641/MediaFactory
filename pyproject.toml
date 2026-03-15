@@ -15,7 +15,6 @@ classifiers = [
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
@@ -55,7 +54,7 @@ dependencies = [
     "openai>=1.50.0",     # OpenAI SDK 支持 (统一后端)
     "tenacity>=8.2.0",   # 重试机制
 ]
-requires-python = ">=3.10"
+requires-python = ">=3.11,<3.14"
 
 # ==============================================================================
 # Console scripts (命令行入口点)
@@ -64,53 +63,90 @@ requires-python = ">=3.10"
 mediafactory = "mediafactory.gui.flet.app:launch_gui"
 
 # ==============================================================================
-# Optional dependencies (可选功能依赖 - 可延迟安装)
+# Dependency Groups (依赖分组)
 # ==============================================================================
-[project.optional-dependencies]
-# ML 依赖（本地 ASR 和翻译功能）
-# 这些依赖较大（~350MB），可在首次运行时通过安装向导下载
-ml = [
-    # PyTorch (锁定到 2.4.x 系列以保持兼容性)
-    "torch>=2.5.0",
-    # Whisper (使用 faster-whisper)
-    "faster-whisper>=1.0.0",
-    "gguf>=0.10.0",              # GGUF 模型加载支持
-    # Transformers (锁定到 4.46.x 系列)
-    "transformers>=4.46.0,<5.0.0",
-    # 支持库
-    "sentencepiece>=0.1.99",
-    "accelerate>=1.0.0",
-    # 视频增强依赖
-    "spandrel>=0.4.0",           # 统一模型加载库
-    "facexlib>=0.3.0",           # 人脸检测库
+# 使用 PEP 735 dependency groups 进行依赖分组
+# 适用于 APP 开发（不发布到 PyPI）
+# 安装方式: uv sync --group <group_name>
+#
+# 三组依赖说明：
+# - bundle: 打包依赖（PyInstaller 要打包的，不含 ML）- 用于打包验证
+# - core: 核心依赖（所有功能，含 ML）- 开发者和用户安装
+# - dev: 开发依赖（开发工具）- 仅开发者需要
+#
+# 使用方式：
+# - 开发者: uv sync --all-groups
+# - 用户: uv sync --group core
+# - 打包验证: uv sync --group bundle
+[dependency-groups]
+
+# 打包依赖（PyInstaller 要打包的依赖，不含 ML）
+# 用于验证打包依赖的完整性，与 [project.dependencies] 一致
+bundle = [
+    "flet>=0.80.0,<0.90.0",
+    "loguru>=0.7.2",
+    "pydantic>=2.9.0,<3.0.0",
+    "pydantic-settings>=2.6.0",
+    "tomli>=2.0.1",
+    "tomli-w>=1.0.0",
+    "psutil>=6.0.0",
+    "tqdm>=4.66.0",
+    "imageio-ffmpeg>=0.5.1",
+    "opencv-python>=4.8.0",
+    "numpy>=1.24.0",
+    "langdetect>=1.0.9",
+    "huggingface-hub>=0.23.0,<0.28.0",
+    "openai>=1.50.0",
+    "tenacity>=8.2.0",
 ]
 
-##### Dependency Groups #####
-# PEP 735 dependency groups for local development (not published to PyPI)
-[dependency-groups]
-# 开发依赖（仅本地使用，不随包发布）
-# 包含所有 ML 依赖，确保开发者能测试完整功能
+# 核心依赖（所有功能依赖，包含 ML）
+# 这是完整功能所需的依赖，开发者和需要本地 ML 功能的用户需要安装
+# ML 依赖统一使用 CUDA 12.4 (cu124)，最低驱动要求 NVIDIA Driver ≥ 525.60.13
+core = [
+    # 包含所有打包依赖
+    "flet>=0.80.0,<0.90.0",
+    "loguru>=0.7.2",
+    "pydantic>=2.9.0,<3.0.0",
+    "pydantic-settings>=2.6.0",
+    "tomli>=2.0.1",
+    "tomli-w>=1.0.0",
+    "psutil>=6.0.0",
+    "tqdm>=4.66.0",
+    "imageio-ffmpeg>=0.5.1",
+    "opencv-python>=4.8.0",
+    "numpy>=1.24.0",
+    "langdetect>=1.0.9",
+    "huggingface-hub>=0.23.0,<0.28.0",
+    "openai>=1.50.0",
+    "tenacity>=8.2.0",
+    # ML 依赖（本地 ASR 和翻译功能）
+    "torch>=2.5.0",                 # PyTorch 2.5.x 系列（CUDA 12.4）
+    "faster-whisper>=1.0.0",        # Whisper（使用 faster-whisper）
+    "gguf>=0.10.0",                 # GGUF 模型加载支持
+    "transformers>=4.46.0,<5.0.0",  # Transformers（锁定 4.46.x）
+    "sentencepiece>=0.1.99",        # 支持库
+    "accelerate>=1.0.0",            # 支持库
+    "spandrel>=0.4.0",              # 统一模型加载库（视频增强）
+    "facexlib>=0.3.0",              # 人脸检测库
+]
+
+# 开发依赖（开发工具、代码质量检查）
+# 仅开发者需要，不包含 ML 依赖（避免重复）
 dev = [
-    # ML 依赖（从 ml 组引入）
-    "torch>=2.5.0",
-    "faster-whisper>=1.0.0",
-    "gguf>=0.10.0",
-    "transformers>=4.46.0,<5.0.0",
-    "sentencepiece>=0.1.99",
-    "accelerate>=1.0.0",
-    "spandrel>=0.4.0",
-    "facexlib>=0.3.0",
-    # 开发工具
+    # 测试
     "pytest>=7.0.0",
     "pytest-cov>=4.0.0",
+    # 代码质量
     "black>=22.0.0",
     "flake8>=5.0.0",
     "mypy>=1.0.0",
-    "pre-commit>=3.0.0",  # Git hooks 代码检查
+    "pre-commit>=3.0.0",            # Git hooks 代码检查
+    # 构建
     "build>=0.10.0",
     "twine>=4.0.0",
     "pyinstaller>=6.18.0",
-    "pillow>=10.0.0",  # 图标处理（PyInstaller 需要 Pillow 来转换 PNG→ICO）
+    "pillow>=10.0.0",               # 图标处理（PyInstaller 需要 PNG→ICO）
 ]
 
 ##### Test Settings #####

@@ -15,7 +15,7 @@
 专业级多媒体处理平台，专注于字幕生成和视频相关任务。
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Python](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
+[![Python](https://img.shields.io/badge/python-3.11%20%7C%203.12%20%7C%203.13-blue.svg)](https://www.python.org/downloads/)
 
 ---
 
@@ -92,13 +92,42 @@
 
 ## 安装
 
+### 用户安装
+
 1. 克隆仓库：
 ```bash
 git clone https://github.com/Dragon/MediaFactory.git
 cd MediaFactory
 ```
 
-2. 运行安装脚本：
+2. 安装依赖：
+```bash
+uv sync --group core
+```
+
+3. 运行应用：
+```bash
+uv run mediafactory
+```
+
+### 开发者安装
+
+1. 克隆并安装所有依赖：
+```bash
+git clone https://github.com/Dragon/MediaFactory.git
+cd MediaFactory
+uv sync --all-groups
+```
+
+2. 安装 pre-commit 钩子：
+```bash
+pre-commit install
+pre-commit run --all-files
+```
+
+### 备选方式： 交互式安装
+
+您也可以使用交互式安装脚本：
 ```bash
 python scripts/setup_env.py
 ```
@@ -111,7 +140,8 @@ python scripts/setup_env.py
 
 ### 系统要求
 
-- **Python**: 3.10+（推荐 3.12）
+- **Python**: 3.11、3.12 或 3.13（推荐 3.12）
+- **uv**: 现代 Python 包管理器（[安装 uv](https://docs.astral.sh/uv/)）
 - **FFmpeg**: 通过 imageio-ffmpeg 自动包含（无需手动安装）
 - **GPU**（可选）: 支持 CUDA 的 NVIDIA GPU 用于加速
 
@@ -120,7 +150,7 @@ python scripts/setup_env.py
 | 配置 | 内存 | 存储 | 说明 |
 |------|------|------|------|
 | **CPU 模式** | 4GB RAM | 2GB | 所有平台 |
-| **GPU 模式** | 8GB RAM | 5GB | NVIDIA GPU，4GB+ 显存 |
+| **GPU 模式** | 8GB RAM | 15GB | NVIDIA GPU，4GB+ 显存，驱动 ≥ 525.60.13 |
 
 ### 安装 Pre-commit 钩子（贡献者）
 

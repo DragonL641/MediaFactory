@@ -16,7 +16,7 @@
 A professional multimedia processing platform for subtitle generation and video-related tasks.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Python](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
+[![Python](https://img.shields.io/badge/python-3.11%20%7C%203.12%20%7C%203.13-blue.svg)](https://www.python.org/downloads/)
 
 ---
 
@@ -92,13 +92,42 @@ A professional multimedia processing platform for subtitle generation and video-
 
 ## Installation
 
+### For Users
+
 1. Clone the repository:
 ```bash
 git clone https://github.com/Dragon/MediaFactory.git
 cd MediaFactory
 ```
 
-2. Run the setup script:
+2. Install dependencies:
+```bash
+uv sync --group core
+```
+
+3. Run the application:
+```bash
+uv run mediafactory
+```
+
+### For Developers
+
+1. Clone and install all dependencies:
+```bash
+git clone https://github.com/Dragon/MediaFactory.git
+cd MediaFactory
+uv sync --all-groups
+```
+
+2. Install pre-commit hooks:
+```bash
+pre-commit install
+pre-commit run --all-files
+```
+
+### Alternative: Interactive Setup
+
+You can also use the interactive setup script:
 ```bash
 python scripts/setup_env.py
 ```
@@ -111,7 +140,8 @@ The interactive script will:
 
 ### Requirements
 
-- **Python**: 3.10+ (3.12 recommended)
+- **Python**: 3.11, 3.12, or 3.13 (3.12 recommended)
+- **uv**: Modern Python package manager ([install uv](https://docs.astral.sh/uv/))
 - **FFmpeg**: Included via imageio-ffmpeg (no manual installation needed)
 - **GPU** (optional): NVIDIA GPU with CUDA support for acceleration
 
@@ -120,7 +150,7 @@ The interactive script will:
 | Configuration | Memory | Storage | Notes |
 |---------------|--------|---------|-------|
 | **CPU Mode** | 4GB RAM | 2GB | All platforms |
-| **GPU Mode** | 8GB RAM | 5GB | NVIDIA GPU with 4GB+ VRAM |
+| **GPU Mode** | 8GB RAM | 15GB | NVIDIA GPU with 4GB+ VRAM, Driver ≥ 525.60.13 |
 
 ### Install Pre-commit Hooks (For Contributors)
 

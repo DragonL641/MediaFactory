@@ -148,12 +148,12 @@ def detect_cuda() -> Tuple[bool, Optional[str]]:
     """检测 NVIDIA GPU
 
     简化版：只检测 GPU 是否存在，不查询复杂的 CUDA 版本字段。
-    对于 PyTorch 安装，直接使用 cu124（最新稳定版）。
+    对于 PyTorch 安装，统一使用 cu124（CUDA 12.4）。
 
     Returns:
         (has_gpu, cuda_version) 元组
         - has_gpu: 是否检测到 NVIDIA GPU
-        - cuda_version: 固定返回 "12.4"（推荐安装 cu124）
+        - cuda_version: 固定返回 "12.4"（统一使用 cu124）
     """
     # 方法1: 使用 nvidia-smi -L 检测 GPU（这个命令最稳定）
     try:
@@ -164,22 +164,7 @@ def detect_cuda() -> Tuple[bool, Optional[str]]:
             timeout=10
         )
         if result.returncode == 0 and result.stdout.strip():
-            # nvidia-smi -L 能运行，说明有 GPU
-            return True, "12.4"
-    except (FileNotFoundError, subprocess.TimeoutExpired):
-        pass
-    except Exception:
-        pass
-
-    # 方法2: 检查 nvidia-smi 命令是否存在且能运行
-    try:
-        result = subprocess.run(
-            ["nvidia-smi"],
-            capture_output=True,
-            text=True,
-            timeout=10
-        )
-        if result.returncode == 0:
+            # nvidia-smi -L 能运行，说明有 GPU，统一使用 cu124
             return True, "12.4"
     except (FileNotFoundError, subprocess.TimeoutExpired):
         pass
@@ -189,7 +174,7 @@ def detect_cuda() -> Tuple[bool, Optional[str]]:
     return False, None
 
 
-def check_disk_space(required_gb: float = 10) -> Tuple[bool, float]:
+def check_disk_space(required_gb: float = 15) -> Tuple[bool, float]:
     """检查磁盘空间是否足够
 
     Args:
@@ -218,32 +203,18 @@ def check_disk_space(required_gb: float = 10) -> Tuple[bool, float]:
 
 
 def get_recommended_torch_version(cuda_version: Optional[str]) -> str:
-    """根据 CUDA 版本推荐 PyTorch 版本
+    """根据 CUDA 版本推荐 PyTorch 版本（固定 cu124）
 
     Args:
-        cuda_version: CUDA 版本 (如 "12.1") 或 None
+        cuda_version: CUDA 版本或 None
 
     Returns:
-        推荐的 PyTorch 版本标识 (cu118, cu121, cu124, cpu)
+        推荐的 PyTorch 版本标识 (cu124 或 cpu)
     """
     if not cuda_version:
         return "cpu"
-
-    try:
-        major, minor = map(int, cuda_version.split(".")[:2])
-        # CUDA 11.x → cu118
-        if major == 11:
-            return "cu118"
-        # CUDA 12.0-12.3 → cu121
-        elif major == 12 and minor < 4:
-            return "cu121"
-        # CUDA 12.4+ → cu124
-        elif major == 12 and minor >= 4:
-            return "cu124"
-    except (ValueError, IndexError):
-        pass
-
-    return "cu124"  # 默认使用最新版本
+    # 统一使用 CUDA 12.4 (cu124)
+    return "cu124"
 
 
 class DependencyInstaller:
@@ -258,13 +229,25 @@ class DependencyInstaller:
 
     # ML 依赖（延迟安装，可在首次运行时通过安装向导安装）
     # 对应 pyproject.toml 中的 [project.optional-dependencies.ml]
+    # ML 依赖（与 pyproject.toml 中的 core 组一致）
+    # 版本说明：
+    # - torch>=2.5.0: PyTorch 2.5.x 系列，支持 CUDA 12.4
+    # - faster-whisper>=1.0.0: Whisper 语音识别
+    # - gguf>=0.10.0: GGUF 模型加载支持
+    # - transformers>=4.46.0,<5.0.0: Transformers 4.46.x
+    # - sentencepiece>=0.1.99: 分词器支持
+    # - accelerate>=1.0.0: 加速库支持
+    # - spandrel>=0.4.0: 统一模型加载库（视频增强）
+    # - facexlib>=0.3.0: 人脸检测库
     ML_DEPENDENCIES = [
-        "torch>=2.0.0",
+        "torch>=2.5.0",
         "faster-whisper>=1.0.0",
-        "transformers>=4.21.0",
+        "gguf>=0.10.0",
+        "transformers>=4.46.0,<5.0.0",
         "sentencepiece>=0.1.99",
-        "accelerate>=0.20.3",
-        "psutil>=5.8.0",
+        "accelerate>=1.0.0",
+        "spandrel>=0.4.0",
+        "facexlib>=0.3.0",
     ]
 
     # Transformers 相关依赖

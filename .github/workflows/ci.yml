@@ -19,7 +19,7 @@ jobs:
     # 策略配置 - 矩阵策略允许在多个Python版本上并行测试
     strategy:
       matrix:
-        python-version: ["3.10", "3.11", "3.12", "3.13"]
+        python-version: ["3.11", "3.12", "3.13"]
 
     steps:
     # 步骤1: 检出代码仓库

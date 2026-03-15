@@ -1,30 +1,28 @@
 """PyInstaller runtime hook for transformers.
 
-This hook ensures transformers_config is loaded before transformers,
-to set up the cache directory properly in the frozen environment.
-"""
+设置 transformers 缓存目录，"""
 
 import os
 import sys
+import tempfile
 
-# Get the application root directory
+# 获取应用根目录
 if getattr(sys, 'frozen', False):
-    if hasattr(sys, '_MEIPASS'):
-        app_root = os.path.dirname(sys.executable)
-    else:
-        app_root = os.path.dirname(sys.executable)
+    app_root = os.path.dirname(sys.executable)
 else:
     app_root = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
 
-# Set transformers cache environment variables BEFORE any transformers import
+# 设置缓存目录
 cache_dir = os.path.join(app_root, "cache")
-os.makedirs(cache_dir, exist_ok=True)
 
-os.environ['TRANSFORMERS_CACHE'] = cache_dir
+try:
+    os.makedirs(cache_dir, exist_ok=True)
+    os.makedirs(os.path.join(cache_dir, "hub"), exist_ok=True)
+except OSError:
+    # 权限错误时回退到临时目录
+    cache_dir = os.path.join(tempfile.gettempdir(), "mediafactory_cache")
+    os.makedirs(cache_dir, exist_ok=True)
+
+# 只设置推荐的环境变量（HF_HOME 是 transformers 5.x 推荐的方式）
 os.environ['HF_HOME'] = cache_dir
 os.environ['HF_HUB_CACHE'] = os.path.join(cache_dir, "hub")
-os.environ['HUGGINGFACE_HUB_CACHE'] = os.path.join(cache_dir, "hub")
-
-# Ensure cache subdirectories exist
-os.makedirs(os.path.join(cache_dir, "hub"), exist_ok=True)
-os.makedirs(os.path.join(cache_dir, "models"), exist_ok=True)
