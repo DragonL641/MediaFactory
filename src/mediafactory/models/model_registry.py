@@ -164,39 +164,53 @@ MODEL_REGISTRY: dict[str, ModelInfo] = {
         description="Best quality for transcription",
     ),
     # ========== Translation Models ==========
+    # M2M100 (Apache 2.0 许可证，轻量级)
+    "facebook/m2m100_418M": ModelInfo(
+        huggingface_id="facebook/m2m100_418M",
+        display_name="M2M100-418M (轻量级)",
+        model_type=ModelType.TRANSLATION,
+        model_size_mb=1940,  # ~1.9 GB
+        runtime_memory_mb=4096,  # 4 GB
+        runtime_vram_mb=2048,  # 2 GB VRAM
+        recommended_system_mb=8192,  # 8 GB
+        recommended_vram_mb=4096,  # 4 GB VRAM
+        license=LicenseType.APACHE_2_0,
+        language_support="100 languages",
+        precision="fp16",
+        requires_prompt=False,
+        description="轻量级多语言翻译，适合低显存设备",
+    ),
     # MADLAD400 (Apache 2.0 许可证，支持商用)
-    # 注意：使用 allow_patterns 只下载 GGUF + tokenizer + config，排除 safetensors
+    # 使用 safetensors 格式（HuggingFace 上的 GGUF 文件缺少必要元数据）
     "google/madlad400-3b-mt": ModelInfo(
         huggingface_id="google/madlad400-3b-mt",
-        gguf_file="model-q4k.gguf",  # 实际 GGUF 文件名
-        display_name="MADLAD400-3B (Q4K GGUF)",
+        display_name="MADLAD400-3B",
         model_type=ModelType.TRANSLATION,
-        model_size_mb=1700,  # ~1.65 GB (GGUF q4k + tokenizer，排除 safetensors)
-        runtime_memory_mb=4096,  # 4 GB (加载 GGUF 时实际内存)
-        runtime_vram_mb=3072,  # 3 GB VRAM
+        model_size_mb=12000,  # ~11.7 GB (safetensors)
+        runtime_memory_mb=8192,  # 8 GB
+        runtime_vram_mb=6144,  # 6 GB VRAM
         recommended_system_mb=16384,  # 16 GB
         recommended_vram_mb=8192,  # 8 GB VRAM
         license=LicenseType.APACHE_2_0,
         language_support="400+ languages",
-        precision="q4k",
+        precision="fp16",
         requires_prompt=False,
-        description="All-language translation (GGUF)",
+        description="All-language translation",
     ),
     "google/madlad400-7b-mt-bt": ModelInfo(
         huggingface_id="google/madlad400-7b-mt-bt",
-        gguf_file="model-q4k.gguf",
-        display_name="MADLAD400-7B (Q4K GGUF)",
+        display_name="MADLAD400-7B",
         model_type=ModelType.TRANSLATION,
-        model_size_mb=4800,  # ~4.7 GB (GGUF q4k 4.67GB + tokenizer ~21MB)
-        runtime_memory_mb=7168,  # 7 GB
-        runtime_vram_mb=5120,  # 5 GB VRAM
+        model_size_mb=30000,  # ~30 GB (safetensors)
+        runtime_memory_mb=16384,  # 16 GB
+        runtime_vram_mb=12288,  # 12 GB VRAM
         recommended_system_mb=32768,  # 32 GB
-        recommended_vram_mb=12288,  # 12 GB VRAM
+        recommended_vram_mb=16384,  # 16 GB VRAM
         license=LicenseType.APACHE_2_0,
         language_support="400+ languages",
-        precision="q4k",
+        precision="fp16",
         requires_prompt=False,
-        description="High-quality translation (GGUF)",
+        description="High-quality translation",
     ),
     # ========== Enhancement Models: Super Resolution (Real-ESRGAN) ==========
     "RealESRGAN_x4plus": ModelInfo(

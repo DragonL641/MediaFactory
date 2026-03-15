@@ -3,10 +3,9 @@
 This module manages both Whisper and translation models using the unified model registry.
 Supports:
 - Whisper models for speech recognition
-- MADLAD400 GGUF quantized translation models with Apache 2.0 license for commercial use
+- MADLAD400 translation models with Apache 2.0 license for commercial use
 """
 
-import os
 import threading
 from typing import Optional, Tuple
 
@@ -166,30 +165,15 @@ class LocalModelManager:
             log_info(f"Loading model {model_info.display_name} from {local_path}")
 
             # Determine torch dtype based on precision
-            # GGUF 量化模型加载后反量化为 fp32 进行推理
             torch_dtype = torch.float32
             if model_info.precision == "fp16":
                 torch_dtype = torch.float16
 
-            # 检查是否有 GGUF 文件
-            gguf_file = self._get_gguf_filename(huggingface_id, local_path)
-
-            # Load tokenizer and model
+            # Load tokenizer and model directly (safetensors format)
             tokenizer = AutoTokenizer.from_pretrained(local_path)
-
-            if gguf_file:
-                # GGUF 量化模型：使用 gguf_file 参数加载
-                log_info(f"Loading GGUF model: {gguf_file}")
-                model = AutoModelForSeq2SeqLM.from_pretrained(
-                    local_path,
-                    gguf_file=gguf_file,
-                    torch_dtype=torch_dtype,
-                )
-            else:
-                # 原生模型（FP16/FP32）
-                model = AutoModelForSeq2SeqLM.from_pretrained(
-                    local_path, torch_dtype=torch_dtype
-                )
+            model = AutoModelForSeq2SeqLM.from_pretrained(
+                local_path, torch_dtype=torch_dtype
+            )
 
             # Move model to specified device
             if device == "cuda" and torch.cuda.is_available():
@@ -211,29 +195,68 @@ class LocalModelManager:
                     else f"[Translation] Input: {text}"
                 )
 
-                # MADLAD400 需要在输入文本前添加目标语言标签
-                # 格式: "<2xx> 原文本" 其中 xx 是目标语言代码
-                input_text = text
-                if tgt_lang:
-                    tgt_token = self._get_target_language_token(
-                        huggingface_id, tgt_lang
+                # Check if this is an M2M100 model
+                is_m2m100 = self._is_m2m100_model(huggingface_id)
+
+                if is_m2m100:
+                    # M2M100 翻译方式
+                    # 需要设置源语言，并使用 forced_bos_token_id 指定目标语言
+                    src_code = self._get_m2m100_lang_code(src_lang) if src_lang else "en"
+                    tgt_code = self._get_m2m100_lang_code(tgt_lang) if tgt_lang else "en"
+
+                    if src_code is None:
+                        log_warning(f"Unsupported source language for M2M100: {src_lang}, using 'en'")
+                        src_code = "en"
+                    if tgt_code is None:
+                        log_warning(f"Unsupported target language for M2M100: {tgt_lang}, using 'en'")
+                        tgt_code = "en"
+
+                    log_debug(f"[Translation] M2M100: {src_code} -> {tgt_code}")
+
+                    # 设置源语言
+                    tokenizer.src_lang = src_code
+
+                    # 编码输入
+                    inputs = tokenizer(
+                        text,
+                        return_tensors="pt",
+                        truncation=truncation,
+                        max_length=max_length,
                     )
-                    if tgt_token:
-                        input_text = f"{tgt_token} {text}"
-                        log_debug(f"[Translation] Target language token: {tgt_token}")
 
-                inputs = tokenizer(
-                    input_text,
-                    return_tensors="pt",
-                    truncation=truncation,
-                    max_length=max_length,
-                )
+                    # Move inputs to same device as model
+                    inputs = {k: v.to(model.device) for k, v in inputs.items()}
 
-                # Move inputs to same device as model
-                inputs = {k: v.to(model.device) for k, v in inputs.items()}
+                    # 生成翻译，使用 forced_bos_token_id 指定目标语言
+                    forced_bos_token_id = tokenizer.get_lang_id(tgt_code)
+                    gen_kwargs = {
+                        "max_length": max_length,
+                        "forced_bos_token_id": forced_bos_token_id,
+                    }
+                else:
+                    # MADLAD400 翻译方式
+                    # 在输入文本前添加目标语言标签，格式: "<2xx> 原文本"
+                    input_text = text
+                    if tgt_lang:
+                        tgt_token = self._get_target_language_token(
+                            huggingface_id, tgt_lang
+                        )
+                        if tgt_token:
+                            input_text = f"{tgt_token} {text}"
+                            log_debug(f"[Translation] Target language token: {tgt_token}")
 
-                # Generate translation
-                gen_kwargs = {"max_length": max_length}
+                    inputs = tokenizer(
+                        input_text,
+                        return_tensors="pt",
+                        truncation=truncation,
+                        max_length=max_length,
+                    )
+
+                    # Move inputs to same device as model
+                    inputs = {k: v.to(model.device) for k, v in inputs.items()}
+
+                    # Generate translation
+                    gen_kwargs = {"max_length": max_length}
 
                 with torch.no_grad():
                     translated = model.generate(**inputs, **gen_kwargs)
@@ -255,30 +278,6 @@ class LocalModelManager:
         except Exception as e:
             log_error(f"Failed to load model {huggingface_id} from {local_path}: {e}")
             return None, False
-
-    def _get_gguf_filename(self, huggingface_id: str, local_path: str) -> Optional[str]:
-        """获取 GGUF 文件名（如果存在）
-
-        Args:
-            huggingface_id: HuggingFace 模型 ID
-            local_path: 本地模型路径
-
-        Returns:
-            GGUF 文件名，如果存在的话；否则返回 None
-        """
-        model_info = get_translation_model_info(huggingface_id)
-        if model_info is None or not model_info.gguf_file:
-            return None
-
-        gguf_file = model_info.gguf_file
-        full_path = os.path.join(local_path, gguf_file)
-
-        if os.path.exists(full_path):
-            log_debug(f"Found GGUF file: {gguf_file}")
-            return gguf_file
-
-        log_debug(f"GGUF file not found: {full_path}")
-        return None
 
     def _get_target_language_token(
         self, huggingface_id: str, tgt_lang: str
@@ -317,6 +316,42 @@ class LocalModelManager:
             "ms": "<2ms>",
         }
         return lang_code_map.get(tgt_lang.lower())
+
+    def _is_m2m100_model(self, huggingface_id: str) -> bool:
+        """Check if the model is an M2M100 variant.
+
+        Args:
+            huggingface_id: HuggingFace 模型 ID
+
+        Returns:
+            True if the model is M2M100, False otherwise
+        """
+        return "m2m100" in huggingface_id.lower()
+
+    def _get_m2m100_lang_code(self, lang: str) -> Optional[str]:
+        """Get M2M100 language code.
+
+        M2M100 uses ISO 639-1 codes directly.
+
+        Args:
+            lang: Language code (e.g., "zh", "en")
+
+        Returns:
+            M2M100 language code, or None if not supported
+        """
+        # M2M100 支持的语言代码（ISO 639-1）
+        # 参考: https://huggingface.co/facebook/m2m100_418M
+        m2m100_supported = {
+            "zh", "en", "ja", "ko", "fr", "de", "es", "ru", "it", "pt",
+            "nl", "ar", "hi", "vi", "th", "tr", "pl", "uk", "id", "ms",
+            "cs", "da", "el", "fi", "hu", "no", "ro", "sk", "sv", "bg",
+            "bn", "ca", "hr", "he", "lt", "lv", "sr", "sl", "ta", "te",
+            "ml", "mr", "ne", "pa", "si", "sw", "ur", "af", "am", "az",
+            "eu", "gl", "ka", "kk", "km", "ky", "lo", "mk", "mn", "my",
+            "ps", "sq", "tg", "tk", "uz", "xh", "yo", "zu"
+        }
+        lang_lower = lang.lower()
+        return lang_lower if lang_lower in m2m100_supported else None
 
     def _log_model_not_found_error(self, huggingface_id: str) -> None:
         """Log error when model is not found locally.

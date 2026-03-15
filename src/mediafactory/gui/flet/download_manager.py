@@ -503,24 +503,9 @@ class DownloadManager:
         self._start_progress_polling(model_id)
 
         # 根据模型类型设置文件过滤规则
+        # 注意：翻译模型现在使用 safetensors 格式（不再使用 GGUF）
         allow_patterns = None
         ignore_patterns = None
-        if model_info.model_type == ModelType.TRANSLATION:
-            # 翻译模型：只下载 GGUF + tokenizer + config，排除大体积的 safetensors
-            allow_patterns = [
-                "*.gguf",           # GGUF 量化模型文件
-                "config.json",
-                "generation_config.json",
-                "tokenizer*",
-                "spiece*",
-                "special_tokens*",
-                "added_tokens*",
-            ]
-            ignore_patterns = [
-                "*.safetensors",    # 排除原始 fp32 模型（通常 10GB+）
-                "*.bin",            # 排除 pytorch_model.bin
-            ]
-            log_info(f"Translation model: using file filters to reduce download size")
 
         last_error = None
         for attempt in range(MAX_RETRIES):

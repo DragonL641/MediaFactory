@@ -138,13 +138,18 @@ def is_model_complete(huggingface_id: str) -> bool:
         return False
     else:
         # 翻译模型：需要 model.safetensors 或 pytorch_model.bin
-        model_safetensors = model_path / "model.safetensors"
+        # 检查 safetensors 文件（可能分片，如 model-00001-of-00002.safetensors）
+        safetensors_files = (
+            list(model_path.glob("*.safetensors"))
+            or list(model_path.glob("model*.safetensors"))
+        )
         pytorch_model = model_path / "pytorch_model.bin"
 
-        if model_safetensors.exists():
-            size = model_safetensors.stat().st_size
-            if size < MIN_MODEL_FILE_SIZE:
-                log_info(f"Model {huggingface_id} incomplete: model.safetensors too small ({size} bytes)")
+        if safetensors_files:
+            # 检查 safetensors 文件大小
+            total_size = sum(f.stat().st_size for f in safetensors_files)
+            if total_size < MIN_MODEL_FILE_SIZE:
+                log_info(f"Model {huggingface_id} incomplete: safetensors too small ({total_size} bytes)")
                 return False
             return True
 
@@ -155,18 +160,7 @@ def is_model_complete(huggingface_id: str) -> bool:
                 return False
             return True
 
-        # GGUF 模型可能没有上述文件，检查 GGUF 文件
-        gguf_files = list(model_path.glob("*.gguf"))
-        if gguf_files:
-            # 检查至少一个 GGUF 文件大小合理
-            for gguf_file in gguf_files:
-                size = gguf_file.stat().st_size
-                if size >= MIN_MODEL_FILE_SIZE:
-                    return True
-            log_info(f"Model {huggingface_id} incomplete: GGUF files too small")
-            return False
-
-        log_info(f"Model {huggingface_id} incomplete: missing model file")
+        log_info(f"Model {huggingface_id} incomplete: missing model file (safetensors or pytorch_model.bin)")
         return False
 
 
@@ -224,22 +218,6 @@ def download_model(
     # 根据模型类型设置文件过滤规则
     allow_patterns = None
     ignore_patterns = None
-    if model_info.model_type == ModelType.TRANSLATION:
-        # 翻译模型：只下载 GGUF + tokenizer + config，排除大体积的 safetensors
-        allow_patterns = [
-            "*.gguf",           # GGUF 量化模型文件
-            "config.json",
-            "generation_config.json",
-            "tokenizer*",
-            "spiece*",
-            "special_tokens*",
-            "added_tokens*",
-        ]
-        ignore_patterns = [
-            "*.safetensors",    # 排除原始 fp32 模型（通常 10GB+）
-            "*.bin",            # 排除 pytorch_model.bin
-        ]
-        log_info(f"Translation model: using file filters to reduce download size")
 
     # 带重试机制的下载
     last_error = None
