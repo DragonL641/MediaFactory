@@ -11,10 +11,9 @@ Supports memory-aware selection and license tracking for commercial use complian
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
 import psutil
-import torch
 
 from ..logging import log_info, log_warning
 
@@ -147,6 +146,11 @@ class ModelInfo:
     def recommended_system_gb(self) -> int:
         return self.recommended_system_mb // 1024 if self.recommended_system_mb else 0
 
+    @property
+    def runtime_vram_gb(self) -> float:
+        """GPU 运行时显存需求 (GB)。"""
+        return self.runtime_vram_mb / 1024
+
 
 # Unified model registry
 # 键直接使用 huggingface_id，与 HuggingFace 一致
@@ -157,7 +161,7 @@ MODEL_REGISTRY: dict[str, ModelInfo] = {
         display_name="Whisper Large V3",
         model_type=ModelType.WHISPER,
         model_size_mb=3072,  # 3 GB
-        runtime_memory_mb=10240,  # 10 GB
+        runtime_memory_mb=6144,  # 6 GB (FP16推理3-4GB, CPU需要6GB)
         recommended_system_mb=16384,  # 16 GB
         license=LicenseType.MIT,
         language_support="99+ languages",
@@ -171,8 +175,8 @@ MODEL_REGISTRY: dict[str, ModelInfo] = {
         display_name="M2M100-418M (轻量级)",
         model_type=ModelType.TRANSLATION,
         model_size_mb=3700,
-        runtime_memory_mb=4096,  # 4 GB
-        runtime_vram_mb=2048,  # 2 GB VRAM
+        runtime_memory_mb=2790,  # 官方FP32数据2.79GB
+        runtime_vram_mb=2048,  # 2 GB VRAM (FP16)
         recommended_system_mb=8192,  # 8 GB
         recommended_vram_mb=4096,  # 4 GB VRAM
         license=LicenseType.APACHE_2_0,
@@ -188,8 +192,8 @@ MODEL_REGISTRY: dict[str, ModelInfo] = {
         display_name="MADLAD400-3B",
         model_type=ModelType.TRANSLATION,
         model_size_mb=15000,
-        runtime_memory_mb=8192,  # 8 GB
-        runtime_vram_mb=6144,  # 6 GB VRAM
+        runtime_memory_mb=8192,  # 8 GB (CPU)
+        runtime_vram_mb=5120,  # 5 GB VRAM (官方FP16数据4.99GB)
         recommended_system_mb=16384,  # 16 GB
         recommended_vram_mb=8192,  # 8 GB VRAM
         license=LicenseType.APACHE_2_0,
@@ -203,8 +207,8 @@ MODEL_REGISTRY: dict[str, ModelInfo] = {
         display_name="MADLAD400-7B",
         model_type=ModelType.TRANSLATION,
         model_size_mb=34000,
-        runtime_memory_mb=16384,  # 16 GB
-        runtime_vram_mb=12288,  # 12 GB VRAM
+        runtime_memory_mb=18432,  # 18 GB (CPU应该比VRAM略高)
+        runtime_vram_mb=14336,  # 14 GB VRAM (7B × 2 bytes = 14GB)
         recommended_system_mb=32768,  # 32 GB
         recommended_vram_mb=16384,  # 16 GB VRAM
         license=LicenseType.APACHE_2_0,
@@ -320,47 +324,37 @@ def get_available_memory_gb() -> float:
     return psutil.virtual_memory().available / (1024**3)
 
 
-def get_available_memory_for_device(device: str = "cpu") -> float:
-    """Get available memory for the specified device.
-
-    Args:
-        device: "cuda", "cpu", or "mps"
+def get_available_vram_gb() -> float:
+    """获取当前可用的 GPU 显存 (GB)。
 
     Returns:
-        Available memory in GB (VRAM for CUDA, RAM for CPU/MPS)
+        可用 GPU 显存 (GB)，无 GPU 时返回 0
     """
-    if device == "cuda" and torch.cuda.is_available():
-        try:
-            free, _ = torch.cuda.mem_get_info(0)
+    try:
+        import torch
+
+        if torch.cuda.is_available():
+            free, total = torch.cuda.mem_get_info(0)
             return free / (1024**3)
-        except Exception:
-            # Fallback to system RAM if GPU query fails
-            return psutil.virtual_memory().available / (1024**3)
-    else:
-        # CPU or MPS: use system RAM
-        return psutil.virtual_memory().available / (1024**3)
+    except Exception:
+        pass
+    return 0.0
 
 
-def get_required_memory_for_model(model_id: str, device: str = "cpu") -> float:
-    """Get required memory for a model on the specified device.
-
-    Args:
-        model_id: Model identifier
-        device: "cuda", "cpu", or "mps"
+def get_total_vram_gb() -> float:
+    """获取 GPU 总显存 (GB)。
 
     Returns:
-        Required memory in GB
+        GPU 总显存 (GB)，无 GPU 时返回 0
     """
-    info = MODEL_REGISTRY.get(model_id)
-    if info is None:
-        return float("inf")
+    try:
+        import torch
 
-    if device == "cuda" and info.runtime_vram_mb > 0:
-        # Use VRAM requirement for GPU
-        return info.runtime_vram_mb / 1024
-    else:
-        # Use RAM requirement for CPU/MPS
-        return info.runtime_memory_mb / 1024
+        if torch.cuda.is_available():
+            return torch.cuda.get_device_properties(0).total_memory / (1024**3)
+    except Exception:
+        pass
+    return 0.0
 
 
 def get_whisper_model_info() -> ModelInfo:
@@ -477,63 +471,61 @@ def get_best_translation_model_for_installation() -> str:
 
 def select_best_translation_model(
     downloaded_models: list[str],
-    device: str = "cpu"
+    device: str = "cpu",
 ) -> Optional[str]:
-    """Select the best translation model at runtime from downloaded models.
+    """从已下载模型中选择最佳翻译模型。
 
-    Based on currently available memory for the specified device, selects
-    the largest usable model.
+    根据设备类型和可用资源（GPU用VRAM，CPU用RAM）选择模型。
+    如果GPU显存不足，自动回退到CPU模式，然后选择最小模型。
 
     Args:
-        downloaded_models: List of downloaded model IDs
-        device: Target device ("cuda", "cpu", "mps")
+        downloaded_models: 已下载模型 ID 列表
+        device: 设备类型 ("cuda" 或 "cpu")
 
     Returns:
-        Model ID of the best available model, or None if no suitable model
+        最佳可用模型的 ID，若无合适模型则返回 None
     """
     if not downloaded_models:
         return None
 
-    available_memory = get_available_memory_for_device(device)
+    # 根据设备类型确定可用内存
+    if device == "cuda":
+        available_memory = get_available_vram_gb()
+        memory_field = "runtime_vram_gb"  # GPU 使用 VRAM 字段
+    else:
+        available_memory = get_available_memory_gb()
+        memory_field = "runtime_memory_gb"  # CPU 使用 RAM 字段
 
-    # Filter downloaded models that fit in available memory
+    # 筛选适合可用内存的已下载模型
     suitable_models = [
         (model_id, MODEL_REGISTRY[model_id])
         for model_id in downloaded_models
         if model_id in MODEL_REGISTRY
         and MODEL_REGISTRY[model_id].model_type == ModelType.TRANSLATION
-        and get_required_memory_for_model(model_id, device) <= available_memory
+        and getattr(MODEL_REGISTRY[model_id], memory_field) <= available_memory
     ]
 
-    if not suitable_models:
-        return None
+    if suitable_models:
+        # 返回内存占用最高（质量最好）的模型
+        return max(suitable_models, key=lambda x: getattr(x[1], memory_field))[0]
 
-    # Return the model with highest runtime memory (best quality)
-    return max(suitable_models, key=lambda x: x[1].runtime_memory_gb)[0]
+    # 无合适模型 - 尝试 CPU 回退
+    if device == "cuda":
+        log_warning("无翻译模型适合 GPU 显存，回退到 CPU 模式")
+        return select_best_translation_model(downloaded_models, device="cpu")
 
+    # 仍然无模型 - 返回最小的作为最后手段
+    all_models = sorted(
+        [MODEL_REGISTRY[m] for m in downloaded_models if m in MODEL_REGISTRY],
+        key=lambda m: m.runtime_memory_gb,
+    )
+    if all_models:
+        log_warning(
+            f"可用内存不足以运行任何模型。使用最小模型: {all_models[0].display_name}"
+        )
+        return all_models[0].huggingface_id
 
-def check_model_device_compatibility(model_id: str, device: str) -> Tuple[bool, str]:
-    """Check if a model is compatible with the specified device.
-
-    Args:
-        model_id: Model identifier
-        device: Target device ("cuda", "cpu", "mps")
-
-    Returns:
-        Tuple of (is_compatible, reason)
-    """
-    model_info = MODEL_REGISTRY.get(model_id)
-    if not model_info:
-        return False, "Model not found in registry"
-
-    available_memory = get_available_memory_for_device(device)
-    required_memory = get_required_memory_for_model(model_id, device)
-
-    if required_memory <= available_memory:
-        return True, "OK"
-    else:
-        memory_type = "VRAM" if device == "cuda" else "RAM"
-        return False, f"Need {required_memory:.1f}GB {memory_type}, available {available_memory:.1f}GB"
+    return None
 
 
 def is_model_commercial_use_allowed(model_id: str) -> bool:
