@@ -27,8 +27,8 @@ class ProcessingContext:
     detected_lang: Optional[str] = None
 
     # 模型配置
-    whisper_model: str = "small"
-    whisper_device: str = "cpu"
+    whisper_model: str = "auto"  # 固定使用 Large V3，"auto" 触发自动设置
+    whisper_device: str = "auto"  # 自动检测最佳设备 (cuda/cpu)
     whisper_model_instance: Any = None
 
     translation_model: Optional[str] = None

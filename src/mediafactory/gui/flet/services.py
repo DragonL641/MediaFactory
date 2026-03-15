@@ -57,10 +57,12 @@ class _ServiceProgressAdapter(ProgressCallback):
             Callable[[ProcessingProgress], None], Callable[[float, str], None]
         ],
         is_cancelled_func: Optional[Callable[[], bool]] = None,
+        main_loop: Optional[asyncio.AbstractEventLoop] = None,
     ):
         self._callback = callback
         self._is_cancelled_func = is_cancelled_func
         self._current_stage: str = "model_loading"
+        self._main_loop = main_loop  # 保存主事件循环引用，用于跨线程进度传递
 
         # 检测回调类型
         self._is_async = inspect.iscoroutinefunction(callback)
@@ -90,22 +92,7 @@ class _ServiceProgressAdapter(ProgressCallback):
             if self._callback_signature == "progress_message":
                 # 直接传递 (progress, message)
                 if self._is_async:
-                    # 异步回调 - 使用 create_task 调度
-                    try:
-                        loop = asyncio.get_running_loop()
-                        loop.create_task(self._callback(progress, message))
-                    except RuntimeError:
-                        # 没有运行中的事件循环，尝试获取事件循环
-                        loop = asyncio.get_event_loop()
-                        if loop.is_running():
-                            loop.call_soon_threadsafe(
-                                lambda: loop.create_task(
-                                    self._callback(progress, message)
-                                )
-                            )
-                        else:
-                            # 事件循环未运行，忽略此进度更新
-                            pass
+                    self._schedule_async_callback(progress, message)
                 else:
                     self._callback(progress, message)
             else:
@@ -116,20 +103,33 @@ class _ServiceProgressAdapter(ProgressCallback):
                     message=message,
                 )
                 if self._is_async:
-                    try:
-                        loop = asyncio.get_running_loop()
-                        loop.create_task(self._callback(progress_data))
-                    except RuntimeError:
-                        loop = asyncio.get_event_loop()
-                        if loop.is_running():
-                            loop.call_soon_threadsafe(
-                                lambda: loop.create_task(self._callback(progress_data))
-                            )
+                    self._schedule_async_callback(progress_data)
                 else:
                     self._callback(progress_data)
         except Exception:
             # 进度更新失败不应中断处理流程
             pass
+
+    def _schedule_async_callback(self, *args) -> None:
+        """调度异步回调到主事件循环"""
+        # 优先使用保存的主事件循环（用于跨线程调用）
+        if self._main_loop and self._main_loop.is_running():
+            self._main_loop.call_soon_threadsafe(
+                lambda: self._main_loop.create_task(self._callback(*args))
+            )
+            return
+
+        # 回退：尝试从当前线程获取事件循环
+        try:
+            loop = asyncio.get_running_loop()
+            loop.create_task(self._callback(*args))
+        except RuntimeError:
+            # 没有运行中的事件循环，尝试获取保存的或默认事件循环
+            loop = self._main_loop or asyncio.get_event_loop()
+            if loop and loop.is_running():
+                loop.call_soon_threadsafe(
+                    lambda: loop.create_task(self._callback(*args))
+                )
 
     def is_cancelled(self) -> bool:
         """检查是否已取消"""
@@ -539,12 +539,16 @@ class TranscriptionService:
                     file_extension = "srt"
                 output_path = str(audio_dir / f"{audio_name}.{file_extension}")
 
+            # 获取主事件循环（用于跨线程进度传递）
+            main_loop = asyncio.get_running_loop()
+
             # 创建进度适配器
             progress_adapter: ProgressCallback
             if progress_callback:
                 progress_adapter = _ServiceProgressAdapter(
                     callback=progress_callback,
                     is_cancelled_func=lambda: self._cancelled,
+                    main_loop=main_loop,
                 )
             else:
                 from mediafactory.core.progress_protocol import NO_OP_PROGRESS

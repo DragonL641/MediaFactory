@@ -160,7 +160,6 @@ class RecognitionEngine:
         duration = TimeEstimator.get_video_duration(audio_path) or 0
         estimated_time = TimeEstimator.estimate_whisper_transcription_time(
             duration,
-            model_name,
             beam_size=config.whisper.beam_size,
             has_word_timestamps=config.whisper.word_timestamps,
         )
@@ -190,6 +189,11 @@ class RecognitionEngine:
                 segment_count = 0
                 last_log_time = time.time()
                 last_progress_update_time = time.time()
+                processing_start_time = time.time()
+
+                # 在循环开始前立即报告初始进度
+                if total_duration > 0:
+                    progress.update(5, "开始分析音频...")
 
                 for segment in segments_generator:
                     if progress.is_cancelled():
@@ -202,17 +206,36 @@ class RecognitionEngine:
                     processed_duration = max(processed_duration, segment_end)
 
                     if total_duration > 0:
-                        progress_value = min(
-                            (processed_duration / total_duration) * 100,
-                            ProgressConstants.NEAR_COMPLETE,
-                        )
                         current_time = time.time()
+
+                        # 计算进度值
+                        if processed_duration > 0:
+                            # 基于已处理的音频时长计算进度
+                            progress_value = min(
+                                (processed_duration / total_duration) * 100,
+                                ProgressConstants.NEAR_COMPLETE,
+                            )
+                        else:
+                            # 还没有分段时，基于处理时间估算进度
+                            # 假设处理速度约为实时速度的0.3倍（Whisper典型速度）
+                            elapsed = current_time - processing_start_time
+                            estimated_audio_processed = elapsed * 0.3
+                            progress_value = min(
+                                5 + (estimated_audio_processed / total_duration) * 90,
+                                ProgressConstants.NEAR_COMPLETE - 10,
+                            )
 
                         if (
                             current_time - last_progress_update_time
                             >= RecognitionConstants.PROGRESS_UPDATE_INTERVAL
                         ):
-                            progress.update(progress_value, "正在处理...")
+                            if processed_duration > 0:
+                                progress.update(
+                                    progress_value,
+                                    f"处理中 {processed_duration:.1f}s/{total_duration:.1f}s",
+                                )
+                            else:
+                                progress.update(progress_value, "正在分析音频...")
                             last_progress_update_time = current_time
 
                         segment_count += 1

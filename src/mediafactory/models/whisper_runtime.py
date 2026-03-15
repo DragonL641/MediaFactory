@@ -83,22 +83,17 @@ def get_compute_type(device: str) -> str:
 
 
 def load_model(
-    model_size: Optional[str] = None,
     device: Optional[str] = None,
     compute_type: Optional[str] = None,
-    download_root: Optional[str] = None,
 ):
-    """Load a Faster Whisper model.
+    """Load the Faster Whisper Large V3 model.
 
-    Note: The model is now fixed to Large V3. The model_size parameter
-    is kept for backward compatibility but is ignored.
+    The model is fixed to Large V3 - no model size selection needed.
 
     Args:
-        model_size: (Deprecated) Model size, ignored - always uses Large V3
         device: Computing device ("cuda" or "cpu"), auto-selected if None
         compute_type: Compute type ("int8", "int8_float16", "float16", "float32"),
                     auto-selected based on device if None
-        download_root: (Deprecated) 模型根目录，已忽略，使用 get_models_dir() 获取
 
     Returns:
         Faster Whisper model instance

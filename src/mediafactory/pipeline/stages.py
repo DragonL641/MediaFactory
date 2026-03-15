@@ -310,8 +310,11 @@ class ModelLoadingStage(SkipableStage):
         from ..models.model_registry import WHISPER_MODEL_ID
 
         try:
-            if not ctx.whisper_model or ctx.whisper_model == "auto":
-                ctx.whisper_model = WHISPER_MODEL_ID
+            # 固定使用 Large V3 模型
+            ctx.whisper_model = WHISPER_MODEL_ID
+
+            # 自动选择最佳设备（除非已明确指定非 "auto"）
+            if ctx.whisper_device == "auto":
                 ctx.whisper_device = select_device()
 
             log_step(f"Whisper model: {ctx.whisper_model}")

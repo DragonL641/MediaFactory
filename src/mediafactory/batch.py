@@ -153,8 +153,7 @@ class SharedModelContext:
         self.config = config if config is not None else get_config_manager().config
         self.api_backend = api_backend
 
-        # Model and device
-        self.model_size: Optional[str] = None
+        # Device selection
         self.device: Optional[str] = None
         self._model_context: Optional[Any] = None
         self._whisper_model: Optional[Any] = None  # Store loaded model instance
@@ -182,29 +181,28 @@ class SharedModelContext:
         log_step("Initializing batch processing models")
 
         try:
-            # 1. Select device and use fixed model
-            self.model_size = WHISPER_MODEL_ID
+            # 1. Select device (model is fixed to Large V3)
             self.device = select_device()
-            log_step(f"Whisper model: {self.model_size}")
+            log_step(f"Whisper model: {WHISPER_MODEL_ID}")
             log_step(f"Device: {self.device}")
 
             # Update GUI progress
             if gui_observers and "recognition_progress_func" in gui_observers:
                 gui_observers["recognition_progress_func"](
-                    0.0, f"Loading {self.model_size} model..."
+                    0.0, f"Loading {WHISPER_MODEL_ID} model..."
                 )
 
             # 2. Load Whisper model using context manager
             from .resource_manager import whisper_model
 
-            self._model_context = whisper_model(self.model_size, self.device)
+            self._model_context = whisper_model(WHISPER_MODEL_ID, self.device)
             self._whisper_model = self._model_context.__enter__()
 
-            log_success(f"Faster Whisper model {self.model_size} loaded")
+            log_success(f"Faster Whisper model {WHISPER_MODEL_ID} loaded")
 
             if gui_observers and "recognition_progress_func" in gui_observers:
                 gui_observers["recognition_progress_func"](
-                    10.0, f"Model {self.model_size} loaded"
+                    10.0, f"Model {WHISPER_MODEL_ID} loaded"
                 )
 
             # 3. Initialize LLM backend if configured

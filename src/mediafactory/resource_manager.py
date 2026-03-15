@@ -129,13 +129,13 @@ def reset_resource_manager() -> None:
 
 
 @contextmanager
-def whisper_model(model_size: str, device: str):
+def whisper_model(model_id: str, device: str):
     """Faster Whisper 模型上下文管理器。
 
-    注意：模型已固定为 Large V3，model_size 参数仅用于兼容性。
+    模型固定为 Large V3，model_id 参数仅用于日志记录。
 
     Args:
-        model_size: 模型大小（已弃用，固定使用 large-v3）
+        model_id: 模型 ID（固定使用 Large V3，此参数仅用于日志）
         device: 计算设备 ("cuda" 或 "cpu")
 
     Yields:
@@ -146,14 +146,14 @@ def whisper_model(model_size: str, device: str):
 
     Example:
         ```python
-        with whisper_model("large-v3", "cpu") as model:
+        with whisper_model("Systran/faster-whisper-large-v3", "cuda") as model:
             result = recognition_engine.transcribe(model, audio_path)
         # 模型自动在此处释放
         ```
     """
     from .models.whisper_runtime import load_model
 
-    model = load_model(model_size, device=device)
+    model = load_model(device=device)
     get_resource_manager().register_model(model)
 
     try:
