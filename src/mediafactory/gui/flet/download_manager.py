@@ -760,12 +760,13 @@ class DownloadManager:
         # Wait for stderr thread to finish
         stderr_thread.join(timeout=2.0)
 
-        # Get stdout
+        # Get stdout (只读取 stdout，stderr 已由 stderr_thread 处理，避免死锁)
         with self._process_lock:
             if self._download_process is None:
                 return False
             try:
-                stdout, _ = self._download_process.communicate(timeout=5)
+                stdout = self._download_process.stdout.read()
+                self._download_process.stdout.close()
             except Exception:
                 stdout = b""
             finally:

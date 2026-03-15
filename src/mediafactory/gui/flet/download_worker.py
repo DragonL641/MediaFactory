@@ -76,6 +76,7 @@ def download_repo_worker(params: Dict[str, Any]) -> Dict[str, Any]:
             local_dir_use_symlinks=False,  # 直接下载到目标目录，不使用缓存，便于进度追踪
             allow_patterns=allow_patterns,
             ignore_patterns=ignore_patterns,
+            resume_download=True,  # 启用断点续传
         )
 
         elapsed = time.time() - start_time
@@ -138,6 +139,7 @@ def download_file_worker(params: Dict[str, Any]) -> Dict[str, Any]:
             local_dir=local_dir,
             endpoint=endpoint,
             local_dir_use_symlinks=False,  # 直接下载到目标目录，不使用缓存，便于进度追踪
+            resume_download=True,  # 启用断点续传
         )
 
         _log(f"File downloaded to: {downloaded_path}")

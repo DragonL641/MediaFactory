@@ -306,7 +306,7 @@ class ModelsPage:
                     ],
                     vertical_alignment=ft.CrossAxisAlignment.CENTER,
                 ),
-                height=36,
+                height=55,
             )
         elif download_status == DownloadStatus.DOWNLOADING:
             # 下载中状态
@@ -316,7 +316,7 @@ class ModelsPage:
                         ft.ProgressBar(
                             expand=True,
                             height=4,
-                            value=progress / 100 if progress > 0 else None,
+                            value=progress / 100,
                             color=self.theme.color_scheme.primary,
                             bgcolor=self.theme.color_scheme.surface_variant,
                         ),
@@ -346,7 +346,7 @@ class ModelsPage:
                     ],
                     spacing=2,
                 ),
-                height=50,
+                height=55,
             )
         elif download_status == DownloadStatus.FAILED:
             # 失败状态 - 显示重试按钮
@@ -356,21 +356,19 @@ class ModelsPage:
                         ft.Icon(ft.Icons.ERROR_OUTLINE, size=16, color=self.theme.color_scheme.error),
                         ft.Text("Failed", size=10, color=self.theme.color_scheme.error),
                         ft.Container(expand=True),
-                        ft.ElevatedButton(
-                            "Retry",
+                        ft.IconButton(
                             icon=ft.Icons.REFRESH,
+                            icon_color=self.theme.color_scheme.primary,
+                            icon_size=18,
+                            tooltip="Retry",
                             data={"id": model_id, "name": model_name, "is_enhancement": is_enhancement},
                             on_click=self._on_download_click_wrapper,
-                            style=ft.ButtonStyle(
-                                color=self.theme.color_scheme.on_primary,
-                                bgcolor=self.theme.color_scheme.primary,
-                                padding=ft.padding.symmetric(horizontal=12, vertical=8),
-                            ),
+                            style=ft.ButtonStyle(padding=0),
                         ),
                     ],
                     vertical_alignment=ft.CrossAxisAlignment.CENTER,
                 ),
-                height=36,
+                height=55,
             )
         elif download_status == DownloadStatus.CANCELLED:
             # 取消状态 - 显示重试按钮
@@ -380,21 +378,19 @@ class ModelsPage:
                         ft.Icon(ft.Icons.CANCEL_OUTLINED, size=16, color=self.theme.color_scheme.outline),
                         ft.Text("Cancelled", size=10, color=self.theme.color_scheme.outline),
                         ft.Container(expand=True),
-                        ft.ElevatedButton(
-                            "Retry",
+                        ft.IconButton(
                             icon=ft.Icons.REFRESH,
+                            icon_color=self.theme.color_scheme.primary,
+                            icon_size=18,
+                            tooltip="Retry",
                             data={"id": model_id, "name": model_name, "is_enhancement": is_enhancement},
                             on_click=self._on_download_click_wrapper,
-                            style=ft.ButtonStyle(
-                                color=self.theme.color_scheme.on_primary,
-                                bgcolor=self.theme.color_scheme.primary,
-                                padding=ft.padding.symmetric(horizontal=12, vertical=8),
-                            ),
+                            style=ft.ButtonStyle(padding=0),
                         ),
                     ],
                     vertical_alignment=ft.CrossAxisAlignment.CENTER,
                 ),
-                height=36,
+                height=55,
             )
         elif self._deleting_models.get(model_id, False):
             # 删除中状态 - 显示进度指示器
@@ -406,7 +402,7 @@ class ModelsPage:
                     ],
                     vertical_alignment=ft.CrossAxisAlignment.CENTER,
                 ),
-                height=36,
+                height=55,
             )
         elif downloaded:
             # 已下载 - 显示删除按钮
@@ -428,20 +424,29 @@ class ModelsPage:
                     ],
                     vertical_alignment=ft.CrossAxisAlignment.CENTER,
                 ),
-                height=36,
+                height=55,
             )
         else:
             # 未下载 - 显示下载按钮
-            return ft.ElevatedButton(
-                "Download",
-                icon=ft.Icons.DOWNLOAD_ROUNDED,
-                data={"id": model_id, "name": model_name, "is_enhancement": is_enhancement},
-                on_click=self._on_download_click_wrapper,
-                style=ft.ButtonStyle(
-                    color=self.theme.color_scheme.on_primary,
-                    bgcolor=self.theme.color_scheme.primary,
-                    padding=ft.padding.symmetric(horizontal=12, vertical=8),
+            return ft.Container(
+                content=ft.Row(
+                    controls=[
+                        ft.Icon(ft.Icons.CLOUD_DOWNLOAD_OUTLINED, size=16, color=self.theme.color_scheme.on_surface_variant),
+                        ft.Text("Not downloaded", size=10, color=self.theme.color_scheme.on_surface_variant),
+                        ft.Container(expand=True),
+                        ft.IconButton(
+                            icon=ft.Icons.DOWNLOAD_ROUNDED,
+                            icon_color=self.theme.color_scheme.primary,
+                            icon_size=18,
+                            tooltip="Download",
+                            data={"id": model_id, "name": model_name, "is_enhancement": is_enhancement},
+                            on_click=self._on_download_click_wrapper,
+                            style=ft.ButtonStyle(padding=0),
+                        ),
+                    ],
+                    vertical_alignment=ft.CrossAxisAlignment.CENTER,
                 ),
+                height=55,
             )
 
     def _check_model_downloaded(self, model_id: str, model_type: str) -> bool:

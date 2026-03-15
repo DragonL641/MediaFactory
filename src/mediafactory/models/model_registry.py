@@ -169,7 +169,7 @@ MODEL_REGISTRY: dict[str, ModelInfo] = {
         huggingface_id="facebook/m2m100_418M",
         display_name="M2M100-418M (轻量级)",
         model_type=ModelType.TRANSLATION,
-        model_size_mb=1940,  # ~1.9 GB
+        model_size_mb=3700,
         runtime_memory_mb=4096,  # 4 GB
         runtime_vram_mb=2048,  # 2 GB VRAM
         recommended_system_mb=8192,  # 8 GB
@@ -178,7 +178,7 @@ MODEL_REGISTRY: dict[str, ModelInfo] = {
         language_support="100 languages",
         precision="fp16",
         requires_prompt=False,
-        description="轻量级多语言翻译，适合低显存设备",
+        description="Lightweight Multilingual Translation for Low-RAM Devices",
     ),
     # MADLAD400 (Apache 2.0 许可证，支持商用)
     # 使用 safetensors 格式（HuggingFace 上的 GGUF 文件缺少必要元数据）
@@ -186,7 +186,7 @@ MODEL_REGISTRY: dict[str, ModelInfo] = {
         huggingface_id="google/madlad400-3b-mt",
         display_name="MADLAD400-3B",
         model_type=ModelType.TRANSLATION,
-        model_size_mb=12000,  # ~11.7 GB (safetensors)
+        model_size_mb=15000,
         runtime_memory_mb=8192,  # 8 GB
         runtime_vram_mb=6144,  # 6 GB VRAM
         recommended_system_mb=16384,  # 16 GB
@@ -201,7 +201,7 @@ MODEL_REGISTRY: dict[str, ModelInfo] = {
         huggingface_id="google/madlad400-7b-mt-bt",
         display_name="MADLAD400-7B",
         model_type=ModelType.TRANSLATION,
-        model_size_mb=30000,  # ~30 GB (safetensors)
+        model_size_mb=34000,
         runtime_memory_mb=16384,  # 16 GB
         runtime_vram_mb=12288,  # 12 GB VRAM
         recommended_system_mb=32768,  # 32 GB
