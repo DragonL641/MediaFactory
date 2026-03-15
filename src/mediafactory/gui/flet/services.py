@@ -6,16 +6,19 @@
 
 import asyncio
 import inspect
+import queue
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Union
+
+import flet as ft
 
 from mediafactory.config import get_config
 from mediafactory.engine.audio import AudioEngine
 from mediafactory.engine.recognition import RecognitionEngine
 from mediafactory.engine.translation import TranslationEngine
 from mediafactory.engine.srt import SRTEngine
-from mediafactory.logging import log_info, log_error, log_error_with_context
+from mediafactory.logging import log_info, log_error, log_error_with_context, log_debug
 from mediafactory.core.progress_protocol import ProgressCallback
 
 
@@ -46,6 +49,11 @@ class _ServiceProgressAdapter(ProgressCallback):
     """
     将 GUI 回调适配为 ProgressCallback 协议
 
+    使用队列模式进行跨线程进度传递：
+    1. 后台线程调用 update() 将进度放入队列
+    2. 轮询任务在主事件循环中从队列取出进度并调用回调
+    3. 这确保 page.update() 只在主事件循环中调用
+
     支持两种回调签名：
     1. (ProcessingProgress) -> None - 直接传递 ProcessingProgress 对象
     2. (progress: float, message: str) -> None - GUI 异步回调格式
@@ -56,17 +64,25 @@ class _ServiceProgressAdapter(ProgressCallback):
         callback: Union[
             Callable[[ProcessingProgress], None], Callable[[float, str], None]
         ],
+        page: ft.Page,
         is_cancelled_func: Optional[Callable[[], bool]] = None,
-        main_loop: Optional[asyncio.AbstractEventLoop] = None,
     ):
         self._callback = callback
+        self._page = page
         self._is_cancelled_func = is_cancelled_func
         self._current_stage: str = "model_loading"
-        self._main_loop = main_loop  # 保存主事件循环引用，用于跨线程进度传递
+
+        # 队列用于跨线程通信
+        self._queue: queue.Queue = queue.Queue()
+        self._polling = True
 
         # 检测回调类型
         self._is_async = inspect.iscoroutinefunction(callback)
         self._callback_signature = self._detect_callback_signature()
+
+        # 启动轮询任务（在主事件循环中）
+        if self._is_async:
+            page.run_task(self._poll_progress)
 
     def _detect_callback_signature(self) -> str:
         """检测回调签名类型"""
@@ -86,15 +102,42 @@ class _ServiceProgressAdapter(ProgressCallback):
         """设置当前阶段"""
         self._current_stage = stage
 
+    async def _poll_progress(self) -> None:
+        """
+        在主事件循环中轮询进度队列
+
+        这是 Flet 推荐的模式，确保所有 UI 更新都在主事件循环中执行。
+        """
+        while self._polling:
+            try:
+                # 非阻塞获取
+                item = self._queue.get_nowait()
+                args = item
+
+                # 调用回调
+                if self._callback_signature == "progress_message":
+                    await self._callback(*args)
+                else:
+                    await self._callback(args)
+
+            except queue.Empty:
+                # 队列为空，短暂休眠后重试
+                await asyncio.sleep(0.05)
+            except Exception as e:
+                # 记录错误但不中断轮询
+                log_debug(f"[ProgressAdapter] _poll_progress error: {e}")
+                await asyncio.sleep(0.05)
+
     def update(self, progress: float, message: str = "") -> None:
-        """更新进度"""
+        """
+        更新进度（可从任意线程调用）
+
+        将进度信息放入队列，由轮询任务在主事件循环中处理。
+        """
         try:
             if self._callback_signature == "progress_message":
                 # 直接传递 (progress, message)
-                if self._is_async:
-                    self._schedule_async_callback(progress, message)
-                else:
-                    self._callback(progress, message)
+                self._queue.put((progress, message))
             else:
                 # 包装为 ProcessingProgress
                 progress_data = ProcessingProgress(
@@ -102,34 +145,14 @@ class _ServiceProgressAdapter(ProgressCallback):
                     progress=progress,
                     message=message,
                 )
-                if self._is_async:
-                    self._schedule_async_callback(progress_data)
-                else:
-                    self._callback(progress_data)
-        except Exception:
+                self._queue.put(progress_data)
+        except Exception as e:
             # 进度更新失败不应中断处理流程
-            pass
+            log_debug(f"[ProgressAdapter] update failed: {e}")
 
-    def _schedule_async_callback(self, *args) -> None:
-        """调度异步回调到主事件循环"""
-        # 优先使用保存的主事件循环（用于跨线程调用）
-        if self._main_loop and self._main_loop.is_running():
-            self._main_loop.call_soon_threadsafe(
-                lambda: self._main_loop.create_task(self._callback(*args))
-            )
-            return
-
-        # 回退：尝试从当前线程获取事件循环
-        try:
-            loop = asyncio.get_running_loop()
-            loop.create_task(self._callback(*args))
-        except RuntimeError:
-            # 没有运行中的事件循环，尝试获取保存的或默认事件循环
-            loop = self._main_loop or asyncio.get_event_loop()
-            if loop and loop.is_running():
-                loop.call_soon_threadsafe(
-                    lambda: loop.create_task(self._callback(*args))
-                )
+    def stop_polling(self) -> None:
+        """停止轮询任务"""
+        self._polling = False
 
     def is_cancelled(self) -> bool:
         """检查是否已取消"""
@@ -177,6 +200,11 @@ class SubtitleService:
         self, use_llm: bool, llm_preset: str = "openai"
     ) -> TranslationEngine:
         """根据配置获取翻译引擎"""
+        # 自动检测最佳设备
+        from mediafactory.models.whisper_runtime import select_device
+        device = select_device()  # 返回 "cuda" 或 "cpu"
+        log_info(f"[SubtitleService] Detected device for translation engine: {device}")
+
         if use_llm:
             if self._llm_translation_engine is None:
                 # 创建 LLM 翻译引擎
@@ -192,12 +220,15 @@ class SubtitleService:
                 self._llm_translation_engine = TranslationEngine(
                     use_llm_backend=True,
                     llm_backend=llm_backend,
+                    device=device,
                 )
             return self._llm_translation_engine
         else:
             if self._local_translation_engine is None:
+                log_info(f"[SubtitleService] Creating local translation engine with device={device}")
                 self._local_translation_engine = TranslationEngine(
                     use_local_models_only=False,
+                    device=device,
                 )
             return self._local_translation_engine
 
@@ -216,6 +247,7 @@ class SubtitleService:
     async def generate_subtitles(
         self,
         video_path: str,
+        page: ft.Page,
         output_path: Optional[str] = None,
         source_language: str = "auto",
         target_language: str = "zh",
@@ -267,12 +299,13 @@ class SubtitleService:
         else:
             output_path = Path(output_path)
 
+        progress_adapter: Optional[_ServiceProgressAdapter] = None
         try:
             # 创建进度适配器
-            progress_adapter: ProgressCallback
             if progress_callback:
                 progress_adapter = _ServiceProgressAdapter(
                     callback=progress_callback,
+                    page=page,
                     is_cancelled_func=self._is_cancelled,
                 )
             else:
@@ -281,7 +314,9 @@ class SubtitleService:
                 progress_adapter = NO_OP_PROGRESS
 
             # 根据配置获取翻译引擎
+            log_info(f"[SubtitleService] Getting translation engine (use_llm={use_llm}, llm_preset={llm_preset})")
             translation_engine = self._get_translation_engine(use_llm, llm_preset)
+            log_info(f"[SubtitleService] Translation engine ready")
 
             # 选择合适的 Pipeline 类型
             if auto_translate:
@@ -316,10 +351,23 @@ class SubtitleService:
 
             # 在线程池中执行 Pipeline（Pipeline 是同步的）
             # Pipeline 各阶段会通过 progress_callback 报告真实进度
+            # 添加超时保护（5分钟），防止 CUDA 操作阻塞导致 UI 卡住
             loop = asyncio.get_event_loop()
-            result: PipelineResult = await loop.run_in_executor(
-                None, pipeline.execute, context
-            )
+            try:
+                result: PipelineResult = await asyncio.wait_for(
+                    loop.run_in_executor(None, pipeline.execute, context),
+                    timeout=300.0  # 5分钟超时
+                )
+            except asyncio.TimeoutError:
+                log_error_with_context(
+                    "Subtitle generation timed out",
+                    TimeoutError("Operation exceeded 5 minute limit"),
+                    {"video_path": str(video_path)}
+                )
+                return ProcessingResult(
+                    success=False,
+                    error="字幕生成超时（超过5分钟限制）。可能是视频文件过大或 GPU 不兼容。"
+                )
 
             # 里程碑进度：完成
             if result.success:
@@ -349,6 +397,10 @@ class SubtitleService:
                 "Subtitle generation failed", e, {"video_path": str(video_path)}
             )
             return ProcessingResult(success=False, error=str(e))
+        finally:
+            # 停止轮询任务
+            if progress_adapter and hasattr(progress_adapter, 'stop_polling'):
+                progress_adapter.stop_polling()
 
 
 class AudioService:
@@ -373,6 +425,7 @@ class AudioService:
     async def extract_audio(
         self,
         video_path: str,
+        page: ft.Page,
         output_path: Optional[str] = None,
         output_format: str = "wav",
         sample_rate: int = 48000,
@@ -399,6 +452,7 @@ class AudioService:
         """
         self.reset()
 
+        progress_adapter: Optional[_ServiceProgressAdapter] = None
         try:
             video_path = Path(video_path)
             video_dir = video_path.parent
@@ -410,10 +464,10 @@ class AudioService:
                 output_path = Path(output_path)
 
             # 创建进度适配器
-            progress_adapter: ProgressCallback
             if progress_callback:
                 progress_adapter = _ServiceProgressAdapter(
                     callback=progress_callback,
+                    page=page,
                     is_cancelled_func=lambda: self._cancelled,
                 )
             else:
@@ -452,6 +506,10 @@ class AudioService:
                 "Audio extraction failed", e, {"video_path": str(video_path)}
             )
             return ProcessingResult(success=False, error=str(e))
+        finally:
+            # 停止轮询任务
+            if progress_adapter and hasattr(progress_adapter, 'stop_polling'):
+                progress_adapter.stop_polling()
 
 
 class TranscriptionService:
@@ -502,6 +560,7 @@ class TranscriptionService:
     async def transcribe(
         self,
         audio_path: str,
+        page: ft.Page,
         language: str = "auto",
         output_path: Optional[str] = None,
         output_format_type: str = "srt",
@@ -524,6 +583,7 @@ class TranscriptionService:
         """
         self.reset()
 
+        progress_adapter: Optional[_ServiceProgressAdapter] = None
         try:
             audio_path_obj = Path(audio_path)
             audio_dir = audio_path_obj.parent
@@ -539,16 +599,12 @@ class TranscriptionService:
                     file_extension = "srt"
                 output_path = str(audio_dir / f"{audio_name}.{file_extension}")
 
-            # 获取主事件循环（用于跨线程进度传递）
-            main_loop = asyncio.get_running_loop()
-
             # 创建进度适配器
-            progress_adapter: ProgressCallback
             if progress_callback:
                 progress_adapter = _ServiceProgressAdapter(
                     callback=progress_callback,
+                    page=page,
                     is_cancelled_func=lambda: self._cancelled,
-                    main_loop=main_loop,
                 )
             else:
                 from mediafactory.core.progress_protocol import NO_OP_PROGRESS
@@ -613,6 +669,10 @@ class TranscriptionService:
                 "Transcription failed", e, {"audio_path": str(audio_path)}
             )
             return ProcessingResult(success=False, error=str(e))
+        finally:
+            # 停止轮询任务
+            if progress_adapter and hasattr(progress_adapter, 'stop_polling'):
+                progress_adapter.stop_polling()
 
 
 class TranslationService:
@@ -640,6 +700,7 @@ class TranslationService:
     async def translate(
         self,
         text: str,
+        page: ft.Page,
         source_language: str = "auto",
         target_language: str = "zh",
         use_llm: bool = False,
@@ -654,6 +715,7 @@ class TranslationService:
             if progress_callback:
                 progress_adapter = _ServiceProgressAdapter(
                     callback=progress_callback,
+                    page=page,
                     is_cancelled_func=lambda: self._cancelled,
                 )
             else:
@@ -692,6 +754,7 @@ class TranslationService:
     async def translate_srt(
         self,
         srt_path: str,
+        page: ft.Page,
         target_lang: str = "zh",
         use_llm: bool = False,
         output_path: Optional[str] = None,
@@ -700,6 +763,7 @@ class TranslationService:
         """翻译 SRT 字幕文件（源语言自动检测）"""
         self.reset()
 
+        progress_adapter: Optional[_ServiceProgressAdapter] = None
         try:
             from mediafactory.engine.srt import SRTEngine
 
@@ -712,10 +776,10 @@ class TranslationService:
                 output_path = Path(output_path)
 
             # 创建进度适配器
-            progress_adapter: ProgressCallback
             if progress_callback:
                 progress_adapter = _ServiceProgressAdapter(
                     callback=progress_callback,
+                    page=page,
                     is_cancelled_func=lambda: self._cancelled,
                 )
             else:
@@ -841,6 +905,10 @@ class TranslationService:
                 "SRT translation failed", e, {"srt_path": str(srt_path)}
             )
             return ProcessingResult(success=False, error=str(e))
+        finally:
+            # 停止轮询任务
+            if progress_adapter and hasattr(progress_adapter, 'stop_polling'):
+                progress_adapter.stop_polling()
 
 
 class VideoEnhancementService:
@@ -874,6 +942,7 @@ class VideoEnhancementService:
     async def enhance_video(
         self,
         video_path: str,
+        page: ft.Page,
         output_path: Optional[str] = None,
         preset: str = "fast",
         scale: int = 4,
@@ -902,6 +971,7 @@ class VideoEnhancementService:
         """
         self.reset()
 
+        progress_adapter: Optional[_ServiceProgressAdapter] = None
         try:
             from mediafactory.engine.video_enhancement import (
                 VideoEnhancementEngine,
@@ -910,10 +980,10 @@ class VideoEnhancementService:
             )
 
             # 创建进度适配器
-            progress_adapter: ProgressCallback
             if progress_callback:
                 progress_adapter = _ServiceProgressAdapter(
                     callback=progress_callback,
+                    page=page,
                     is_cancelled_func=self._is_cancelled,
                 )
             else:
@@ -970,6 +1040,10 @@ class VideoEnhancementService:
                 "Video enhancement failed", e, {"video_path": str(video_path)}
             )
             return ProcessingResult(success=False, error=str(e))
+        finally:
+            # 停止轮询任务
+            if progress_adapter and hasattr(progress_adapter, 'stop_polling'):
+                progress_adapter.stop_polling()
 
 
 # 服务单例

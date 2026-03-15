@@ -240,27 +240,14 @@ class AsyncTaskManager:
             del self._tasks[tid]
 
     def _update_ui(self) -> None:
-        """更新 UI"""
+        """
+        更新 UI
+
+        注意：此方法只能在主事件循环中调用（即从 async 方法中调用）。
+        由于 AsyncTaskManager 的所有任务执行都在主事件循环中进行，
+        这里调用 page.update() 是线程安全的。
+        """
         try:
             self.page.update()
         except Exception:
-            pass
-
-
-def create_progress_callback(
-    task: AsyncTask,
-    page: ft.Page,
-) -> Callable[[float, str], None]:
-    """创建进度回调函数"""
-
-    def callback(progress: float, message: str = ""):
-        task.progress = progress
-        task.message = message
-        if task.on_progress:
-            task.on_progress(progress, message)
-        try:
-            page.update()
-        except Exception:
-            pass
-
-    return callback
+            pass  # 忽略更新错误，不中断任务执行

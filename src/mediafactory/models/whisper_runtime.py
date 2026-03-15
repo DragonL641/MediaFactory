@@ -4,12 +4,13 @@ This module provides Whisper model loading with a fixed Large V3 model.
 ML dependencies (torch, faster_whisper) are lazily loaded.
 """
 
+import warnings
 from pathlib import Path
 from typing import Optional
 
 from .model_registry import WHISPER_MODEL_ID, get_whisper_model_info
 from .model_download import get_models_dir, is_model_complete
-from ..logging import log_error, log_info
+from ..logging import log_error, log_info, log_warning
 from ..exceptions import ProcessingError
 
 
@@ -40,7 +41,7 @@ def _ensure_ml_dependencies():
 
 
 def select_device() -> str:
-    """Select the best computing device.
+    """Select the best computing device with CUDA compatibility check.
 
     Faster Whisper supports:
     - "cuda": NVIDIA GPU (recommended)
@@ -48,6 +49,10 @@ def select_device() -> str:
 
     Note: Faster Whisper does not directly support MPS (Apple Silicon GPU),
     it will automatically fall back to CPU.
+
+    This function checks for CUDA compatibility issues (e.g., GPU architecture
+    not supported by current PyTorch version) and automatically falls back to
+    CPU if such issues are detected.
 
     Returns:
         Computing device string ("cuda" or "cpu")
@@ -63,9 +68,58 @@ def select_device() -> str:
             context={"missing_dependency": "torch"},
         ) from e
 
-    if torch.cuda.is_available():
+    # Capture CUDA compatibility warnings
+    with warnings.catch_warnings(record=True) as caught_warnings:
+        warnings.simplefilter("always")
+        cuda_available = torch.cuda.is_available()
+
+        # Check for compatibility warnings (e.g., sm_120 not compatible)
+        for w in caught_warnings:
+            warning_msg = str(w.message)
+            if "CUDA capability" in warning_msg or "not compatible" in warning_msg:
+                log_warning(f"CUDA compatibility issue detected: {warning_msg}")
+                log_warning("Falling back to CPU for stability")
+                return "cpu"
+
+    if cuda_available:
         return "cuda"
     return "cpu"
+
+
+def check_cuda_compatibility() -> bool:
+    """Check if CUDA is truly available and compatible.
+
+    This performs a more thorough check than torch.cuda.is_available() by
+    verifying the GPU architecture is supported by the current PyTorch version.
+
+    Returns:
+        True if CUDA is available and compatible, False otherwise
+    """
+    try:
+        import torch
+
+        if not torch.cuda.is_available():
+            return False
+
+        # Get device capability
+        device_capability = torch.cuda.get_device_capability()
+        major, minor = device_capability
+
+        # Check supported architectures
+        supported_archs = getattr(torch.cuda, "get_arch_list", lambda: [])()
+        current_arch = f"sm_{major}{minor}"
+
+        if current_arch not in supported_archs:
+            log_warning(
+                f"GPU architecture {current_arch} not supported. "
+                f"Supported: {supported_archs}"
+            )
+            return False
+
+        return True
+    except Exception as e:
+        log_warning(f"CUDA compatibility check failed: {e}")
+        return False
 
 
 def get_compute_type(device: str) -> str:

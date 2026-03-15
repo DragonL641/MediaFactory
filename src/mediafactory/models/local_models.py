@@ -7,7 +7,7 @@ Supports:
 """
 
 import threading
-from typing import Optional, Tuple
+from typing import Any, Optional, Tuple
 
 import torch
 
@@ -21,7 +21,7 @@ from .model_registry import (
     select_best_translation_model,
 )
 from ..config import get_config_manager
-from ..logging import log_debug, log_error, log_info, log_warning
+from ..logging import log_debug, log_error, log_info, log_warning, log_success
 
 
 class LocalModelManager:
@@ -135,6 +135,7 @@ class LocalModelManager:
         device: str = "cpu",
         src_lang: Optional[str] = None,
         tgt_lang: Optional[str] = None,
+        progress: Optional[Any] = None,
     ) -> Tuple[Optional[object], bool]:
         """Get model from local storage.
 
@@ -143,10 +144,14 @@ class LocalModelManager:
             device: Device to load model on ("cpu", "cuda", etc.)
             src_lang: Source language code
             tgt_lang: Target language code
+            progress: Optional progress callback for reporting loading status
 
         Returns:
             Tuple of (translation_callable, is_local_flag), or (None, False) if not found
         """
+        log_info(f"[LocalModelManager] Starting model loading for: {huggingface_id}")
+        log_info(f"[LocalModelManager] Device: {device}, src_lang: {src_lang}, tgt_lang: {tgt_lang}")
+
         from transformers import AutoModelForSeq2SeqLM, AutoTokenizer
 
         # Get model info from registry
@@ -155,31 +160,112 @@ class LocalModelManager:
             log_warning(f"Unknown model ID: {huggingface_id}")
             return None, False
 
+        log_info(f"[LocalModelManager] Model info: {model_info.display_name}, size: {model_info.model_size_mb / 1024:.1f} GB")
+
         # Try to load from local storage
+        log_info(f"[LocalModelManager] Checking local model path...")
         local_path = self.get_local_model_path(huggingface_id)
         if not local_path:
+            log_error(f"[LocalModelManager] Model not found locally: {huggingface_id}")
             self._log_model_not_found_error(huggingface_id)
             return None, False
 
+        log_info(f"[LocalModelManager] Model found at: {local_path}")
+
         try:
-            log_info(f"Loading model {model_info.display_name} from {local_path}")
+            log_info(f"[LocalModelManager] Loading model {model_info.display_name}...")
+            log_info(f"[LocalModelManager] This may take a few minutes for large models...")
+            log_debug(f"[LocalModelManager] progress callback: {progress is not None}")
 
             # Determine torch dtype based on precision
             torch_dtype = torch.float32
             if model_info.precision == "fp16":
                 torch_dtype = torch.float16
+            log_info(f"[LocalModelManager] Using precision: {model_info.precision}, torch_dtype: {torch_dtype}")
 
             # Load tokenizer and model directly (safetensors format)
+            if progress:
+                log_debug("[LocalModelManager] Calling progress.update(6, 'Loading tokenizer...')")
+                progress.update(6, "Loading tokenizer...")
+            log_info(f"[LocalModelManager] Loading tokenizer...")
             tokenizer = AutoTokenizer.from_pretrained(local_path)
-            model = AutoModelForSeq2SeqLM.from_pretrained(
-                local_path, torch_dtype=torch_dtype
-            )
+            log_info(f"[LocalModelManager] Tokenizer loaded successfully")
+
+            # Model loading - this is the slow step, provide more frequent updates
+            if progress:
+                log_debug("[LocalModelManager] Calling progress.update(8, 'Loading model weights...')")
+                progress.update(8, "Loading model weights (this may take a few minutes)...")
+            log_info(f"[LocalModelManager] Loading model weights (this is the slow step)...")
+            log_info(f"[LocalModelManager] Model size: {model_info.model_size_mb / 1024:.1f} GB - please wait...")
+
+            # Heartbeat progress mechanism to keep UI responsive during blocking load
+            class HeartbeatProgress:
+                """Background thread that sends periodic progress updates during blocking operations."""
+
+                def __init__(self, progress_callback, interval: float = 2.0):
+                    self.progress_callback = progress_callback
+                    self.interval = interval
+                    self._stop_event = threading.Event()
+                    self._thread = None
+                    self._counter = 0
+
+                def _heartbeat(self):
+                    while not self._stop_event.is_set():
+                        self._counter += 1
+                        if self.progress_callback:
+                            # Cycle progress between 8-12% to show activity
+                            pct = 8 + (self._counter % 5)
+                            elapsed = self._counter * self.interval
+                            self.progress_callback.update(
+                                pct, f"Loading model weights... ({elapsed:.0f}s elapsed)"
+                            )
+                        self._stop_event.wait(self.interval)
+
+                def start(self):
+                    self._thread = threading.Thread(target=self._heartbeat, daemon=True)
+                    self._thread.start()
+
+                def stop(self):
+                    self._stop_event.set()
+                    if self._thread:
+                        self._thread.join(timeout=1.0)
+
+            # Start heartbeat before blocking call
+            heartbeat = HeartbeatProgress(progress, interval=2.0)
+            heartbeat.start()
+
+            import time
+            start_time = time.time()
+            try:
+                model = AutoModelForSeq2SeqLM.from_pretrained(
+                    local_path, torch_dtype=torch_dtype
+                )
+            finally:
+                # Always stop heartbeat, even if loading fails
+                heartbeat.stop()
+            elapsed = time.time() - start_time
+            log_info(f"[LocalModelManager] Model weights loaded into memory in {elapsed:.1f} seconds")
+
+            # Update progress after model is loaded
+            if progress:
+                log_debug("[LocalModelManager] Calling progress.update(10, 'Model weights loaded')")
+                progress.update(10, "Model weights loaded into memory")
 
             # Move model to specified device
+            if progress:
+                log_debug(f"[LocalModelManager] Calling progress.update(12, 'Moving model to {device}...')")
+                progress.update(12, f"Moving model to {device}...")
+            log_info(f"[LocalModelManager] Moving model to device: {device}")
             if device == "cuda" and torch.cuda.is_available():
+                log_info(f"[LocalModelManager] CUDA available, moving model to GPU...")
                 model = model.to("cuda")
+                log_info(f"[LocalModelManager] Model moved to CUDA successfully")
             elif device == "mps" and torch.backends.mps.is_available():
+                log_info(f"[LocalModelManager] MPS available, moving model to Apple Silicon GPU...")
                 model = model.to("mps")
+                log_info(f"[LocalModelManager] Model moved to MPS successfully")
+            else:
+                log_info(f"[LocalModelManager] Using CPU device")
 
             # Create a translation callable
             def translate_callable(
@@ -272,6 +358,8 @@ class LocalModelManager:
                 )
                 return [{"translation_text": translated_text}]
 
+            if progress:
+                progress.update(15, "Model loaded successfully")
             log_info(f"Model {model_info.display_name} loaded successfully")
             return translate_callable, True
 

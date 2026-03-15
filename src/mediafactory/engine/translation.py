@@ -43,13 +43,19 @@ class TranslationEngine:
         self,
         use_local_models_only: bool = False,
         model_type: Optional[str] = None,
-        device: str = "cpu",
+        device: str = "auto",
         llm_backend: Optional["TranslationBackend"] = None,
         use_llm_backend: bool = False,
     ):
         self.use_local_models_only = use_local_models_only
         self.model_type = model_type
-        self.device = device
+        # 自动检测设备
+        if device == "auto":
+            from ..models.whisper_runtime import select_device
+            self.device = select_device()
+        else:
+            self.device = device
+        log_info(f"TranslationEngine initialized with device={self.device}")
         self.llm_backend = llm_backend
         self.use_llm_backend = use_llm_backend and llm_backend is not None
 
@@ -199,12 +205,21 @@ class TranslationEngine:
         log_step(
             f"Translating from {get_language_name(src_lang)} to {get_language_name(tgt_lang)} using local model..."
         )
+        log_info(f"[TranslationEngine] Using device: {self.device}")
+        log_info(f"[TranslationEngine] Model type: {self.model_type}")
+        log_debug(f"[TranslationEngine] progress callback: {progress is not None}, type: {type(progress).__name__}")
 
         # 加载模型
         log_info(
-            f"Loading translation model: {self.model_type} ({src_lang} -> {tgt_lang})"
+            f"[TranslationEngine] Loading translation model for {src_lang} -> {tgt_lang}..."
         )
-        model_callable = get_translation_model(src_lang, tgt_lang, device=self.device)
+        log_info(f"[TranslationEngine] This may take a while for large models (e.g., MADLAD400-3B)")
+        log_debug(f"[TranslationEngine] Calling progress.update(5, 'Loading translation model...')")
+        progress.update(5, "Loading translation model...")
+
+        model_callable = get_translation_model(
+            src_lang, tgt_lang, device=self.device, progress=progress
+        )
 
         if not model_callable:
             raise ProcessingError(
@@ -217,7 +232,8 @@ class TranslationEngine:
                 },
             )
 
-        log_info("Translation model loaded successfully")
+        log_info("[TranslationEngine] Translation model loaded successfully")
+        progress.update(15, "Translation model loaded, starting translation...")
 
         # 执行翻译
         segments = result.get("segments", [])

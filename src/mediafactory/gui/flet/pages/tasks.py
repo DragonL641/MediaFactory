@@ -387,6 +387,7 @@ class TasksPage:
             if config.task_type == "subtitle":
                 result = await self._subtitle_service.generate_subtitles(
                     video_path=config.input_path,
+                    page=self.page,
                     source_language=config.source_lang,
                     target_language=config.target_lang,
                     use_llm=config.use_llm,
@@ -401,6 +402,7 @@ class TasksPage:
             elif config.task_type == "audio":
                 result = await self._audio_service.extract_audio(
                     video_path=config.input_path,
+                    page=self.page,
                     output_format=config.output_format,
                     sample_rate=config.sample_rate,
                     channels=config.channels,
@@ -414,6 +416,7 @@ class TasksPage:
             elif config.task_type == "transcription":
                 result = await self._transcription_service.transcribe(
                     audio_path=config.input_path,
+                    page=self.page,
                     language=config.source_lang,
                     output_format_type=config.output_format_type,
                     bilingual=config.bilingual,
@@ -425,6 +428,7 @@ class TasksPage:
             elif config.task_type == "subtitle_translation":
                 result = await self._translation_service.translate_srt(
                     srt_path=config.input_path,
+                    page=self.page,
                     target_lang=config.target_lang,
                     use_llm=config.use_llm,
                     progress_callback=progress_callback,
@@ -433,6 +437,7 @@ class TasksPage:
             elif config.task_type == "video_enhancement":
                 result = await self._video_enhancement_service.enhance_video(
                     video_path=config.input_path,
+                    page=self.page,
                     preset=config.enhancement_preset,
                     scale=config.enhancement_scale,
                     model_type=config.enhancement_model,

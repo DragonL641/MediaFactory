@@ -11,9 +11,10 @@ Supports memory-aware selection and license tracking for commercial use complian
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 import psutil
+import torch
 
 from ..logging import log_info, log_warning
 
@@ -319,6 +320,49 @@ def get_available_memory_gb() -> float:
     return psutil.virtual_memory().available / (1024**3)
 
 
+def get_available_memory_for_device(device: str = "cpu") -> float:
+    """Get available memory for the specified device.
+
+    Args:
+        device: "cuda", "cpu", or "mps"
+
+    Returns:
+        Available memory in GB (VRAM for CUDA, RAM for CPU/MPS)
+    """
+    if device == "cuda" and torch.cuda.is_available():
+        try:
+            free, _ = torch.cuda.mem_get_info(0)
+            return free / (1024**3)
+        except Exception:
+            # Fallback to system RAM if GPU query fails
+            return psutil.virtual_memory().available / (1024**3)
+    else:
+        # CPU or MPS: use system RAM
+        return psutil.virtual_memory().available / (1024**3)
+
+
+def get_required_memory_for_model(model_id: str, device: str = "cpu") -> float:
+    """Get required memory for a model on the specified device.
+
+    Args:
+        model_id: Model identifier
+        device: "cuda", "cpu", or "mps"
+
+    Returns:
+        Required memory in GB
+    """
+    info = MODEL_REGISTRY.get(model_id)
+    if info is None:
+        return float("inf")
+
+    if device == "cuda" and info.runtime_vram_mb > 0:
+        # Use VRAM requirement for GPU
+        return info.runtime_vram_mb / 1024
+    else:
+        # Use RAM requirement for CPU/MPS
+        return info.runtime_memory_mb / 1024
+
+
 def get_whisper_model_info() -> ModelInfo:
     """Get the fixed Whisper model information.
 
@@ -431,13 +475,18 @@ def get_best_translation_model_for_installation() -> str:
     return max(suitable_models, key=lambda x: x[1].runtime_memory_gb)[0]
 
 
-def select_best_translation_model(downloaded_models: list[str]) -> Optional[str]:
+def select_best_translation_model(
+    downloaded_models: list[str],
+    device: str = "cpu"
+) -> Optional[str]:
     """Select the best translation model at runtime from downloaded models.
 
-    Based on currently available memory, selects the largest usable model.
+    Based on currently available memory for the specified device, selects
+    the largest usable model.
 
     Args:
         downloaded_models: List of downloaded model IDs
+        device: Target device ("cuda", "cpu", "mps")
 
     Returns:
         Model ID of the best available model, or None if no suitable model
@@ -445,7 +494,7 @@ def select_best_translation_model(downloaded_models: list[str]) -> Optional[str]
     if not downloaded_models:
         return None
 
-    available_memory = get_available_memory_gb()
+    available_memory = get_available_memory_for_device(device)
 
     # Filter downloaded models that fit in available memory
     suitable_models = [
@@ -453,7 +502,7 @@ def select_best_translation_model(downloaded_models: list[str]) -> Optional[str]
         for model_id in downloaded_models
         if model_id in MODEL_REGISTRY
         and MODEL_REGISTRY[model_id].model_type == ModelType.TRANSLATION
-        and MODEL_REGISTRY[model_id].runtime_memory_gb <= available_memory
+        and get_required_memory_for_model(model_id, device) <= available_memory
     ]
 
     if not suitable_models:
@@ -461,6 +510,30 @@ def select_best_translation_model(downloaded_models: list[str]) -> Optional[str]
 
     # Return the model with highest runtime memory (best quality)
     return max(suitable_models, key=lambda x: x[1].runtime_memory_gb)[0]
+
+
+def check_model_device_compatibility(model_id: str, device: str) -> Tuple[bool, str]:
+    """Check if a model is compatible with the specified device.
+
+    Args:
+        model_id: Model identifier
+        device: Target device ("cuda", "cpu", "mps")
+
+    Returns:
+        Tuple of (is_compatible, reason)
+    """
+    model_info = MODEL_REGISTRY.get(model_id)
+    if not model_info:
+        return False, "Model not found in registry"
+
+    available_memory = get_available_memory_for_device(device)
+    required_memory = get_required_memory_for_model(model_id, device)
+
+    if required_memory <= available_memory:
+        return True, "OK"
+    else:
+        memory_type = "VRAM" if device == "cuda" else "RAM"
+        return False, f"Need {required_memory:.1f}GB {memory_type}, available {available_memory:.1f}GB"
 
 
 def is_model_commercial_use_allowed(model_id: str) -> bool:
