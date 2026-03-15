@@ -10,6 +10,9 @@
 - 通义千问
 - Moonshot
 - 自定义 OpenAI 兼容服务
+
+降级策略:
+LLM API 批量翻译 → 纠正 → 分批 → 逐句 → 本地模型 (M2M100-418M)
 """
 
 from typing import Optional
@@ -20,6 +23,9 @@ from .base import TranslationBackend, TranslationRequest, TranslationResult
 # 导入后端实现
 from .openai_compatible_backend import OpenAICompatibleBackend
 
+# 导入本地回退
+from .local_fallback import LocalModelFallback
+
 __all__ = [
     # 基础类
     "TranslationBackend",
@@ -27,6 +33,8 @@ __all__ = [
     "TranslationResult",
     # 后端类
     "OpenAICompatibleBackend",
+    # 本地回退
+    "LocalModelFallback",
     # 辅助函数
     "initialize_llm_backend",
 ]

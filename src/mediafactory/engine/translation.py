@@ -353,7 +353,11 @@ class TranslationEngine:
         tgt_lang: str,
         progress: ProgressCallback,
     ) -> Dict[str, Any]:
-        """使用 LLM API 翻译"""
+        """使用 LLM API 翻译（简化版）
+
+        降级逻辑在 OpenAICompatibleBackend 内部处理：
+        批量 → 纠正 → 分批 → 逐句 → 本地模型
+        """
         from ..llm import TranslationRequest
 
         backend_type = type(self.llm_backend).__name__
@@ -407,36 +411,54 @@ class TranslationEngine:
                 },
             )
 
-        # 处理结果
-        translated_segments = []
-
-        if isinstance(translation_result.translated_text, str):
-            for i, seg in enumerate(segments):
-                new_seg = seg.copy()
-                new_seg["original_text"] = seg.get("text", "")
-                if i == 0:
-                    new_seg["text"] = translation_result.translated_text
-                else:
-                    new_seg["text"] = seg.get("text", "")
-                translated_segments.append(new_seg)
-        elif isinstance(translation_result.translated_text, list):
-            translated_texts = translation_result.translated_text
-            for i, seg in enumerate(segments):
-                new_seg = seg.copy()
-                new_seg["original_text"] = seg.get("text", "")
-                if i < len(translated_texts):
-                    new_seg["text"] = translated_texts[i]
-                else:
-                    new_seg["text"] = seg.get("text", "")
-                translated_segments.append(new_seg)
-        else:
-            translated_segments = [seg.copy() for seg in segments]
+        # 合并结果到 segments
+        translated_segments = self._merge_translation_result(
+            segments, translation_result.translated_text
+        )
 
         log_info(f"Translation completed: {len(translated_segments)} segments")
 
         translated_result = result.copy()
         translated_result["segments"] = translated_segments
         return translated_result
+
+    def _merge_translation_result(
+        self,
+        segments: List[Dict[str, Any]],
+        translated_text,
+    ) -> List[Dict[str, Any]]:
+        """将翻译结果合并到 segments。
+
+        Args:
+            segments: 原始 segments 列表
+            translated_text: 翻译结果（字符串或列表）
+
+        Returns:
+            合并后的 segments 列表
+        """
+        translated_segments = []
+
+        if isinstance(translated_text, str):
+            # 单个字符串，只更新第一个 segment
+            for i, seg in enumerate(segments):
+                new_seg = seg.copy()
+                new_seg["original_text"] = seg.get("text", "")
+                if i == 0:
+                    new_seg["text"] = translated_text
+                translated_segments.append(new_seg)
+        elif isinstance(translated_text, list):
+            # 列表，按索引更新
+            for i, seg in enumerate(segments):
+                new_seg = seg.copy()
+                new_seg["original_text"] = seg.get("text", "")
+                if i < len(translated_text):
+                    new_seg["text"] = translated_text[i]
+                translated_segments.append(new_seg)
+        else:
+            # 未知类型，保留原文
+            translated_segments = [seg.copy() for seg in segments]
+
+        return translated_segments
 
     def _test_api_connection(self) -> None:
         """测试 LLM API 连接"""
