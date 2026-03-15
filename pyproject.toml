@@ -102,7 +102,8 @@ bundle = [
 
 # 核心依赖（所有功能依赖，包含 ML）
 # 这是完整功能所需的依赖，开发者和需要本地 ML 功能的用户需要安装
-# ML 依赖统一使用 CUDA 12.4 (cu124)，最低驱动要求 NVIDIA Driver ≥ 525.60.13
+# ML 依赖统一使用 CUDA 12.8 (cu128)，支持 Blackwell (RTX 50系) 及更早架构
+# 最低驱动要求 NVIDIA Driver ≥ 525.60.13 (推荐 ≥ 550.00 以获得最佳兼容性)
 # PyTorch 从官方源下载以获取 CUDA 支持
 core = [
     # 包含所有打包依赖
@@ -122,7 +123,9 @@ core = [
     "openai>=1.50.0",
     "tenacity>=8.2.0",
     # ML 依赖（本地 ASR 和翻译功能）
-    "torch>=2.5.0",                 # PyTorch 2.5.x 系列（CUDA 12.4）
+    "torch>=2.5.0",                 # PyTorch（CUDA 12.8）
+    "torchvision>=0.20.0",         # PyTorch Vision（CUDA 12.8）
+    "torchaudio>=2.5.0",           # PyTorch Audio（CUDA 12.8）
     "faster-whisper>=1.0.0",        # Whisper（使用 faster-whisper）
     "gguf>=0.10.0",                 # GGUF 模型加载支持
     "transformers>=4.46.0,<5.0.0",  # Transformers（锁定 4.46.x）
@@ -256,14 +259,20 @@ warn_unreachable = false
 
 ##### uv Package Index Settings #####
 # PyTorch 官方源配置
-# - Linux/Windows: 使用 CUDA 12.4 版本（需要 NVIDIA 驱动 ≥ 525.60.13）
+# - Linux/Windows: 使用 CUDA 12.8 版本（支持 Blackwell RTX 50系 及更早架构）
 # - macOS: 使用 PyPI 默认版本（CPU，因为 Faster Whisper 不支持 MPS）
 [[tool.uv.index]]
-name = "pytorch-cu124"
-url = "https://download.pytorch.org/whl/cu124"
+name = "pytorch-cu128"
+url = "https://download.pytorch.org/whl/cu128"
 explicit = true
 
 [tool.uv.sources]
 torch = [
-    { index = "pytorch-cu124", marker = "sys_platform != 'darwin'" },
+    { index = "pytorch-cu128", marker = "sys_platform != 'darwin'" },
+]
+torchvision = [
+    { index = "pytorch-cu128", marker = "sys_platform != 'darwin'" },
+]
+torchaudio = [
+    { index = "pytorch-cu128", marker = "sys_platform != 'darwin'" },
 ]
