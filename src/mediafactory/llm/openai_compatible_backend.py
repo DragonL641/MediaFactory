@@ -57,7 +57,6 @@ class OpenAICompatibleBackend(TranslationBackend):
         api_key: Optional[str] = None,
         base_url: Optional[str] = None,
         model: Optional[str] = None,
-        max_tokens: int = 0,
         temperature: float = 0.3,
         timeout: int = 30,
         max_retries: int = 3,
@@ -70,7 +69,6 @@ class OpenAICompatibleBackend(TranslationBackend):
             api_key: API Key
             base_url: API 基础 URL（如 https://api.openai.com/v1）
             model: 使用的模型名称
-            max_tokens: 最大输出 tokens（0 = 使用模型默认限制）
             temperature: 生成温度（翻译建议 0.1-0.3）
             timeout: 请求超时时间（秒）
             max_retries: 最大重试次数
@@ -80,43 +78,17 @@ class OpenAICompatibleBackend(TranslationBackend):
         self._api_key = api_key or ""
         self._base_url = base_url or ""
         self._model = model or "gpt-4o-mini"
-        self._configured_max_tokens = max_tokens  # 用户配置的值
         self._temperature = temperature
         self._timeout = timeout
         self._max_retries = max_retries
         self._batch_size = batch_size
         self._client = None
         self._kwargs = kwargs
-        self._max_tokens = self._get_effective_max_tokens()
         self._local_fallback_engine = None  # 本地回退引擎（懒加载）
-
         try:
             self._init_client()
         except ImportError:
             pass
-
-    def _get_effective_max_tokens(self) -> int:
-        """计算有效的 max_tokens 值。
-
-        优先级：
-        1. 如果用户配置了 max_tokens > 0，使用 min(用户配置, 模型限制)
-        2. 否则使用模型默认限制
-        """
-        from ..constants import get_model_max_tokens
-
-        model_limit = get_model_max_tokens(self._model)
-
-        if self._configured_max_tokens > 0:
-            effective = min(self._configured_max_tokens, model_limit)
-            if effective < self._configured_max_tokens:
-                log_debug(
-                    f"[OpenAI-Compatible] max_tokens 调整: "
-                    f"{self._configured_max_tokens} → {effective} (模型 {self._model} 限制: {model_limit})"
-                )
-            return effective
-
-        return model_limit
-
     def _init_client(self) -> None:
         """初始化 OpenAI 客户端。"""
         try:
@@ -274,7 +246,7 @@ class OpenAICompatibleBackend(TranslationBackend):
         # 使用基类的文本标准化方法
         texts = self._normalize_texts(request.text)
 
-        # 执行批量翻译（max_tokens 已在 __init__ 中设置）
+        # 执行批量翻译
         return self._translate_batch(
             texts=texts,
             src_lang=request.src_lang,
@@ -676,7 +648,6 @@ class OpenAICompatibleBackend(TranslationBackend):
                         {"role": "user", "content": user_content},
                     ],
                     temperature=self._temperature,
-                    max_tokens=self._max_tokens,
                 )
 
                 content = response.choices[0].message.content

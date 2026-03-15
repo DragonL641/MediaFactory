@@ -529,6 +529,7 @@ class DownloadManager:
                     "endpoint": endpoint,
                     "allow_patterns": allow_patterns,
                     "ignore_patterns": ignore_patterns,
+                    "timeout": config.model.download_timeout,
                 }
 
                 # Execute download in subprocess
@@ -631,6 +632,7 @@ class DownloadManager:
                     "local_dir": str(models_dir),
                     "endpoint": endpoint,
                     "local_filename": local_filename,
+                    "timeout": config.model.download_timeout,
                 }
 
                 # Execute download in subprocess
@@ -811,6 +813,15 @@ class DownloadManager:
             log_info(f"Model {model_id} downloaded successfully")
             callback_data = self._get_callback_data(model_id)
         self._notify_callbacks_unlocked(*callback_data)
+
+        # 下载成功后同步模型列表
+        try:
+            from mediafactory.config import get_config_manager
+            config_manager = get_config_manager()
+            config_manager.sync_models()
+            log_info("Model list synchronized after download")
+        except Exception as e:
+            log_error(f"Failed to sync models after download: {e}")
 
     def _handle_cancel(self, model_id: str) -> None:
         """

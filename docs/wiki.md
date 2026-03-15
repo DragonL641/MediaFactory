@@ -11,28 +11,30 @@
    - [市场背景与竞品分析](#市场背景与竞品分析)
    - [核心特性与差异化](#核心特性与差异化)
 2. [技术基础理论](#技术基础理论)
-   - [深度学习模型架构分类](#深度学习模型架构分类)
-   - [模型存储格式](#模型存储格式)
-   - [模型加载工具与方法](#模型加载工具与方法)
-   - [硬件支持与内存估算](#硬件支持与内存估算)
-   - [安全性考虑](#安全性考虑)
-3. [核心架构设计](#核心架构设计)
-   - [三层架构模式](#三层架构模式)
-   - [Pipeline 编排模式](#pipeline-编排模式)
-   - [插件架构原理](#插件架构原理)
-   - [事件驱动架构](#事件驱动架构)
-4. [核心技术原理](#核心技术原理)
+   - [深度学习核心概念](#深度学习核心概念)
+   - [注意力机制与 Transformer](#注意力机制与-transformer)
+   - [PyTorch 基础](#pytorch-基础)
+   - [模型权重与训练](#模型权重与训练)
+   - [模型架构分类与存储格式](#模型架构分类与存储格式)
+   - [硬件支持与安全性](#硬件支持与安全性)
+3. [核心业务原理](#核心业务原理)
    - [语音识别原理](#语音识别原理)
    - [大语言模型原理](#大语言模型原理)
    - [机器翻译原理](#机器翻译原理)
    - [音视频处理原理](#音视频处理原理)
    - [字幕生成原理](#字幕生成原理)
-5. [工程实践](#工程实践)
-   - [配置管理原理](#配置管理原理)
-   - [GUI框架原理](#gui框架原理)
-   - [并发编程原理](#并发编程原理)
-   - [Python打包原理](#python打包原理)
-6. [附录](#附录)
+   - [远端 LLM 调用原理](#远端-llm-调用原理)
+4. [核心架构设计与工程实现](#核心架构设计与工程实现)
+   - [架构设计理念](#架构设计理念)
+   - [Pipeline 编排模式](#pipeline-编排模式)
+   - [插件架构实现](#插件架构实现)
+   - [事件驱动架构](#事件驱动架构)
+   - [工程实现细节](#工程实现细节)
+   - [GUI 框架实现](#gui框架原理)
+   - [并发编程实现](#并发编程原理)
+   - [Python 打包实现](#python打包原理)
+   - [远端 LLM 调用实现](#远端-llm-调用实现)
+5. [附录](#附录)
    - [常见面试问题](#常见面试问题)
    - [参考资料](#参考资料)
 
@@ -207,6 +209,540 @@ MediaFactory 功能架构:
 ---
 
 ## 技术基础理论
+
+### 深度学习核心概念
+
+在深入讨论模型架构和存储格式之前，需要先理解深度学习的几个核心概念。这些概念是理解 Transformer、Whisper 等模型的基础。
+
+#### 神经网络基础
+
+**神经元模型**：
+
+神经网络的基本计算单元，模拟生物神经元的工作方式：
+
+```
+输入 (x₁, x₂, ..., xₙ)
+         ↓
+    ┌─────────────────┐
+    │   加权求和 + 偏置  │  z = Σ(wᵢxᵢ) + b
+    │   w = 权重, b = 偏置│
+    └────────┬────────┘
+             ↓
+    ┌─────────────────┐
+    │     激活函数      │  a = σ(z)
+    │   (ReLU, Sigmoid) │
+    └────────┬────────┘
+             ↓
+         输出 (a)
+```
+
+**前向传播与反向传播**：
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                      神经网络训练流程                         │
+├─────────────────────────────────────────────────────────────┤
+│                                                             │
+│  前向传播 (Forward Pass)                                    │
+│  ─────────────────────                                      │
+│  输入 X → [Layer 1] → [Layer 2] → ... → [Layer N] → 输出 Y  │
+│                                                             │
+│  计算: Y_pred = f(X; W)   # W 是所有权重参数                  │
+│                                                             │
+│  ─────────────────────────────────────────────────────────  │
+│                                                             │
+│  损失计算 (Loss Computation)                                │
+│  ─────────────────────────                                  │
+│  L = Loss(Y_pred, Y_true)   # 预测值与真实值的差距            │
+│                                                             │
+│  常见损失函数:                                               │
+│  - MSE (均方误差): 回归任务                                  │
+│  - Cross Entropy (交叉熵): 分类任务                          │
+│                                                             │
+│  ─────────────────────────────────────────────────────────  │
+│                                                             │
+│  反向传播 (Backward Pass)                                   │
+│  ─────────────────────                                      │
+│  ∂L/∂W ← [Layer N] ← [Layer N-1] ← ... ← [Layer 1]          │
+│                                                             │
+│  计算: 每个权重的梯度 (对损失的影响程度)                       │
+│  链式法则: ∂L/∂w = ∂L/∂a × ∂a/∂z × ∂z/∂w                    │
+│                                                             │
+│  ─────────────────────────────────────────────────────────  │
+│                                                             │
+│  参数更新 (Optimization)                                    │
+│  ─────────────────────────                                  │
+│  W_new = W_old - lr × ∂L/∂W                                 │
+│                                                             │
+│  lr = 学习率 (Learning Rate)                                │
+│  优化器: SGD, Adam, AdamW, etc.                             │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+```
+
+---
+
+#### 注意力机制详解
+
+**核心思想**：
+
+让模型在处理序列数据时，能够"关注"到当前时刻最重要的部分。
+
+**直观类比**：
+
+```
+场景: 你在阅读一篇文章
+
+┌─────────────────────────────────────────────────────────────┐
+│  当你读到 "苹果公司发布了新手机" 中的 "它" 时                 │
+│                                                             │
+│  你的大脑会自动将注意力聚焦在 "苹果公司" 上                   │
+│  而不是均匀地关注每个词                                      │
+│                                                             │
+│  这就是注意力机制的作用: 让模型学会"聚焦"                     │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**Self-Attention (自注意力) 计算**：
+
+```python
+# 核心公式: Scaled Dot-Product Attention
+Attention(Q, K, V) = softmax(QK^T / √d_k) V
+
+# Q = Query (查询): "我想找什么"
+# K = Key (键): "内容的标签"
+# V = Value (值): "内容的实际信息"
+# d_k = Key 的维度 (缩放因子)
+```
+
+**详细计算步骤**：
+
+```python
+import torch
+import torch.nn.functional as F
+
+def scaled_dot_product_attention(Q, K, V):
+    """
+    Q: (batch, seq_len, d_k) - 查询向量
+    K: (batch, seq_len, d_k) - 键向量
+    V: (batch, seq_len, d_v) - 值向量
+    """
+    d_k = Q.size(-1)
+
+    # 1. 计算注意力分数 (Query 与 Key 的相似度)
+    scores = torch.matmul(Q, K.transpose(-2, -1))  # (batch, seq_len, seq_len)
+    scores = scores / (d_k ** 0.5)  # 缩放，防止梯度消失
+
+    # 2. Softmax 归一化 (转为概率分布)
+    attn_weights = F.softmax(scores, dim=-1)  # 每行和为 1
+
+    # 3. 加权求和 (根据注意力权重聚合 Value)
+    output = torch.matmul(attn_weights, V)  # (batch, seq_len, d_v)
+
+    return output, attn_weights
+```
+
+**Multi-Head Attention (多头注意力)**：
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    Multi-Head Attention                      │
+├─────────────────────────────────────────────────────────────┤
+│                                                             │
+│  输入 X                                                     │
+│    │                                                        │
+│    ├──→ Head 1: Q₁=XW^Q₁, K₁=XW^K₁, V₁=XW^V₁              │
+│    │         └─→ Attention(Q₁, K₁, V₁) → Head₁             │
+│    │                                                        │
+│    ├──→ Head 2: Q₂=XW^Q₂, K₂=XW^K₂, V₂=XW^V₂              │
+│    │         └─→ Attention(Q₂, K₂, V₂) → Head₂             │
+│    │                                                        │
+│    ├──→ ...                                                 │
+│    │                                                        │
+│    └──→ Head h: Qₕ=XW^Qₕ, Kₕ=XW^Kₕ, Vₕ=XW^Vₕ              │
+│              └─→ Attention(Qₕ, Kₕ, Vₕ) → Headₕ             │
+│                                                             │
+│  Concat(Head₁, Head₂, ..., Headₕ) × W^O → Output           │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+
+为什么需要多头？
+├── Head 1: 关注语法结构
+├── Head 2: 关注语义关系
+├── Head 3: 关注指代消解
+└── ... 每个头学习不同的表示子空间
+```
+
+**注意力类型对比**：
+
+| 类型 | 说明 | 应用场景 |
+|------|------|----------|
+| **Self-Attention** | Q、K、V 都来自同一输入 | BERT、GPT 编码层 |
+| **Cross-Attention** | Q 来自解码器，K、V 来自编码器 | Transformer Decoder、Whisper |
+| **Causal Attention** | 只能看当前位置之前的 token | GPT 生成、自回归模型 |
+| **Bidirectional** | 可以看前后所有 token | BERT 理解任务 |
+
+---
+
+#### Transformer 架构原理
+
+**Encoder-Decoder 结构**：
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                  Transformer 完整架构                         │
+├─────────────────────────────────────────────────────────────┤
+│                                                             │
+│  输入: "Hello world"                                        │
+│         │                                                   │
+│         ▼                                                   │
+│  ┌─────────────────────────────────────────────────────┐   │
+│  │                    ENCODER                           │   │
+│  │  ┌─────────────────────────────────────────────┐    │   │
+│  │  │  Input Embedding + Positional Encoding      │    │   │
+│  │  └─────────────────────────────────────────────┘    │   │
+│  │                      │                              │   │
+│  │  ┌─────────────────────────────────────────────┐    │   │
+│  │  │  Multi-Head Self-Attention                   │    │   │
+│  │  └─────────────────────────────────────────────┘    │   │
+│  │                      │                              │   │
+│  │  ┌─────────────────────────────────────────────┐    │   │
+│  │  │  Add & Norm (残差连接 + 层归一化)             │    │   │
+│  │  └─────────────────────────────────────────────┘    │   │
+│  │                      │                              │   │
+│  │  ┌─────────────────────────────────────────────┐    │   │
+│  │  │  Feed Forward Network (FFN)                  │    │   │
+│  │  └─────────────────────────────────────────────┘    │   │
+│  │                      │                              │   │
+│  │  ┌─────────────────────────────────────────────┐    │   │
+│  │  │  Add & Norm                                  │    │   │
+│  │  └─────────────────────────────────────────────┘    │   │
+│  │                      │                              │   │
+│  │              × N 层 (通常 6-12 层)                  │   │
+│  └─────────────────────────────────────────────────────┘   │
+│                         │                                   │
+│                         ▼                                   │
+│  ┌─────────────────────────────────────────────────────┐   │
+│  │                    DECODER                           │   │
+│  │  ┌─────────────────────────────────────────────┐    │   │
+│  │  │  Output Embedding + Positional Encoding     │    │   │
+│  │  └─────────────────────────────────────────────┘    │   │
+│  │                      │                              │   │
+│  │  ┌─────────────────────────────────────────────┐    │   │
+│  │  │  Masked Multi-Head Self-Attention (因果掩码) │    │   │
+│  │  └─────────────────────────────────────────────┘    │   │
+│  │                      │                              │   │
+│  │  ┌─────────────────────────────────────────────┐    │   │
+│  │  │  Cross-Attention (关注 Encoder 输出)         │    │   │
+│  │  └─────────────────────────────────────────────┘    │   │
+│  │                      │                              │   │
+│  │  ┌─────────────────────────────────────────────┐    │   │
+│  │  │  Feed Forward Network                        │    │   │
+│  │  └─────────────────────────────────────────────┘    │   │
+│  │                      │                              │   │
+│  │              × N 层                                  │   │
+│  └─────────────────────────────────────────────────────┘   │
+│                         │                                   │
+│                         ▼                                   │
+│              Linear + Softmax                               │
+│                         │                                   │
+│                         ▼                                   │
+│  输出: "你好世界" (翻译结果)                                 │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**关键组件详解**：
+
+1. **位置编码 (Positional Encoding)**
+
+   Transformer 没有循环结构，无法感知位置，需要显式添加位置信息：
+
+   ```python
+   # Sinusoidal Positional Encoding
+   PE(pos, 2i) = sin(pos / 10000^(2i/d_model))
+   PE(pos, 2i+1) = cos(pos / 10000^(2i/d_model))
+
+   # pos: 位置, i: 维度索引
+   ```
+
+2. **残差连接与层归一化**
+
+   ```python
+   # 残差连接: 解决深层网络梯度消失
+   # 层归一化: 稳定训练
+
+   output = LayerNorm(x + Sublayer(x))
+   ```
+
+3. **前馈网络 (FFN)**
+
+   ```python
+   # 两层全连接 + 激活函数
+   FFN(x) = ReLU(xW₁ + b₁)W₂ + b₂
+
+   # 通常 d_ff = 4 × d_model (如 512 → 2048)
+   ```
+
+---
+
+#### PyTorch 与 Transformer 的关系
+
+这是两个不同层次的概念：
+
+| 对比维度 | PyTorch | Transformer |
+|----------|---------|-------------|
+| **类型** | 深度学习框架 | 神经网络架构 |
+| **作用** | 提供构建、训练模型的工具 | 是一种具体的模型结构设计 |
+| **层级** | 基础设施层 | 模型架构层 |
+| **类比** | 建筑工程队 + 材料 | 建筑设计图纸 |
+| **提供者** | Meta (Facebook) | Google (原论文) |
+
+**层次关系**：
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                      AI 模型技术栈                           │
+├─────────────────────────────────────────────────────────────┤
+│                                                             │
+│  应用层: MediaFactory, HuggingFace, LangChain               │
+│           │                                                 │
+│           ▼                                                 │
+│  模型层: Whisper, BERT, GPT, LLaMA (Transformer 架构)        │
+│           │                                                 │
+│           ▼                                                 │
+│  框架层: PyTorch, TensorFlow, JAX                           │
+│           │  ← 提供张量运算、自动求导、GPU 加速               │
+│           ▼                                                 │
+│  硬件层: NVIDIA GPU (CUDA), Apple Silicon (MPS), CPU        │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**PyTorch 提供的基础组件**：
+
+```python
+import torch
+import torch.nn as nn
+
+# 1. 张量运算 (Tensor Operations)
+x = torch.randn(2, 3)  # 创建张量
+y = torch.matmul(x, x.T)  # 矩阵乘法
+
+# 2. 自动求导 (Autograd)
+x = torch.randn(3, requires_grad=True)
+y = x.sum()
+y.backward()  # 自动计算梯度
+print(x.grad)  # 梯度值
+
+# 3. 神经网络层 (nn.Module)
+class LinearLayer(nn.Module):
+    def __init__(self, in_features, out_features):
+        super().__init__()
+        self.weight = nn.Parameter(torch.randn(out_features, in_features))
+        self.bias = nn.Parameter(torch.zeros(out_features))
+
+    def forward(self, x):
+        return torch.matmul(x, self.weight.T) + self.bias
+
+# 4. 优化器 (Optimizer)
+optimizer = torch.optim.Adam(model.parameters(), lr=1e-4)
+
+# 5. GPU 加速
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+model = model.to(device)
+```
+
+**Transformer 用 PyTorch 实现**：
+
+```python
+# PyTorch 提供工具，Transformer 是用这些工具构建的架构
+import torch.nn as nn
+
+class TransformerEncoderLayer(nn.Module):
+    def __init__(self, d_model, nhead, dim_feedforward):
+        super().__init__()
+        # PyTorch 内置的 MultiheadAttention
+        self.self_attn = nn.MultiheadAttention(d_model, nhead)
+        # PyTorch 的 Linear 层
+        self.linear1 = nn.Linear(d_model, dim_feedforward)
+        self.linear2 = nn.Linear(dim_feedforward, d_model)
+        # PyTorch 的 LayerNorm
+        self.norm1 = nn.LayerNorm(d_model)
+        self.norm2 = nn.LayerNorm(d_model)
+
+    def forward(self, src):
+        # Self-Attention
+        src2 = self.self_attn(src, src, src)[0]
+        src = src + self.norm1(src2)  # 残差连接
+        # FFN
+        src2 = self.linear2(F.relu(self.linear1(src)))
+        src = src + self.norm2(src2)
+        return src
+```
+
+**在 MediaFactory 中**：
+
+```python
+# 层次关系示例
+from transformers import AutoModel  # HuggingFace (应用层)
+import torch  # PyTorch (框架层)
+
+# 加载 Transformer 架构的模型
+model = AutoModel.from_pretrained("google/madlad400-3b-mt")
+
+# 模型运行在 PyTorch 框架上
+# PyTorch 负责张量运算、GPU 调度、梯度计算等
+```
+
+---
+
+#### 模型权重与训练
+
+**什么是模型权重**：
+
+模型权重是神经网络中所有可训练参数的具体数值。
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                      模型组成要素                            │
+├─────────────────────────────────────────────────────────────┤
+│                                                             │
+│  模型架构 (Architecture)                                    │
+│  ─────────────────────                                      │
+│  - 网络结构：多少层、每层多大                                │
+│  - 超参数：hidden_size, num_layers, num_heads               │
+│  - 类比：建筑的设计图纸                                      │
+│                                                             │
+│  模型权重 (Weights/Parameters)                              │
+│  ─────────────────────────────                              │
+│  - 所有可学习参数的具体数值                                  │
+│  - 包括：权重矩阵 W 和偏置向量 b                             │
+│  - 类比：建好的房子（每块砖的具体位置）                       │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**权重的数学表示**：
+
+```python
+# 一个简单的线性层
+# y = Wx + b
+
+# W: 权重矩阵 (out_features, in_features)
+# b: 偏置向量 (out_features,)
+
+# 例如: 输入 768 维, 输出 3072 维
+W = torch.randn(3072, 768)  # 2,359,296 个参数
+b = torch.randn(3072)       # 3,072 个参数
+
+# 总参数量 = 2,362,368
+```
+
+**常见模型的参数量**：
+
+| 模型 | 参数量 | 权重文件大小 (FP16) |
+|------|--------|---------------------|
+| BERT-base | 110M | ~220 MB |
+| Whisper-large-v3 | 1.5B | ~3 GB |
+| MADLAD400-3B | 3B | ~6 GB |
+| LLaMA-7B | 7B | ~14 GB |
+| GPT-3 | 175B | ~350 GB |
+
+**权重训练过程**：
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                      权重如何获得                             │
+├─────────────────────────────────────────────────────────────┤
+│                                                             │
+│  1. 权重初始化                                              │
+│     ─────────────                                          │
+│     随机初始化 或 预训练权重                                 │
+│     W = torch.randn(...) 或 load_pretrained()              │
+│                                                             │
+│  2. 训练循环                                                │
+│     ─────────                                              │
+│     for epoch in range(num_epochs):                        │
+│         for batch in dataloader:                           │
+│             # 前向传播                                      │
+│             output = model(batch.input)                    │
+│             loss = criterion(output, batch.target)         │
+│                                                             │
+│             # 反向传播                                      │
+│             loss.backward()  # 计算梯度                     │
+│                                                             │
+│             # 更新权重                                      │
+│             optimizer.step()  # W = W - lr × ∂L/∂W         │
+│                                                             │
+│  3. 保存权重                                                │
+│     ─────────                                              │
+│     torch.save(model.state_dict(), "model.safetensors")    │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**预训练与微调**：
+
+```
+预训练 (Pre-training)
+─────────────────────
+在大规模数据上训练，学习通用表示
+例如: BERT 在整个 Wikipedia + BookCorpus 上训练
+成本: 数百万美元的计算资源
+
+微调 (Fine-tuning)
+─────────────────
+在特定任务数据上继续训练，适应具体场景
+例如: BERT 在医学文本上微调
+成本: 几小时到几天的训练
+
+MediaFactory 使用的都是预训练模型:
+─────────────────────────────
+- Whisper: OpenAI 预训练的语音识别模型
+- MADLAD400: Google 预训练的翻译模型
+- 直接加载权重使用，无需训练
+```
+
+**在 MediaFactory 中**：
+
+```python
+# 下载模型时，实际下载的就是权重文件
+python scripts/utils/download_model.py google/madlad400-3b-mt
+
+# 下载的文件结构：
+models/
+└── google/
+    └── madlad400-3b-mt/
+        ├── model.safetensors  # ← 模型权重 (~6 GB)
+        │   包含所有训练好的参数
+        │
+        ├── config.json        # 模型架构配置
+        │   定义网络结构 (层数、维度等)
+        │
+        └── tokenizer.json     # 分词器配置
+            定义文本如何转换为 token
+
+# 加载过程
+from transformers import AutoModelForSeq2SeqLM
+
+# 1. 读取 config.json → 知道要构建什么结构
+# 2. 创建模型架构 → 空的模型（随机权重）
+# 3. 加载 model.safetensors → 填充权重值
+model = AutoModelForSeq2SeqLM.from_pretrained("./models/google/madlad400-3b-mt")
+```
+
+**权重文件格式**：
+
+| 格式 | 扩展名 | 特点 |
+|------|--------|------|
+| PyTorch | `.pt`, `.pth`, `.bin` | 使用 Pickle，有安全风险 |
+| **Safetensors** | `.safetensors` | 纯数据格式，安全快速 |
+| GGUF | `.gguf` | 量化压缩，适合边缘设备 |
+
+MediaFactory 优先使用 `.safetensors` 格式，安全性更高。
+
+---
 
 ### 深度学习模型架构分类
 
@@ -588,9 +1124,15 @@ model = AutoModel.from_pretrained(
 
 ---
 
-## 核心架构设计
+## 核心架构设计与工程实现
 
-### 三层架构模式
+本章介绍 MediaFactory 的架构设计理念和具体工程实现，展示"设计理念 → 代码实现"的完整过程。
+
+> **阅读建议**：建议先阅读下一章 [核心业务原理](#核心业务原理) 了解业务技术原理，再返回本章学习架构设计与实现。
+
+### 架构设计理念
+
+#### 三层架构模式
 
 ```
 ┌─────────────────────────────────────────────┐
@@ -734,7 +1276,9 @@ class EventType(Enum):
 
 ---
 
-## 核心技术原理
+## 核心业务原理
+
+本节介绍 MediaFactory 涉及的核心业务技术原理，包括语音识别、机器翻译、远端 LLM 调用等。
 
 ### 语音识别原理
 
@@ -1116,9 +1660,211 @@ def generate_bilingual_subtitles(source_segments, translated_segments):
 
 ---
 
-## 工程实践
+### 远端 LLM 调用原理
 
-### 配置管理原理
+MediaFactory 支持通过 API 调用远端大语言模型（LLM）进行翻译，与本地翻译模型形成互补。
+
+#### 为什么需要远端 LLM
+
+| 特性 | 本地模型 (MADLAD400) | 远端 LLM (GPT-4, Claude 等) |
+|------|---------------------|---------------------------|
+| **翻译质量** | 固定模式，一般 | 高质量，理解上下文 |
+| **硬件要求** | 16GB+ RAM | 无本地要求 |
+| **成本** | 一次性（免费） | 按次计费 |
+| **隐私** | 本地处理 | 数据上传云端 |
+| **灵活性** | 仅翻译 | 翻译+断句+校正 |
+
+#### OpenAI 兼容 API 原理
+
+**统一接口标准**：
+
+大多数 LLM 服务商采用 OpenAI 兼容的 API 格式，只需配置 `base_url` 即可切换：
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                   OpenAI 兼容 API 架构                        │
+├─────────────────────────────────────────────────────────────┤
+│                                                             │
+│  客户端代码 (统一)                                           │
+│  ─────────────────                                          │
+│  client = OpenAI(base_url=..., api_key=...)                 │
+│                                                             │
+│            │                                                │
+│            ▼                                                │
+│  ┌─────────────────────────────────────────────────────┐   │
+│  │            OpenAI 兼容 API 接口                       │   │
+│  │  POST /v1/chat/completions                           │   │
+│  │  {                                                   │   │
+│  │    "model": "gpt-4",                                 │   │
+│  │    "messages": [{"role": "user", "content": "..."}]  │   │
+│  │  }                                                   │   │
+│  └─────────────────────────────────────────────────────┘   │
+│            │                                                │
+│            ├────→ OpenAI (api.openai.com)                   │
+│            ├────→ DeepSeek (api.deepseek.com)               │
+│            ├────→ GLM 智谱 (open.bigmodel.cn)               │
+│            ├────→ 通义千问 (dashscope.aliyuncs.com)         │
+│            └────→ Moonshot (api.moonshot.cn)                │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**请求/响应格式**：
+
+```python
+# 请求格式
+{
+    "model": "gpt-4o-mini",
+    "messages": [
+        {"role": "system", "content": "You are a translator."},
+        {"role": "user", "content": "Translate to Chinese: Hello world"}
+    ],
+    "temperature": 0.3,
+    "max_tokens": 1000
+}
+
+# 响应格式
+{
+    "id": "chatcmpl-xxx",
+    "choices": [{
+        "message": {
+            "role": "assistant",
+            "content": "你好世界"
+        },
+        "finish_reason": "stop"
+    }],
+    "usage": {
+        "prompt_tokens": 20,
+        "completion_tokens": 5,
+        "total_tokens": 25
+    }
+}
+```
+
+#### Token 与计费原理
+
+**什么是 Token**：
+
+Token 是 LLM 处理文本的基本单位，大约：
+- 英文：1 token ≈ 4 characters ≈ 0.75 words
+- 中文：1 token ≈ 1-2 characters
+
+**计费计算**：
+
+```
+费用 = (输入 tokens × 输入单价) + (输出 tokens × 输出单价)
+
+示例 (GPT-4o-mini):
+- 输入: 1000 tokens × $0.15/1M = $0.00015
+- 输出: 500 tokens × $0.60/1M = $0.00030
+- 总计: $0.00045
+```
+
+#### 批量翻译原理
+
+**为什么需要批量**：
+
+```
+单个翻译:
+├── 每句一个 API 请求
+├── 网络延迟 × N 次
+├── 请求开销大
+└── 成本高（重复的 system prompt）
+
+批量翻译:
+├── N 句一个 API 请求
+├── 网络延迟 × 1 次
+├── 请求开销小
+└── 成本低（共享 system prompt）
+```
+
+**JSON 批量翻译格式**：
+
+```python
+# 输入
+sentences = ["Hello", "World", "Good morning"]
+
+# 构造 prompt
+prompt = """
+Translate the following sentences to Chinese.
+Return as JSON array, maintain order.
+
+Input: ["Hello", "World", "Good morning"]
+Output:
+"""
+
+# 期望输出
+'["你好", "世界", "早上好"]'
+```
+
+#### 递归验证机制
+
+**问题**：批量翻译时，LLM 可能返回错误数量的结果
+
+**解决方案**：递归分半重试
+
+```python
+def batch_translate_with_validation(texts, target_size=100):
+    """带验证的批量翻译"""
+
+    if len(texts) <= 1:
+        return translate_single(texts[0]) if texts else []
+
+    # 尝试批量翻译
+    result = batch_translate(texts)
+
+    # 验证数量
+    if len(result) == len(texts):
+        return result
+
+    # 数量不匹配，分半重试
+    mid = len(texts) // 2
+    left = batch_translate_with_validation(texts[:mid])
+    right = batch_translate_with_validation(texts[mid:])
+
+    return left + right
+```
+
+#### 本地回退机制
+
+**原理**：当远端 LLM 不可用时，自动回退到本地模型
+
+```
+翻译请求
+    │
+    ▼
+┌─────────────────┐
+│ 尝试远端 LLM    │
+└────────┬────────┘
+         │
+    ┌────┴────┐
+    │ 成功?   │
+    └────┬────┘
+         │
+    ┌────┴────┐
+    │ 是      │──→ 返回结果
+    │         │
+    │ 否      │──→ 检查本地模型
+    │              │
+    │         ┌────┴────┐
+    │         │ 可用?   │
+    │         └────┬────┘
+    │              │
+    │         ┌────┴────┐
+    │         │ 是      │──→ 本地翻译 → 返回结果
+    │         │         │
+    │         │ 否      │──→ 抛出错误
+    │         └─────────┘
+    └─────────────┘
+```
+
+---
+
+### 工程实现细节
+
+本节介绍 MediaFactory 的具体工程实现，包括配置管理、GUI 框架、并发编程、远端 LLM 调用等。
+
+#### 配置管理实现
 
 #### 简化的配置管理器
 
@@ -1353,6 +2099,360 @@ datas = collect_data_files('mediafactory', include_py_files=False)
 
 ---
 
+### 远端 LLM 调用实现
+
+MediaFactory 实现了统一的远端 LLM 调用架构，支持多种 LLM 服务商。
+
+#### 统一后端架构
+
+**设计模式**：策略模式 + 工厂模式
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                   LLM 翻译后端架构                            │
+├─────────────────────────────────────────────────────────────┤
+│                                                             │
+│  TranslationService (高层服务)                               │
+│  ───────────────────────────                                │
+│  - 管理本地/远端切换                                         │
+│  - 处理回退逻辑                                              │
+│                                                             │
+│            │                                                │
+│            ▼                                                │
+│  ┌─────────────────────────────────────────────────────┐   │
+│  │       TranslationBackend (抽象基类)                  │   │
+│  │  - translate(request) -> TranslationResult           │   │
+│  │  - translate_batch(requests) -> List[Result]         │   │
+│  └─────────────────────────────────────────────────────┘   │
+│            ▲                     ▲                          │
+│            │                     │                          │
+│  ┌─────────────────┐   ┌─────────────────────────────┐     │
+│  │ LocalBackend    │   │   OpenAICompatibleBackend   │     │
+│  │ (MADLAD400)     │   │   (统一远端调用)             │     │
+│  └─────────────────┘   └─────────────────────────────┘     │
+│                                    │                        │
+│                        ┌───────────┼───────────┐           │
+│                        ▼           ▼           ▼           │
+│                    OpenAI      DeepSeek      GLM           │
+│                    等等...                                    │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+```
+
+#### 核心实现代码
+
+**TranslationRequest 和 TranslationResult**：
+
+```python
+from dataclasses import dataclass
+from typing import List, Optional
+
+@dataclass
+class TranslationRequest:
+    """翻译请求数据类"""
+    text: str                    # 待翻译文本
+    source_lang: str = "auto"    # 源语言（auto=自动检测）
+    target_lang: str = "zh"      # 目标语言
+    context: Optional[str] = None  # 上下文（提高翻译质量）
+
+@dataclass
+class TranslationResult:
+    """翻译结果数据类"""
+    translated_text: str         # 翻译结果
+    source_lang: str             # 实际源语言
+    target_lang: str             # 目标语言
+    model: str                   # 使用的模型
+    tokens_used: int = 0         # 消耗的 token 数
+    latency_ms: float = 0        # 响应延迟（毫秒）
+```
+
+**OpenAICompatibleBackend 实现**：
+
+```python
+from openai import OpenAI
+from typing import List
+import time
+
+class OpenAICompatibleBackend(TranslationBackend):
+    """
+    统一的 OpenAI 兼容后端
+
+    支持：OpenAI、DeepSeek、GLM、通义千问、Moonshot 等
+    只需配置 base_url 和 api_key 即可切换
+    """
+
+    # 预设服务配置
+    PRESETS = {
+        "openai": {
+            "base_url": "https://api.openai.com/v1",
+            "model_examples": ["gpt-4o-mini", "gpt-4o", "gpt-4-turbo"],
+        },
+        "deepseek": {
+            "base_url": "https://api.deepseek.com/v1",
+            "model_examples": ["deepseek-chat", "deepseek-coder"],
+        },
+        "glm": {
+            "base_url": "https://open.bigmodel.cn/api/paas/v4",
+            "model_examples": ["glm-4-flash", "glm-4-plus"],
+        },
+        "moonshot": {
+            "base_url": "https://api.moonshot.cn/v1",
+            "model_examples": ["moonshot-v1-8k", "moonshot-v1-32k"],
+        },
+    }
+
+    def __init__(self, backend_name: str, api_key: str,
+                 base_url: str = None, model: str = None):
+        # 使用预设或自定义配置
+        preset = self.PRESETS.get(backend_name, {})
+        self.base_url = base_url or preset.get("base_url")
+        self.model = model or preset.get("model_examples", [""])[0]
+
+        # 初始化 OpenAI 客户端
+        self.client = OpenAI(
+            base_url=self.base_url,
+            api_key=api_key,
+        )
+
+    def translate(self, request: TranslationRequest) -> TranslationResult:
+        """单句翻译"""
+        start_time = time.time()
+
+        response = self.client.chat.completions.create(
+            model=self.model,
+            messages=[
+                {"role": "system", "content": self._get_system_prompt(request)},
+                {"role": "user", "content": request.text},
+            ],
+            temperature=0.3,  # 低温度保证翻译稳定性
+        )
+
+        latency = (time.time() - start_time) * 1000
+
+        return TranslationResult(
+            translated_text=response.choices[0].message.content,
+            source_lang=request.source_lang,
+            target_lang=request.target_lang,
+            model=self.model,
+            tokens_used=response.usage.total_tokens,
+            latency_ms=latency,
+        )
+
+    def translate_batch(self, requests: List[TranslationRequest]) -> List[TranslationResult]:
+        """批量翻译（使用 JSON 格式）"""
+        # 构造批量翻译 prompt
+        texts = [r.text for r in requests]
+        prompt = self._build_batch_prompt(texts, requests[0].target_lang)
+
+        response = self.client.chat.completions.create(
+            model=self.model,
+            messages=[
+                {"role": "system", "content": "Return results as JSON array."},
+                {"role": "user", "content": prompt},
+            ],
+            response_format={"type": "json_object"},
+            temperature=0.3,
+        )
+
+        # 解析 JSON 响应
+        import json
+        results = json.loads(response.choices[0].message.content)
+
+        # 验证并返回
+        return self._validate_and_build_results(results, requests)
+
+    def _build_batch_prompt(self, texts: List[str], target_lang: str) -> str:
+        """构造批量翻译 prompt"""
+        return f"""
+Translate the following texts to {target_lang}.
+Return as a JSON array with exact same order.
+
+Input texts:
+{json.dumps(texts, ensure_ascii=False, indent=2)}
+
+Output format:
+{{"translations": ["translation1", "translation2", ...]}}
+"""
+
+    def _get_system_prompt(self, request: TranslationRequest) -> str:
+        """获取系统 prompt"""
+        return f"You are a professional translator. Translate to {request.target_lang}."
+```
+
+#### 批量翻译 + 递归验证
+
+```python
+class TranslationService:
+    """高层翻译服务，处理本地/远端切换和回退"""
+
+    def __init__(self, config):
+        self.config = config
+        self._remote_backend = None
+        self._local_backend = None  # 懒加载
+
+    @property
+    def local_backend(self):
+        """本地后端懒加载"""
+        if self._local_backend is None:
+            from mediafactory.engine.translation import LocalTranslationEngine
+            self._local_backend = LocalTranslationEngine()
+        return self._local_backend
+
+    def translate_batch_with_fallback(
+        self,
+        texts: List[str],
+        target_lang: str,
+        batch_size: int = 100
+    ) -> List[str]:
+        """带递归验证和本地回退的批量翻译"""
+
+        results = []
+        for i in range(0, len(texts), batch_size):
+            batch = texts[i:i + batch_size]
+
+            try:
+                # 尝试远端翻译
+                batch_results = self._translate_batch_recursive(batch, target_lang)
+                results.extend(batch_results)
+            except Exception as e:
+                log_warning(f"Remote translation failed: {e}, falling back to local")
+                # 回退到本地翻译
+                batch_results = self._translate_batch_local(batch, target_lang)
+                results.extend(batch_results)
+
+        return results
+
+    def _translate_batch_recursive(
+        self,
+        texts: List[str],
+        target_lang: str,
+        max_depth: int = 3
+    ) -> List[str]:
+        """递归验证的批量翻译"""
+
+        if len(texts) <= 1 or max_depth <= 0:
+            # 单句或达到最大递归深度，逐句翻译
+            return [self._translate_single(t, target_lang) for t in texts]
+
+        try:
+            # 尝试批量翻译
+            results = self._remote_translate_batch(texts, target_lang)
+
+            # 验证数量
+            if len(results) == len(texts):
+                return results
+
+            # 数量不匹配，记录警告并分半重试
+            log_warning(f"Batch mismatch: expected {len(texts)}, got {len(results)}")
+
+        except Exception as e:
+            log_warning(f"Batch translation error: {e}")
+
+        # 分半递归
+        mid = len(texts) // 2
+        left = self._translate_batch_recursive(texts[:mid], target_lang, max_depth - 1)
+        right = self._translate_batch_recursive(texts[mid:], target_lang, max_depth - 1)
+
+        return left + right
+
+    def _translate_batch_local(self, texts: List[str], target_lang: str) -> List[str]:
+        """本地翻译回退"""
+        results = []
+        for text in texts:
+            result = self.local_backend.translate(
+                TranslationRequest(text=text, target_lang=target_lang)
+            )
+            results.append(result.translated_text)
+        return results
+```
+
+#### 配置管理
+
+**config.toml 中的 LLM 配置**：
+
+```toml
+[api_translation]
+backend = "openai"          # 可选: openai, deepseek, glm, qwen, moonshot, custom
+
+[openai]
+api_key = "sk-xxx"
+base_url = "https://api.openai.com/v1"  # 可选，使用默认值
+model = "gpt-4o-mini"
+
+[llm_translation]
+enable_batch = true         # 启用批量翻译
+batch_size = 100            # 每批最大句子数
+max_retries = 3             # 最大重试次数
+fallback_to_local = true    # 失败时回退到本地模型
+```
+
+**BackendConfigMapping 工具类**：
+
+```python
+# src/mediafactory/constants.py
+
+class BackendConfigMapping:
+    """后端配置映射，数据驱动设计"""
+
+    SUPPORTED_BACKENDS = {
+        "openai": {
+            "display_name": "OpenAI",
+            "base_url": "https://api.openai.com/v1",
+            "model_examples": ["gpt-4o-mini", "gpt-4o", "gpt-4-turbo"],
+            "default_model": "gpt-4o-mini",
+        },
+        "deepseek": {
+            "display_name": "DeepSeek",
+            "base_url": "https://api.deepseek.com/v1",
+            "model_examples": ["deepseek-chat", "deepseek-coder"],
+            "default_model": "deepseek-chat",
+        },
+        # ... 其他后端
+    }
+
+    @classmethod
+    def get_backend_config(cls, config, backend_name: str) -> dict:
+        """从配置对象提取后端配置"""
+        preset = cls.SUPPORTED_BACKENDS.get(backend_name, {})
+        section = getattr(config, backend_name, {})
+
+        return {
+            "api_key": section.get("api_key", ""),
+            "base_url": section.get("base_url") or preset.get("base_url"),
+            "model": section.get("model") or preset.get("default_model"),
+        }
+```
+
+#### 错误处理与重试
+
+```python
+from tenacity import retry, stop_after_attempt, wait_exponential
+from openai import RateLimitError, APIConnectionError
+
+class OpenAICompatibleBackend:
+
+    @retry(
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=1, min=1, max=10),
+        retry=(RateLimitError, APIConnectionError),
+    )
+    def translate(self, request: TranslationRequest) -> TranslationResult:
+        """带重试的翻译"""
+        try:
+            return self._do_translate(request)
+        except RateLimitError:
+            log_warning("Rate limit hit, waiting before retry...")
+            raise  # 让 tenacity 处理重试
+        except APIConnectionError as e:
+            log_error(f"API connection failed: {e}")
+            raise
+        except Exception as e:
+            log_error(f"Translation failed: {e}")
+            raise
+```
+
+---
+
 ## 附录
 
 ### 常见面试问题
@@ -1425,5 +2525,12 @@ datas = collect_data_files('mediafactory', include_py_files=False)
 
 ---
 
-**文档版本**: 2.0
+**文档版本**: 3.0
 **更新日期**: 2026-03-15
+**更新内容**:
+- 重构为 5 章结构：概述 → 基础理论 → 业务原理 → 架构实现 → 附录
+- 新增"核心业务原理"章节（语音识别、翻译、远端LLM等）
+- 新增"远端 LLM 调用原理与实现"完整内容
+- 明确区分"知识原理"（第2-3章）与"工程实现"（第4章）
+
+

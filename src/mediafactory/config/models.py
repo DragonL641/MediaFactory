@@ -15,10 +15,10 @@ from .defaults import (
     DEFAULT_LLM_MAX_CHARS_PER_REQUEST,
     DEFAULT_LLM_MAX_RETRIES,
     DEFAULT_LLM_MAX_SEGMENTS_PER_REQUEST,
-    DEFAULT_LLM_MAX_TOKENS,
     DEFAULT_LLM_RATE_LIMIT_ENABLED,
     DEFAULT_LLM_RATE_LIMIT_PER_SECOND,
     DEFAULT_LLM_TIMEOUT,
+    DEFAULT_MODEL_DOWNLOAD_TIMEOUT,
     DEFAULT_MODELS_PATH,
     DEFAULT_OPENAI_COMPATIBLE_BASE_URL,
     DEFAULT_OPENAI_COMPATIBLE_MODEL,
@@ -130,6 +130,7 @@ class ModelConfig(BaseSettings):
     Environment variables:
         MF_MODEL_LOCAL_MODEL_PATH: Local model storage path
         MF_MODEL_DOWNLOAD_SOURCE: Model download source URL
+        MF_MODEL_DOWNLOAD_TIMEOUT: HTTP request timeout for downloads (seconds)
     """
 
     model_config = SettingsConfigDict(
@@ -146,6 +147,12 @@ class ModelConfig(BaseSettings):
     download_source: str = Field(
         default=DEFAULT_DOWNLOAD_SOURCE,
         description="Model download source URL",
+    )
+    download_timeout: int = Field(
+        default=DEFAULT_MODEL_DOWNLOAD_TIMEOUT,
+        ge=ValidationConstraints.MODEL_DOWNLOAD_TIMEOUT_MIN,
+        le=ValidationConstraints.MODEL_DOWNLOAD_TIMEOUT_MAX,
+        description="HTTP request timeout for model downloads (seconds)",
     )
     available_translation_models: List[str] = Field(
         default_factory=list,
@@ -181,10 +188,6 @@ class PresetServiceConfig(BaseSettings):
     model: str = Field(
         default="",
         description="Model to use for this preset",
-    )
-    max_tokens: int = Field(
-        default=0,
-        description="Max output tokens for this preset (0 = use model default)",
     )
     connection_available: bool = Field(
         default=False,
@@ -314,11 +317,6 @@ class LLMApiConfig(BaseSettings):
         ge=ValidationConstraints.LLM_MAX_SEGMENTS_MIN,
         le=ValidationConstraints.LLM_MAX_SEGMENTS_MAX,
         description="Max segments per request",
-    )
-    max_tokens: int = Field(
-        default=DEFAULT_LLM_MAX_TOKENS,
-        ge=ValidationConstraints.LLM_MAX_TOKENS_MIN,
-        description="Max output tokens",
     )
 
 

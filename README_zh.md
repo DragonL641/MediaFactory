@@ -105,10 +105,15 @@ cd MediaFactory
 uv sync --group core
 ```
 
+此命令会从 PyTorch 官方源下载带 CUDA 12.4 支持的 PyTorch。
+
 3. 运行应用：
 ```bash
 uv run mediafactory
 ```
+
+> **说明**: PyTorch 从 `download.pytorch.org`（而非 PyPI）下载，以确保 CUDA 支持。
+> CUDA 12.4 向后兼容所有 CUDA 12.x 驱动（NVIDIA 驱动 ≥ 525.60.13）。
 
 ### 开发者安装
 
@@ -125,25 +130,12 @@ pre-commit install
 pre-commit run --all-files
 ```
 
-### 备选方式： 交互式安装
-
-您也可以使用交互式安装脚本：
-```bash
-python scripts/setup_env.py
-```
-
-交互式脚本将会：
-- 检测您的硬件（GPU、CUDA 版本）
-- 询问您是使用者还是开发者
-- 安装相应的依赖
-- 可选下载 AI 模型
-
 ### 系统要求
 
 - **Python**: 3.11、3.12 或 3.13（推荐 3.12）
 - **uv**: 现代 Python 包管理器（[安装 uv](https://docs.astral.sh/uv/)）
 - **FFmpeg**: 通过 imageio-ffmpeg 自动包含（无需手动安装）
-- **GPU**（可选）: 支持 CUDA 的 NVIDIA GPU 用于加速
+- **GPU**（可选）: 支持 CUDA 12.x 的 NVIDIA GPU（驱动 ≥ 525.60.13）
 
 ### 硬件要求
 

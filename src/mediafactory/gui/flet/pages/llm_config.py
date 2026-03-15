@@ -297,13 +297,11 @@ class LLMConfigPage:
             current_base_url = preset_config.base_url or API_PRESETS.get(preset_key, {}).get("base_url", "")
             current_api_key = preset_config.api_key or ""
             current_model = preset_config.model or ""
-            current_max_tokens = getattr(preset_config, "max_tokens", 0)
         else:
             preset_key = "openai"
             current_base_url = API_PRESETS.get("openai", {}).get("base_url", "")
             current_api_key = ""
             current_model = ""
-            current_max_tokens = 0
 
         # 表单控件
         preset_dropdown = ft.Dropdown(
@@ -348,16 +346,7 @@ class LLMConfigPage:
             label_style=ft.TextStyle(color=self.theme.color_scheme.on_surface_variant, size=11),
         )
 
-        max_tokens_field = ft.TextField(
-            label="Max Tokens",
-            value=str(current_max_tokens) if current_max_tokens > 0 else "",
-            hint_text="0 = use model default",
-            dense=True,
-            keyboard_type=ft.KeyboardType.NUMBER,
-            border_color=self.theme.color_scheme.outline_variant,
-            text_style=ft.TextStyle(color=self.theme.color_scheme.on_surface, size=12),
-            label_style=ft.TextStyle(color=self.theme.color_scheme.on_surface_variant, size=11),
-        )
+        status_text = ft.Text("", size=11)
 
         status_text = ft.Text("", size=11)
 
@@ -372,8 +361,6 @@ class LLMConfigPage:
             base_url = base_url_field.value.strip()
             api_key = api_key_field.value.strip()
             model = model_field.value.strip()
-            max_tokens_str = max_tokens_field.value.strip()
-
             if not api_key:
                 status_text.value = "API Key is required"
                 status_text.color = self.theme.color_scheme.error
@@ -381,17 +368,11 @@ class LLMConfigPage:
                 return
 
             try:
-                max_tokens = int(max_tokens_str) if max_tokens_str else 0
-            except ValueError:
-                max_tokens = 0
-
-            try:
                 update_config(
                     **{
                         f"openai_compatible__{preset}__base_url": base_url,
                         f"openai_compatible__{preset}__api_key": api_key,
                         f"openai_compatible__{preset}__model": model,
-                        f"openai_compatible__{preset}__max_tokens": max_tokens,
                     }
                 )
                 log_info(f"配置已保存: {preset}")
@@ -418,7 +399,6 @@ class LLMConfigPage:
                     base_url_field,
                     api_key_field,
                     model_field,
-                    max_tokens_field,
                     status_text,
                 ],
                 spacing=12,

@@ -43,9 +43,8 @@ class AppInitializer:
             from mediafactory.config import get_config_manager
 
             config_manager = get_config_manager()
-            if hasattr(config_manager, "sync_models_on_startup"):
-                config_manager.sync_models_on_startup()
-                log_info("模型同步完成")
+            config_manager.sync_models()
+            log_info("模型同步完成")
         except Exception as e:
             log_error(f"模型同步失败: {e}")
 

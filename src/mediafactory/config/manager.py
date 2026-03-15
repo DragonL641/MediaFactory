@@ -144,11 +144,17 @@ class AppConfigManager:
         self._config = AppConfig()
         self.save()
 
-    def sync_models_on_startup(self) -> None:
-        """应用启动时同步模型列表。
+    def sync_models(self) -> None:
+        """同步本地模型列表到配置文件。
 
         扫描 models/ 目录，检测已下载的模型并更新配置文件。
         使用嵌套目录结构（如 models/Systran/faster-whisper-large-v3/）。
+
+        调用场景：
+            - 应用启动时
+            - 模型下载完成后
+            - 模型删除后
+            - 手动刷新时
         """
         from ..models.model_download import is_model_complete
         from ..models.model_registry import MODEL_REGISTRY, ModelType

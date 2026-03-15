@@ -27,6 +27,10 @@ DEFAULT_DOWNLOAD_SOURCE = (
 CHINA_MIRROR_SOURCE = "https://hf-mirror.com"
 OFFICIAL_SOURCE = "https://huggingface.co"
 
+# Model download timeout (seconds)
+# HTTP request timeout for huggingface_hub downloads
+DEFAULT_MODEL_DOWNLOAD_TIMEOUT = 30  # 30 seconds for each HTTP request
+
 # Whisper defaults
 DEFAULT_WHISPER_BEAM_SIZE = 5
 DEFAULT_WHISPER_PATIENCE = 1.0
@@ -52,7 +56,6 @@ DEFAULT_LLM_RATE_LIMIT_ENABLED = True
 DEFAULT_LLM_RATE_LIMIT_PER_SECOND = 5.0
 DEFAULT_LLM_MAX_CHARS_PER_REQUEST = 3000
 DEFAULT_LLM_MAX_SEGMENTS_PER_REQUEST = 100
-DEFAULT_LLM_MAX_TOKENS = 65536
 
 # OpenAI Compatible defaults (统一的 LLM 后端)
 DEFAULT_OPENAI_COMPATIBLE_PRESET = "openai"
@@ -110,13 +113,16 @@ class ValidationConstraints:
     LLM_TIMEOUT_MAX = 300
     LLM_MAX_RETRIES_MIN = 0
     LLM_MAX_RETRIES_MAX = 10
+
+    # Model download
+    MODEL_DOWNLOAD_TIMEOUT_MIN = 10
+    MODEL_DOWNLOAD_TIMEOUT_MAX = 600
     LLM_RATE_LIMIT_MIN = 0.0
     LLM_RATE_LIMIT_MAX = 100.0
     LLM_MAX_CHARS_MIN = 1
     LLM_MAX_CHARS_MAX = 100000
     LLM_MAX_SEGMENTS_MIN = 1
     LLM_MAX_SEGMENTS_MAX = 1000
-    LLM_MAX_TOKENS_MIN = 1024
 
 
 def get_default_config_path() -> Path:

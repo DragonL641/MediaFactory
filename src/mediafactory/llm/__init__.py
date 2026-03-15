@@ -78,21 +78,16 @@ def initialize_llm_backend(
             else ""
         )
 
-        # 获取预设级别的 max_tokens（0 表示使用模型默认限制）
-        max_tokens = getattr(preset_config, "max_tokens", 0)
-
         backend_config = {
             "api_key": preset_config.api_key,
             "base_url": base_url,
             "model": model,
-            "max_tokens": max_tokens,
         }
 
         log_debug(
             f"后端配置: preset={preset}, api_key_length={len(backend_config.get('api_key', ''))}, "
             f"base_url={backend_config.get('base_url', '')}, "
-            f"model={backend_config.get('model', '')}, "
-            f"max_tokens={backend_config.get('max_tokens', 0)}"
+            f"model={backend_config.get('model', '')}"
         )
 
         # Create backend instance directly

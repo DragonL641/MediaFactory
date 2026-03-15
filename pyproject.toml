@@ -103,6 +103,7 @@ bundle = [
 # 核心依赖（所有功能依赖，包含 ML）
 # 这是完整功能所需的依赖，开发者和需要本地 ML 功能的用户需要安装
 # ML 依赖统一使用 CUDA 12.4 (cu124)，最低驱动要求 NVIDIA Driver ≥ 525.60.13
+# PyTorch 从官方源下载以获取 CUDA 支持
 core = [
     # 包含所有打包依赖
     "flet>=0.80.0,<0.90.0",
@@ -252,3 +253,17 @@ warn_return_any = false
 disallow_untyped_decorators = false
 warn_no_return = false
 warn_unreachable = false
+
+##### uv Package Index Settings #####
+# PyTorch 官方源配置
+# - Linux/Windows: 使用 CUDA 12.4 版本（需要 NVIDIA 驱动 ≥ 525.60.13）
+# - macOS: 使用 PyPI 默认版本（CPU，因为 Faster Whisper 不支持 MPS）
+[[tool.uv.index]]
+name = "pytorch-cu124"
+url = "https://download.pytorch.org/whl/cu124"
+explicit = true
+
+[tool.uv.sources]
+torch = [
+    { index = "pytorch-cu124", marker = "sys_platform != 'darwin'" },
+]

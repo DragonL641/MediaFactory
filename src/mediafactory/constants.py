@@ -164,9 +164,7 @@ class ModelTokenLimits:
         "moonshot-v1-8k": 8192,
         "moonshot-v1-32k": 8192,
         "moonshot-v1-128k": 8192,
-    }
-
-    # 默认限制（未知模型使用保守值）
+    }    # 默认限制（未知模型使用保守值）
     DEFAULT_LIMIT = 4096
 
 

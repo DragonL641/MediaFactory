@@ -1055,7 +1055,7 @@ class ModelStatusService:
 
         # 触发配置管理器重新扫描模型
         config_manager = get_config_manager()
-        config_manager.sync_models_on_startup()
+        config_manager.sync_models()
 
     def get_translation_model_statuses(self) -> List[Dict[str, Any]]:
         """获取三个档位的本地翻译模型状态"""

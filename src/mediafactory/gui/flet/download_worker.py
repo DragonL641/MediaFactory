@@ -40,10 +40,12 @@ def download_repo_worker(params: Dict[str, Any]) -> Dict[str, Any]:
             - endpoint: (optional) Custom endpoint
             - allow_patterns: (optional) List of glob patterns for files to include
             - ignore_patterns: (optional) List of glob patterns for files to exclude
+            - timeout: (optional) HTTP request timeout in seconds
 
     Returns:
         Dict with 'success' boolean and optional 'error' message
     """
+    import os
     from huggingface_hub import snapshot_download
 
     try:
@@ -52,12 +54,18 @@ def download_repo_worker(params: Dict[str, Any]) -> Dict[str, Any]:
         endpoint = params.get("endpoint")
         allow_patterns = params.get("allow_patterns")
         ignore_patterns = params.get("ignore_patterns")
+        timeout = params.get("timeout", 30)
+
+        # 设置 huggingface_hub 超时环境变量
+        os.environ["HF_HUB_DOWNLOAD_TIMEOUT"] = str(timeout)
+        os.environ["HF_HUB_ETAG_TIMEOUT"] = str(timeout)
 
         # 记录下载源
         download_source = endpoint if endpoint else "https://huggingface.co"
         _log(f"Starting repo download: {repo_id}")
         _log(f"Download source: {download_source}")
         _log(f"Target directory: {local_dir}")
+        _log(f"Request timeout: {timeout}s")
         if allow_patterns:
             _log(f"Allow patterns: {allow_patterns}")
         if ignore_patterns:
@@ -104,10 +112,12 @@ def download_file_worker(params: Dict[str, Any]) -> Dict[str, Any]:
             - local_dir: Local directory path
             - endpoint: (optional) Custom endpoint
             - local_filename: (optional) Target filename after download
+            - timeout: (optional) HTTP request timeout in seconds
 
     Returns:
         Dict with 'success' boolean and optional 'error' message
     """
+    import os
     import shutil
     from huggingface_hub import hf_hub_download
 
@@ -117,12 +127,18 @@ def download_file_worker(params: Dict[str, Any]) -> Dict[str, Any]:
         local_dir = params["local_dir"]
         endpoint = params.get("endpoint")
         local_filename = params.get("local_filename")
+        timeout = params.get("timeout", 30)
+
+        # 设置 huggingface_hub 超时环境变量
+        os.environ["HF_HUB_DOWNLOAD_TIMEOUT"] = str(timeout)
+        os.environ["HF_HUB_ETAG_TIMEOUT"] = str(timeout)
 
         # 记录下载源
         download_source = endpoint if endpoint else "https://huggingface.co"
         _log(f"Starting file download: {repo_id}/{filename}")
         _log(f"Download source: {download_source}")
         _log(f"Target directory: {local_dir}")
+        _log(f"Request timeout: {timeout}s")
         if local_filename:
             _log(f"Will rename to: {local_filename}")
 

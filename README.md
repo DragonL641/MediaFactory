@@ -105,10 +105,16 @@ cd MediaFactory
 uv sync --group core
 ```
 
+This will install PyTorch with CUDA 12.4 support from the official PyTorch repository.
+
 3. Run the application:
 ```bash
 uv run mediafactory
 ```
+
+> **Note**: PyTorch is downloaded from `download.pytorch.org` (not PyPI) to ensure CUDA support.
+> CUDA 12.4 is backward compatible with all CUDA 12.x drivers (NVIDIA Driver ≥ 525.60.13).
+> For very old GPUs or CPU-only systems, see [Alternative: Interactive Setup](#alternative-interactive-setup).
 
 ### For Developers
 
@@ -125,25 +131,12 @@ pre-commit install
 pre-commit run --all-files
 ```
 
-### Alternative: Interactive Setup
-
-You can also use the interactive setup script:
-```bash
-python scripts/setup_env.py
-```
-
-The interactive script will:
-- Detect your hardware (GPU, CUDA version)
-- Ask if you're a user or developer
-- Install the appropriate dependencies
-- Optionally download AI models
-
 ### Requirements
 
 - **Python**: 3.11, 3.12, or 3.13 (3.12 recommended)
 - **uv**: Modern Python package manager ([install uv](https://docs.astral.sh/uv/))
 - **FFmpeg**: Included via imageio-ffmpeg (no manual installation needed)
-- **GPU** (optional): NVIDIA GPU with CUDA support for acceleration
+- **GPU** (optional): NVIDIA GPU with CUDA 12.x support (Driver ≥ 525.60.13)
 
 ### Hardware Requirements
 

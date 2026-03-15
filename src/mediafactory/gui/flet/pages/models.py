@@ -611,7 +611,7 @@ class ModelsPage:
         try:
             from mediafactory.config import get_config_manager
             config_manager = get_config_manager()
-            config_manager.sync_models_on_startup()
+            config_manager.sync_models()
             self.config = get_config()
             log_info("Model status refreshed")
         except Exception as ex:
