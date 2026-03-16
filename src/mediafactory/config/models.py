@@ -1,212 +1,158 @@
 """Configuration models using Pydantic v2.
 
-This module defines all configuration structures using Pydantic BaseSettings.
-Supports environment variable overrides with MF_ prefix.
+配置结构定义，使用 Pydantic BaseModel 实现类型安全。
+默认值直接定义在 Field 中，便于维护。
 """
 
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
-from pydantic import Field, field_validator, model_validator
-from pydantic_settings import BaseSettings, SettingsConfigDict
-
-from .defaults import (
-    DEFAULT_DOWNLOAD_SOURCE,
-    DEFAULT_LLM_MAX_CHARS_PER_REQUEST,
-    DEFAULT_LLM_MAX_RETRIES,
-    DEFAULT_LLM_MAX_SEGMENTS_PER_REQUEST,
-    DEFAULT_LLM_RATE_LIMIT_ENABLED,
-    DEFAULT_LLM_RATE_LIMIT_PER_SECOND,
-    DEFAULT_LLM_TIMEOUT,
-    DEFAULT_MODEL_DOWNLOAD_TIMEOUT,
-    DEFAULT_MODELS_PATH,
-    DEFAULT_OPENAI_COMPATIBLE_BASE_URL,
-    DEFAULT_OPENAI_COMPATIBLE_MODEL,
-    DEFAULT_OPENAI_COMPATIBLE_PRESET,
-    DEFAULT_WHISPER_BEAM_SIZE,
-    DEFAULT_WHISPER_CONDITION_ON_PREVIOUS_TEXT,
-    DEFAULT_WHISPER_LENGTH_PENALTY,
-    DEFAULT_WHISPER_NO_SPEECH_THRESHOLD,
-    DEFAULT_WHISPER_PATIENCE,
-    DEFAULT_WHISPER_VAD_FILTER,
-    DEFAULT_WHISPER_VAD_MIN_SILENCE_DURATION_MS,
-    DEFAULT_WHISPER_VAD_MIN_SPEECH_DURATION_MS,
-    DEFAULT_WHISPER_VAD_SPEECH_PAD_MS,
-    DEFAULT_WHISPER_VAD_THRESHOLD,
-    DEFAULT_WHISPER_WORD_TIMESTAMPS,
-    ValidationConstraints,
-)
+from pydantic import BaseModel, Field
 
 
-class WhisperConfig(BaseSettings):
-    """Whisper speech recognition settings.
+# ============================================================================
+# Whisper 配置
+# ============================================================================
 
-    Environment variables:
-        MF_WHISPER_BEAM_SIZE: Beam size for transcription (1-10)
-        MF_WHISPER_PATIENCE: Patience for beam search (0.0-10.0)
-        MF_WHISPER_LENGTH_PENALTY: Length penalty for beam search
-        MF_WHISPER_NO_SPEECH_THRESHOLD: Speech sensitivity (0.0-1.0)
-        MF_WHISPER_CONDITION_ON_PREVIOUS_TEXT: Condition on previous text
-        MF_WHISPER_WORD_TIMESTAMPS: Extract word-level timestamps
-        MF_WHISPER_VAD_FILTER: Enable VAD filtering
-        MF_WHISPER_VAD_THRESHOLD: VAD sensitivity threshold
-        MF_WHISPER_VAD_MIN_SPEECH_DURATION_MS: Min speech duration in ms
-        MF_WHISPER_VAD_MIN_SILENCE_DURATION_MS: Min silence for segment split
-        MF_WHISPER_VAD_SPEECH_PAD_MS: Padding around speech segments
-    """
 
-    model_config = SettingsConfigDict(
-        env_prefix="MF_WHISPER_",
-        env_file=".env",
-        env_file_encoding="utf-8",
-        extra="ignore",
-    )
+class WhisperConfig(BaseModel):
+    """Whisper 语音识别配置"""
 
     beam_size: int = Field(
-        default=DEFAULT_WHISPER_BEAM_SIZE,
-        ge=ValidationConstraints.WHISPER_BEAM_SIZE_MIN,
-        le=ValidationConstraints.WHISPER_BEAM_SIZE_MAX,
-        description="Beam size for transcription",
+        default=5,
+        ge=1,
+        le=10,
+        description="Beam search 宽度",
     )
     patience: float = Field(
-        default=DEFAULT_WHISPER_PATIENCE,
-        ge=ValidationConstraints.WHISPER_PATIENCE_MIN,
-        le=ValidationConstraints.WHISPER_PATIENCE_MAX,
-        description="Patience for beam search",
+        default=1.0,
+        ge=0.0,
+        le=10.0,
+        description="Beam search 耐心值",
     )
     length_penalty: float = Field(
-        default=DEFAULT_WHISPER_LENGTH_PENALTY,
-        description="Length penalty for beam search",
+        default=1.0,
+        description="长度惩罚",
     )
     no_speech_threshold: float = Field(
-        default=DEFAULT_WHISPER_NO_SPEECH_THRESHOLD,
-        ge=ValidationConstraints.WHISPER_NO_SPEECH_THRESHOLD_MIN,
-        le=ValidationConstraints.WHISPER_NO_SPEECH_THRESHOLD_MAX,
-        description="Speech sensitivity threshold",
+        default=0.1,
+        ge=0.0,
+        le=1.0,
+        description="静音检测阈值",
     )
     condition_on_previous_text: bool = Field(
-        default=DEFAULT_WHISPER_CONDITION_ON_PREVIOUS_TEXT,
-        description="Condition on previous text",
+        default=False,
+        description="是否基于前文进行条件生成",
     )
     word_timestamps: bool = Field(
-        default=DEFAULT_WHISPER_WORD_TIMESTAMPS,
-        description="Extract word-level timestamps",
+        default=True,
+        description="提取词级时间戳",
     )
 
-    # VAD (Voice Activity Detection) settings
+    # VAD (Voice Activity Detection) 配置
     vad_filter: bool = Field(
-        default=DEFAULT_WHISPER_VAD_FILTER,
-        description="Enable VAD to filter non-speech segments",
+        default=True,
+        description="启用 VAD 过滤非语音段落",
     )
     vad_threshold: float = Field(
-        default=DEFAULT_WHISPER_VAD_THRESHOLD,
-        ge=ValidationConstraints.WHISPER_VAD_THRESHOLD_MIN,
-        le=ValidationConstraints.WHISPER_VAD_THRESHOLD_MAX,
-        description="VAD sensitivity (0.0-1.0, higher = less speech detected)",
+        default=0.35,
+        ge=0.0,
+        le=1.0,
+        description="VAD 敏感度（越高检测到的语音越少）",
     )
     vad_min_speech_duration_ms: int = Field(
-        default=DEFAULT_WHISPER_VAD_MIN_SPEECH_DURATION_MS,
-        ge=ValidationConstraints.WHISPER_VAD_MIN_SPEECH_DURATION_MS_MIN,
-        le=ValidationConstraints.WHISPER_VAD_MIN_SPEECH_DURATION_MS_MAX,
-        description="Minimum speech segment duration in milliseconds",
+        default=250,
+        ge=0,
+        le=10000,
+        description="最短语音段落时长（毫秒）",
     )
     vad_min_silence_duration_ms: int = Field(
-        default=DEFAULT_WHISPER_VAD_MIN_SILENCE_DURATION_MS,
-        ge=ValidationConstraints.WHISPER_VAD_MIN_SILENCE_DURATION_MS_MIN,
-        le=ValidationConstraints.WHISPER_VAD_MIN_SILENCE_DURATION_MS_MAX,
-        description="Minimum silence duration for segment split in milliseconds",
+        default=100,
+        ge=0,
+        le=10000,
+        description="分割语音段落的最短静音时长（毫秒）",
     )
     vad_speech_pad_ms: int = Field(
-        default=DEFAULT_WHISPER_VAD_SPEECH_PAD_MS,
-        ge=ValidationConstraints.WHISPER_VAD_SPEECH_PAD_MS_MIN,
-        le=ValidationConstraints.WHISPER_VAD_SPEECH_PAD_MS_MAX,
-        description="Padding around speech segments in milliseconds",
+        default=30,
+        ge=0,
+        le=1000,
+        description="语音段落前后填充（毫秒）",
     )
 
 
-class ModelConfig(BaseSettings):
-    """Model storage and discovery settings.
+# ============================================================================
+# Model 配置
+# ============================================================================
 
-    Environment variables:
-        MF_MODEL_LOCAL_MODEL_PATH: Local model storage path
-        MF_MODEL_DOWNLOAD_SOURCE: Model download source URL
-        MF_MODEL_DOWNLOAD_TIMEOUT: HTTP request timeout for downloads (seconds)
-    """
 
-    model_config = SettingsConfigDict(
-        env_prefix="MF_MODEL_",
-        env_file=".env",
-        env_file_encoding="utf-8",
-        extra="ignore",
-    )
+class ModelConfig(BaseModel):
+    """模型存储和发现配置"""
 
     local_model_path: Path = Field(
-        default=DEFAULT_MODELS_PATH,
-        description="Local model storage directory",
+        default=Path("./models"),
+        description="本地模型存储目录",
     )
     download_source: str = Field(
-        default=DEFAULT_DOWNLOAD_SOURCE,
-        description="Model download source URL",
+        default="https://hf-mirror.com",
+        description="模型下载源 URL",
     )
     download_timeout: int = Field(
-        default=DEFAULT_MODEL_DOWNLOAD_TIMEOUT,
-        ge=ValidationConstraints.MODEL_DOWNLOAD_TIMEOUT_MIN,
-        le=ValidationConstraints.MODEL_DOWNLOAD_TIMEOUT_MAX,
-        description="HTTP request timeout for model downloads (seconds)",
+        default=30,
+        ge=10,
+        le=600,
+        description="模型下载 HTTP 请求超时（秒）",
     )
     available_translation_models: List[str] = Field(
         default_factory=list,
-        description="List of downloaded translation models",
+        description="已下载的翻译模型列表",
     )
     whisper_models: List[str] = Field(
         default_factory=list,
-        description="List of downloaded Whisper models",
+        description="已下载的 Whisper 模型列表",
     )
 
 
-class PresetServiceConfig(BaseSettings):
-    """Configuration for a single preset service.
+# ============================================================================
+# LLM API 配置
+# ============================================================================
 
-    Each preset (openai, deepseek, glm, qwen, moonshot, custom) has its own config.
+
+class PresetServiceConfig(BaseModel):
+    """单个预设服务配置
+
+    每个预设（openai, deepseek, glm, qwen, moonshot, custom）都有独立配置。
     """
-
-    model_config = SettingsConfigDict(
-        env_prefix="MF_PRESET_",  # Won't be used directly, for documentation
-        env_file=".env",
-        env_file_encoding="utf-8",
-        extra="ignore",
-    )
 
     api_key: str = Field(
         default="",
-        description="API key for this preset",
+        description="API 密钥",
     )
     base_url: str = Field(
         default="",
-        description="API base URL for this preset",
+        description="API 基础 URL",
     )
     model: str = Field(
         default="",
-        description="Model to use for this preset",
+        description="使用的模型",
     )
     connection_available: bool = Field(
         default=False,
-        description="Whether the connection test passed",
+        description="连接测试是否通过",
     )
 
 
-class OpenAICompatibleConfig(BaseSettings):
-    """Unified OpenAI-compatible API configuration.
+class OpenAICompatibleConfig(BaseModel):
+    """统一的 OpenAI 兼容 API 配置
 
-    Supports all OpenAI-compatible services with per-preset configuration:
-    - OpenAI (official)
+    支持所有 OpenAI 兼容服务：
+    - OpenAI (官方)
     - DeepSeek
     - GLM (智谱AI)
     - 通义千问 (Qwen)
     - Moonshot
-    - Custom services
+    - 自定义服务
 
-    Config format in TOML:
+    TOML 配置格式：
         [openai_compatible]
         current_preset = "glm"
 
@@ -221,160 +167,119 @@ class OpenAICompatibleConfig(BaseSettings):
         model = "glm-4-flash"
     """
 
-    model_config = SettingsConfigDict(
-        env_prefix="MF_OPENAI_COMPATIBLE_",
-        env_file=".env",
-        env_file_encoding="utf-8",
-        extra="ignore",
-    )
-
     current_preset: str = Field(
-        default=DEFAULT_OPENAI_COMPATIBLE_PRESET,
-        description="Current active preset (openai, deepseek, glm, qwen, moonshot, custom)",
+        default="openai",
+        description="当前激活的预设",
     )
 
-    # Per-preset configurations
+    # 各预设配置
     openai: PresetServiceConfig = Field(
         default_factory=PresetServiceConfig,
-        description="OpenAI configuration",
+        description="OpenAI 配置",
     )
     deepseek: PresetServiceConfig = Field(
         default_factory=PresetServiceConfig,
-        description="DeepSeek configuration",
+        description="DeepSeek 配置",
     )
     glm: PresetServiceConfig = Field(
         default_factory=PresetServiceConfig,
-        description="GLM (智谱AI) configuration",
+        description="GLM (智谱AI) 配置",
     )
     qwen: PresetServiceConfig = Field(
         default_factory=PresetServiceConfig,
-        description="Qwen (通义千问) configuration",
+        description="Qwen (通义千问) 配置",
     )
     moonshot: PresetServiceConfig = Field(
         default_factory=PresetServiceConfig,
-        description="Moonshot AI configuration",
+        description="Moonshot AI 配置",
     )
     custom: PresetServiceConfig = Field(
         default_factory=PresetServiceConfig,
-        description="Custom service configuration",
+        description="自定义服务配置",
     )
 
     def get_preset_config(self, preset: str) -> PresetServiceConfig:
-        """Get configuration for a specific preset."""
+        """获取指定预设的配置"""
         return getattr(self, preset, PresetServiceConfig())
 
 
-class LLMApiConfig(BaseSettings):
-    """Unified LLM API settings.
-
-    Environment variables:
-        MF_LLM_API_TIMEOUT: Request timeout in seconds
-        MF_LLM_API_MAX_RETRIES: Max retry attempts
-        MF_LLM_API_RATE_LIMIT_ENABLED: Enable rate limiting
-        MF_LLM_API_RATE_LIMIT_PER_SECOND: Rate limit
-        MF_LLM_API_MAX_CHARS_PER_REQUEST: Max chars per request
-        MF_LLM_API_MAX_SEGMENTS_PER_REQUEST: Max segments per request
-        MF_LLM_API_MAX_TOKENS: Max output tokens
-    """
-
-    model_config = SettingsConfigDict(
-        env_prefix="MF_LLM_API_",
-        env_file=".env",
-        env_file_encoding="utf-8",
-        extra="ignore",
-    )
+class LLMApiConfig(BaseModel):
+    """LLM API 通用配置"""
 
     timeout: int = Field(
-        default=DEFAULT_LLM_TIMEOUT,
-        ge=ValidationConstraints.LLM_TIMEOUT_MIN,
-        le=ValidationConstraints.LLM_TIMEOUT_MAX,
-        description="Request timeout in seconds",
+        default=30,
+        ge=1,
+        le=300,
+        description="请求超时（秒）",
     )
     max_retries: int = Field(
-        default=DEFAULT_LLM_MAX_RETRIES,
-        ge=ValidationConstraints.LLM_MAX_RETRIES_MIN,
-        le=ValidationConstraints.LLM_MAX_RETRIES_MAX,
-        description="Max retry attempts",
+        default=3,
+        ge=0,
+        le=10,
+        description="最大重试次数",
     )
     rate_limit_enabled: bool = Field(
-        default=DEFAULT_LLM_RATE_LIMIT_ENABLED,
-        description="Enable rate limiting",
+        default=True,
+        description="启用速率限制",
     )
     rate_limit_per_second: float = Field(
-        default=DEFAULT_LLM_RATE_LIMIT_PER_SECOND,
-        ge=ValidationConstraints.LLM_RATE_LIMIT_MIN,
-        le=ValidationConstraints.LLM_RATE_LIMIT_MAX,
-        description="Rate limit per second",
+        default=5.0,
+        ge=0.0,
+        le=100.0,
+        description="每秒请求数限制",
     )
     max_chars_per_request: int = Field(
-        default=DEFAULT_LLM_MAX_CHARS_PER_REQUEST,
-        ge=ValidationConstraints.LLM_MAX_CHARS_MIN,
-        le=ValidationConstraints.LLM_MAX_CHARS_MAX,
-        description="Max chars per request",
+        default=3000,
+        ge=1,
+        le=100000,
+        description="每次请求最大字符数",
     )
     max_segments_per_request: int = Field(
-        default=DEFAULT_LLM_MAX_SEGMENTS_PER_REQUEST,
-        ge=ValidationConstraints.LLM_MAX_SEGMENTS_MIN,
-        le=ValidationConstraints.LLM_MAX_SEGMENTS_MAX,
-        description="Max segments per request",
+        default=100,
+        ge=1,
+        le=1000,
+        description="每次请求最大片段数",
     )
 
 
-class AppConfig(BaseSettings):
-    """Root configuration object.
+# ============================================================================
+# 根配置
+# ============================================================================
 
-    This is the main configuration class that contains all nested
-    configuration sections.
 
-    Access pattern:
+class AppConfig(BaseModel):
+    """根配置对象
+
+    访问模式：
         config.whisper.beam_size
         config.model.local_model_path
-        config.openai_compatible.api_key
-
-    Environment variable overrides:
-        MF_WHISPER_BEAM_SIZE=7
-        MF_MODEL_LOCAL_MODEL_PATH=/path/to/models
-        MF_OPENAI_COMPATIBLE_API_KEY=sk-...
+        config.openai_compatible.openai.api_key
     """
 
-    model_config = SettingsConfigDict(
-        env_file=".env",
-        env_file_encoding="utf-8",
-        extra="ignore",
-    )
-
-    # Nested configuration sections
+    # 嵌套配置节
     whisper: WhisperConfig = Field(
         default_factory=WhisperConfig,
-        description="Whisper speech recognition settings",
+        description="Whisper 语音识别配置",
     )
     model: ModelConfig = Field(
         default_factory=ModelConfig,
-        description="Model storage and discovery settings",
+        description="模型存储和发现配置",
     )
     openai_compatible: OpenAICompatibleConfig = Field(
         default_factory=OpenAICompatibleConfig,
-        description="Unified OpenAI-compatible API configuration",
+        description="统一的 OpenAI 兼容 API 配置",
     )
     llm_api: LLMApiConfig = Field(
         default_factory=LLMApiConfig,
-        description="Unified LLM API settings",
+        description="LLM API 通用配置",
     )
 
     def has_available_models(self) -> bool:
-        """Check if translation models are available.
-
-        Returns:
-            True if there are available translation models.
-        """
+        """检查是否有可用的翻译模型"""
         return len(self.model.available_translation_models) > 0
 
     def to_toml_dict(self) -> Dict[str, Any]:
-        """Convert configuration to TOML-compatible dictionary.
-
-        Returns:
-            Dictionary suitable for TOML serialization.
-        """
+        """转换为 TOML 兼容的字典"""
         result = {}
         for section_name in self.model_fields:
             section = getattr(self, section_name)

@@ -34,7 +34,6 @@ dependencies = [
     # 配置和日志
     "loguru>=0.7.2",
     "pydantic>=2.9.0,<3.0.0",
-    "pydantic-settings>=2.6.0",
     "tomli>=2.0.1",
     "tomli-w>=1.0.0",
     # 系统资源监控
@@ -86,7 +85,6 @@ bundle = [
     "flet>=0.80.0,<0.90.0",
     "loguru>=0.7.2",
     "pydantic>=2.9.0,<3.0.0",
-    "pydantic-settings>=2.6.0",
     "tomli>=2.0.1",
     "tomli-w>=1.0.0",
     "psutil>=6.0.0",
@@ -110,7 +108,6 @@ core = [
     "flet>=0.80.0,<0.90.0",
     "loguru>=0.7.2",
     "pydantic>=2.9.0,<3.0.0",
-    "pydantic-settings>=2.6.0",
     "tomli>=2.0.1",
     "tomli-w>=1.0.0",
     "psutil>=6.0.0",
@@ -132,7 +129,6 @@ core = [
     "sentencepiece>=0.1.99",        # 支持库
     "accelerate>=1.0.0",            # 支持库
     "spandrel>=0.4.0",              # 统一模型加载库（视频增强）
-    "facexlib>=0.3.0",              # 人脸检测库
 ]
 
 # 开发依赖（开发工具、代码质量检查）

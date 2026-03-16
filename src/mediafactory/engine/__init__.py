@@ -9,8 +9,6 @@ from .video_composer import VideoComposer
 from .video_enhancement import (
     VideoEnhancementEngine,
     EnhancementConfig,
-    PRESET_CONFIGS,
-    get_preset_config,
     create_enhancement_engine,
 )
 
@@ -24,7 +22,5 @@ __all__ = [
     # 视频增强
     "VideoEnhancementEngine",
     "EnhancementConfig",
-    "PRESET_CONFIGS",
-    "get_preset_config",
     "create_enhancement_engine",
 ]

@@ -276,8 +276,66 @@ class MediaFactoryApp:
     def _on_window_event(self, e) -> None:
         """窗口事件处理"""
         if e.data == "close":
-            log_info("应用关闭")
+            log_info("应用关闭，开始清理资源...")
+            self._cleanup_resources()
             self.page.window.destroy()
+
+    def _cleanup_resources(self) -> None:
+        """清理所有资源
+
+        在应用关闭时调用，释放所有模型和连接。
+        """
+        import gc
+
+        from mediafactory.logging import log_debug, log_warning
+
+        log_info("[App] Starting resource cleanup...")
+
+        # 1. 清理服务层 Engine 实例
+        try:
+            from .services import (
+                get_subtitle_service,
+                get_translation_service,
+                get_audio_service,
+                get_transcription_service,
+            )
+
+            # 清理 SubtitleService
+            try:
+                subtitle_service = get_subtitle_service()
+                if hasattr(subtitle_service, "cleanup"):
+                    log_debug("[App] Cleaning up SubtitleService")
+                    subtitle_service.cleanup()
+            except Exception as ex:
+                log_warning(f"[App] Error cleaning up SubtitleService: {ex}")
+
+            # 清理 TranslationService
+            try:
+                translation_service = get_translation_service()
+                if hasattr(translation_service, "cleanup"):
+                    log_debug("[App] Cleaning up TranslationService")
+                    translation_service.cleanup()
+            except Exception as ex:
+                log_warning(f"[App] Error cleaning up TranslationService: {ex}")
+
+        except Exception as ex:
+            log_warning(f"[App] Error accessing services for cleanup: {ex}")
+
+        # 2. 清理 LocalModelManager 的翻译模型
+        try:
+            from mediafactory.models.local_models import get_local_model_manager
+            manager = get_local_model_manager()
+            if hasattr(manager, "cleanup"):
+                log_debug("[App] Cleaning up LocalModelManager")
+                manager.cleanup()
+        except Exception as ex:
+            log_warning(f"[App] Error cleaning up LocalModelManager: {ex}")
+
+        # 3. 触发垃圾回收
+        gc.collect()
+        log_debug("[App] gc.collect() completed")
+
+        log_info("[App] Resource cleanup completed")
 
     def run(self, initial_route: str = "/tasks") -> None:
         """运行应用"""

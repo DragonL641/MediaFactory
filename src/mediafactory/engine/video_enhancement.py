@@ -1,14 +1,14 @@
 """视频增强引擎
 
-提供视频画质增强功能，支持超分辨率、去噪、人脸修复等。
-"""
+提供视频画质增强功能，"""
 
 import os
 import subprocess
 import tempfile
+import time
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import List, Optional, Callable
+from typing import List, Optional, Callable, Tuple
 
 import cv2
 import numpy as np
@@ -20,18 +20,18 @@ from mediafactory.logging import log_info, log_error, log_step
 from mediafactory.engine.enhancement import (
     RealESRGANEnhancer,
     Denoiser,
-    FaceEnhancer,
     TemporalSmoother,
     TemporalSmootherConfig,
 )
 
 
+# 批处理默认大小
+DEFAULT_BATCH_SIZE = 4
+
+
 @dataclass
 class EnhancementConfig:
     """视频增强配置"""
-    # 预设模式
-    preset: str = "fast"  # fast, balanced, quality
-
     # 超分辨率参数
     scale: int = 4  # 2 或 4
     model_type: str = "general"  # general 或 anime
@@ -40,61 +40,19 @@ class EnhancementConfig:
     denoise: bool = False
     denoise_strength: float = 1.0
 
-    # 人脸修复参数
-    face_fix: bool = False
-    face_fidelity: float = 0.5
-
     # 时序平滑参数
     temporal: bool = False
     temporal_strength: float = 0.5
 
     # 设备配置
     device: Optional[str] = None  # cuda, mps, cpu, None=auto
-    half_precision: bool = False
+    half_precision: bool = True  # 默认启用半精度以提升性能
 
     # 处理参数
-    tile_size: int = 0  # 0=不分块
+    tile_size: int = 512  # 默认启用分块处理以减少显存压力
 
-
-# 预设模式配置
-PRESET_CONFIGS = {
-    "fast": EnhancementConfig(
-        preset="fast",
-        scale=4,
-        model_type="general",
-        denoise=False,
-        face_fix=False,
-        temporal=False,
-    ),
-    "balanced": EnhancementConfig(
-        preset="balanced",
-        scale=4,
-        model_type="general",
-        denoise=True,
-        denoise_strength=1.0,
-        face_fix=True,
-        face_fidelity=0.5,
-        temporal=False,
-    ),
-    "quality": EnhancementConfig(
-        preset="quality",
-        scale=4,
-        model_type="general",
-        denoise=True,
-        denoise_strength=1.0,
-        face_fix=True,
-        face_fidelity=0.5,
-        temporal=True,
-        temporal_strength=0.5,
-    ),
-}
-
-
-def get_preset_config(preset: str) -> EnhancementConfig:
-    """获取预设配置"""
-    if preset in PRESET_CONFIGS:
-        return PRESET_CONFIGS[preset]
-    return PRESET_CONFIGS["fast"]
+    # 批处理参数
+    batch_size: int = DEFAULT_BATCH_SIZE  # 批处理帧数
 
 
 class VideoEnhancementEngine:
@@ -112,7 +70,6 @@ class VideoEnhancementEngine:
         # 增强器实例（懒加载）
         self._sr_enhancer: Optional[RealESRGANEnhancer] = None
         self._denoiser: Optional[Denoiser] = None
-        self._face_enhancer: Optional[FaceEnhancer] = None
         self._temporal_smoother: Optional[TemporalSmoother] = None
 
     def _get_sr_enhancer(self) -> RealESRGANEnhancer:
@@ -138,18 +95,6 @@ class VideoEnhancementEngine:
                 half_precision=self.config.half_precision,
             )
         return self._denoiser
-
-    def _get_face_enhancer(self) -> Optional[FaceEnhancer]:
-        """获取人脸修复器（懒加载）"""
-        if not self.config.face_fix:
-            return None
-        if self._face_enhancer is None:
-            self._face_enhancer = FaceEnhancer(
-                fidelity=self.config.face_fidelity,
-                device=self.config.device,
-                half_precision=self.config.half_precision,
-            )
-        return self._face_enhancer
 
     def _get_temporal_smoother(self) -> Optional[TemporalSmoother]:
         """获取时序平滑器（懒加载）"""
@@ -207,7 +152,7 @@ class VideoEnhancementEngine:
             operation="video_enhancement",
         ):
             log_step(f"开始视频增强: {video_path}")
-            log_info(f"配置: preset={self.config.preset}, scale={self.config.scale}")
+            log_info(f"配置: scale={self.config.scale}, model_type={self.config.model_type}")
 
             # 阶段1: 读取视频 (0-5%)
             progress.update(0, "正在读取视频...")
@@ -252,13 +197,21 @@ class VideoEnhancementEngine:
             # 预加载增强器
             sr_enhancer = self._get_sr_enhancer()
             denoiser = self._get_denoiser()
-            face_enhancer = self._get_face_enhancer()
             temporal_smoother = self._get_temporal_smoother()
 
             log_info(f"设备信息: {sr_enhancer.get_device_info()}")
+            log_info(f"批处理大小: {self.config.batch_size}")
 
             try:
                 frame_idx = 0
+                batch_size = self.config.batch_size
+                # 帧缓冲区：存储 (原始帧, 增强后的帧)
+                frame_buffer: List[Tuple[np.ndarray, np.ndarray]] = []
+
+                # 性能统计
+                frame_times: List[float] = []
+                process_start_time = time.time()
+
                 while True:
                     ret, frame = cap.read()
                     if not ret:
@@ -269,18 +222,53 @@ class VideoEnhancementEngine:
                         log_info("用户取消视频增强")
                         break
 
-                    # 处理帧
-                    enhanced_frame = self._process_frame(
-                        frame, sr_enhancer, denoiser, face_enhancer
-                    )
+                    frame_buffer.append((frame.copy(), None))
 
-                    # 时序平滑
-                    if temporal_smoother is not None:
-                        output_frame = temporal_smoother.add_frame(frame, enhanced_frame)
-                        if output_frame is not None:
-                            out.write(output_frame)
-                    else:
-                        out.write(enhanced_frame)
+                    # 缓冲区满时批量处理
+                    if len(frame_buffer) >= batch_size:
+                        frame_start = time.time()
+
+                        # 批量去噪
+                        if denoiser is not None:
+                            frames_to_denoise = [f[0] for f in frame_buffer]
+                            denoised_frames = denoiser.enhance_batch(
+                                frames_to_denoise, batch_size=batch_size
+                            )
+                        else:
+                            denoised_frames = [f[0] for f in frame_buffer]
+
+                        # 批量超分辨率
+                        enhanced_frames = sr_enhancer.enhance_batch(
+                            denoised_frames, batch_size=batch_size
+                        )
+
+                        # 更新缓冲区中的增强帧
+                        for i, enhanced in enumerate(enhanced_frames):
+                            frame_buffer[i] = (frame_buffer[i][0], enhanced)
+
+                        # 逐帧写入（时序平滑需要原始帧）
+                        for orig, enhanced in frame_buffer:
+                            if temporal_smoother is not None:
+                                output_frame = temporal_smoother.add_frame(orig, enhanced)
+                                if output_frame is not None:
+                                    out.write(output_frame)
+                            else:
+                                out.write(enhanced)
+
+                        frame_buffer.clear()
+
+                        # 性能日志
+                        frame_time = time.time() - frame_start
+                        frame_times.append(frame_time)
+                        if len(frame_times) >= 10:
+                            avg_time = sum(frame_times[-10:]) / 10
+                            remaining_frames = total_frames - frame_idx - batch_size
+                            eta_seconds = remaining_frames * avg_time / batch_size
+                            eta_minutes = eta_seconds / 60
+                            log_info(
+                                f"Frame {frame_idx + batch_size}/{total_frames}: "
+                                f"{frame_time:.2f}s/batch, ETA: {eta_minutes:.1f}min"
+                            )
 
                     # 更新进度
                     frame_idx += 1
@@ -290,11 +278,53 @@ class VideoEnhancementEngine:
                         f"正在处理帧 {frame_idx}/{total_frames}",
                     )
 
+                # 处理缓冲区剩余帧
+                if frame_buffer and not progress.is_cancelled():
+                    frame_start = time.time()
+
+                    # 批量去噪
+                    if denoiser is not None:
+                        frames_to_denoise = [f[0] for f in frame_buffer]
+                        denoised_frames = denoiser.enhance_batch(
+                            frames_to_denoise, batch_size=len(frames_to_denoise)
+                        )
+                    else:
+                        denoised_frames = [f[0] for f in frame_buffer]
+
+                    # 批量超分辨率
+                    enhanced_frames = sr_enhancer.enhance_batch(
+                        denoised_frames, batch_size=len(denoised_frames)
+                    )
+
+                    # 更新缓冲区中的增强帧
+                    for i, enhanced in enumerate(enhanced_frames):
+                        frame_buffer[i] = (frame_buffer[i][0], enhanced)
+
+                    # 逐帧写入
+                    for orig, enhanced in frame_buffer:
+                        if temporal_smoother is not None:
+                            output_frame = temporal_smoother.add_frame(orig, enhanced)
+                            if output_frame is not None:
+                                out.write(output_frame)
+                        else:
+                            out.write(enhanced)
+
+                    frame_time = time.time() - frame_start
+                    log_info(f"Final batch ({len(frame_buffer)} frames): {frame_time:.2f}s")
+
                 # 刷新时序平滑器剩余帧
                 if temporal_smoother is not None and not progress.is_cancelled():
                     remaining_frames = temporal_smoother.flush()
                     for remaining_frame in remaining_frames:
                         out.write(remaining_frame)
+
+                # 输出总耗时
+                total_time = time.time() - process_start_time
+                avg_frame_time = total_time / total_frames if total_frames > 0 else 0
+                log_info(
+                    f"处理完成: {total_frames}帧, 总耗时: {total_time:.1f}s, "
+                    f"平均: {avg_frame_time:.2f}s/帧"
+                )
 
             finally:
                 cap.release()
@@ -327,7 +357,6 @@ class VideoEnhancementEngine:
         frame: np.ndarray,
         sr_enhancer: RealESRGANEnhancer,
         denoiser: Optional[Denoiser],
-        face_enhancer: Optional[FaceEnhancer],
     ) -> np.ndarray:
         """
         处理单帧
@@ -336,7 +365,6 @@ class VideoEnhancementEngine:
             frame: 输入帧
             sr_enhancer: 超分辨率增强器
             denoiser: 去噪器
-            face_enhancer: 人脸修复器
 
         Returns:
             增强后的帧
@@ -349,10 +377,6 @@ class VideoEnhancementEngine:
 
         # 2. 超分辨率
         result = sr_enhancer.enhance_frame(result)
-
-        # 3. 人脸修复（在高分辨率下进行）
-        if face_enhancer is not None:
-            result = face_enhancer.enhance_frame(result)
 
         return result
 
@@ -428,10 +452,6 @@ class VideoEnhancementEngine:
             self._denoiser.unload_model()
             self._denoiser = None
 
-        if self._face_enhancer is not None:
-            self._face_enhancer.unload_model()
-            self._face_enhancer = None
-
         if self._temporal_smoother is not None:
             self._temporal_smoother.reset()
             self._temporal_smoother = None
@@ -440,55 +460,38 @@ class VideoEnhancementEngine:
 
 
 def create_enhancement_engine(
-    preset: str = "fast",
     scale: int = 4,
     model_type: str = "general",
     denoise: bool = False,
-    face_fix: bool = False,
+    denoise_strength: float = 1.0,
     temporal: bool = False,
+    temporal_strength: float = 0.5,
     device: Optional[str] = None,
 ) -> VideoEnhancementEngine:
     """
     创建视频增强引擎的便捷函数
 
     Args:
-        preset: 预设模式 (fast/balanced/quality)
         scale: 放大倍数 (2/4)
         model_type: 模型类型 (general/anime)
         denoise: 是否启用去噪
-        face_fix: 是否启用人脸修复
+        denoise_strength: 去噪强度 (0.0-1.0)
         temporal: 是否启用时序平滑
+        temporal_strength: 时序平滑强度 (0.0-1.0)
         device: 计算设备
 
     Returns:
         VideoEnhancementEngine 实例
     """
-    # 如果使用预设，从预设开始
-    if preset in PRESET_CONFIGS:
-        config = PRESET_CONFIGS[preset]
-        # 覆盖自定义参数
-        config = EnhancementConfig(
-            preset=preset,
-            scale=scale,
-            model_type=model_type,
-            denoise=denoise or config.denoise,
-            denoise_strength=config.denoise_strength,
-            face_fix=face_fix or config.face_fix,
-            face_fidelity=config.face_fidelity,
-            temporal=temporal or config.temporal,
-            temporal_strength=config.temporal_strength,
-            device=device,
-        )
-    else:
-        config = EnhancementConfig(
-            preset=preset,
-            scale=scale,
-            model_type=model_type,
-            denoise=denoise,
-            face_fix=face_fix,
-            temporal=temporal,
-            device=device,
-        )
+    config = EnhancementConfig(
+        scale=scale,
+        model_type=model_type,
+        denoise=denoise,
+        denoise_strength=denoise_strength,
+        temporal=temporal,
+        temporal_strength=temporal_strength,
+        device=device,
+    )
 
     return VideoEnhancementEngine(config)
 
@@ -496,7 +499,5 @@ def create_enhancement_engine(
 __all__ = [
     "VideoEnhancementEngine",
     "EnhancementConfig",
-    "PRESET_CONFIGS",
-    "get_preset_config",
     "create_enhancement_engine",
 ]

@@ -1,5 +1,4 @@
-"""
-简化的配置管理器
+"""简化的配置管理器
 
 提供：
 - TOML 文件读写
@@ -24,27 +23,21 @@ from ..constants import BackendConfigMapping
 
 
 class AppConfigManager:
-    """
-    简化的配置管理器
+    """简化的配置管理器
 
-    提供：
-    - 配置访问
-    - TOML 文件读写
-    - 嵌套配置更新
-
-    使用方式：
+    核心方法：
         manager = get_config_manager()
         config = manager.config
         beam_size = config.whisper.beam_size
 
-        # 更新配置（推荐直接属性访问）
+        # 直接属性修改
         config.whisper.beam_size = 7
         manager.save()
 
         # 或使用 update 方法
         manager.update(whisper__beam_size=7)
 
-        # 显式重载配置
+        # 显式重载
         manager.reload()
     """
 
@@ -53,8 +46,6 @@ class AppConfigManager:
     def __init__(self, config_path: Optional[Path] = None):
         self._config_path = config_path or get_default_config_path()
         self._config: Optional[AppConfig] = None
-
-        # 加载配置
         self._config = self._load_or_create()
 
     # ==================== 属性 ====================
@@ -80,8 +71,7 @@ class AppConfigManager:
         self._save(self._config)
 
     def update(self, **changes) -> None:
-        """
-        更新配置值并保存
+        """更新配置值并保存
 
         使用双下划线表示法进行嵌套访问。
 
@@ -121,31 +111,8 @@ class AppConfigManager:
         """检查是否有可用的翻译模型"""
         return self.config.has_available_models()
 
-    def export_to_dict(self) -> Dict[str, Any]:
-        """导出配置为字典"""
-        return self.config.model_dump(mode="json")
-
-    def import_from_dict(self, data: Dict[str, Any], merge: bool = True) -> None:
-        """从字典导入配置"""
-        if merge:
-            current = self._config.model_dump(mode="json")
-            for section, values in data.items():
-                if section in current and isinstance(current[section], dict):
-                    current[section].update(values)
-                else:
-                    current[section] = values
-            self._config = AppConfig(**current)
-        else:
-            self._config = AppConfig(**data)
-        self.save()
-
-    def reset_to_defaults(self) -> None:
-        """重置为默认配置"""
-        self._config = AppConfig()
-        self.save()
-
     def sync_models(self) -> None:
-        """同步本地模型列表到配置文件。
+        """同步本地模型列表到配置文件
 
         扫描 models/ 目录，检测已下载的模型并更新配置文件。
         使用嵌套目录结构（如 models/Systran/faster-whisper-large-v3/）。
@@ -169,7 +136,6 @@ class AppConfigManager:
             for org_dir in models_dir.iterdir():
                 if not org_dir.is_dir():
                     continue
-                # 跳过隐藏目录
                 if org_dir.name.startswith("."):
                     continue
 
@@ -179,15 +145,11 @@ class AppConfigManager:
                     if model_dir.name.startswith("."):
                         continue
 
-                    # 构建 huggingface_id
                     huggingface_id = f"{org_dir.name}/{model_dir.name}"
 
-                    # 验证模型完整性（检查关键文件是否存在）
-                    # 跳过空目录或缺少关键文件的模型
                     if not is_model_complete(huggingface_id):
                         continue
 
-                    # 从注册表判断模型类型
                     info = MODEL_REGISTRY.get(huggingface_id)
                     if info:
                         if info.model_type == ModelType.TRANSLATION:
@@ -195,7 +157,6 @@ class AppConfigManager:
                         elif info.model_type == ModelType.WHISPER:
                             whisper_models.append(huggingface_id)
 
-        # 更新配置
         self.update(
             model__available_translation_models=translation_models,
             model__whisper_models=whisper_models,
@@ -224,7 +185,6 @@ class AppConfigManager:
 
     def _save(self, config: AppConfig, create_backup: bool = True) -> None:
         """保存配置到 TOML 文件"""
-        # 创建备份
         if create_backup and self._config_path.exists():
             backup_path = self._config_path.with_suffix(
                 self._config_path.suffix + CONFIG_FILE_BACKUP_SUFFIX
@@ -234,7 +194,6 @@ class AppConfigManager:
             except OSError:
                 pass
 
-        # 转换并保存
         toml_data = self._config_to_toml(config)
         self._config_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -251,7 +210,6 @@ class AppConfigManager:
             keys = key.split("__")
             obj = config
 
-            # 导航到目标对象
             for k in keys[:-1]:
                 obj = getattr(obj, k)
 
@@ -270,11 +228,10 @@ class AppConfigManager:
 
         # 跳过的旧配置节（已迁移或已删除）
         old_sections = {
-            "openai",  # 旧的独立 OpenAI 配置（已迁移到 openai_compatible.openai）
-            "glm",  # 旧的独立 GLM 配置（已迁移到 openai_compatible.glm）
-            # openai_compatible 是当前使用的配置节，必须正常加载
-            "api_translation",  # 已删除的 API 翻译配置
-            "audio",  # 已删除的音频配置
+            "openai",  # 已迁移到 openai_compatible.openai
+            "glm",  # 已迁移到 openai_compatible.glm
+            "api_translation",  # 已删除
+            "audio",  # 已删除
         }
 
         for section_name, section_data in toml_data.items():

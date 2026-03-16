@@ -219,10 +219,14 @@ class RealESRGANEnhancer(BaseEnhancer):
                 tile = tensor[:, :, y_start:y_end, x_start:x_end]
                 tile_output = self._model(tile)
 
+                # 使用实际 tile 输出大小计算边界
+                tile_out_H = tile_output.shape[2]
+                tile_out_W = tile_output.shape[3]
+
                 out_y_start = y_start * self.scale
                 out_x_start = x_start * self.scale
-                out_y_end = y_end * self.scale
-                out_x_end = x_end * self.scale
+                out_y_end = out_y_start + tile_out_H
+                out_x_end = out_x_start + tile_out_W
 
                 pad_y = min(tile_pad, y_start) if y > 0 else 0
                 pad_x = min(tile_pad, x_start) if x > 0 else 0
@@ -231,14 +235,22 @@ class RealESRGANEnhancer(BaseEnhancer):
 
                 in_y_start = pad_y * self.scale
                 in_x_start = pad_x * self.scale
-                in_y_end = tile_output.shape[2] - pad_y_end * self.scale
-                in_x_end = tile_output.shape[3] - pad_x_end * self.scale
+                in_y_end = tile_out_H - pad_y_end * self.scale
+                in_x_end = tile_out_W - pad_x_end * self.scale
 
                 out_y_start_valid = out_y_start + pad_y * self.scale
                 out_x_start_valid = out_x_start + pad_x * self.scale
 
-                output[:, :, out_y_start_valid:out_y_end, out_x_start_valid:out_x_end] = \
-                    tile_output[:, :, in_y_start:in_y_end, in_x_start:in_x_end]
+                # 限制切片范围，确保不超出输出 tensor 的边界
+                out_y_end_valid = min(out_y_end, out_H)
+                out_x_end_valid = min(out_x_end, out_W)
+
+                # 调整输入切片的对应范围
+                in_y_end_valid = in_y_start + (out_y_end_valid - out_y_start_valid)
+                in_x_end_valid = in_x_start + (out_x_end_valid - out_x_start_valid)
+
+                output[:, :, out_y_start_valid:out_y_end_valid, out_x_start_valid:out_x_end_valid] = \
+                    tile_output[:, :, in_y_start:in_y_end_valid, in_x_start:in_x_end_valid]
 
         return output
 

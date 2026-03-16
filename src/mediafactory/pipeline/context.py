@@ -93,6 +93,22 @@ class ProcessingContext:
             return str(Path(self.video_path).parent)
         return "."
 
+    def cleanup(self) -> None:
+        """清理上下文中的大对象以释放内存。
+
+        实现 ResourceCleanupProtocol 接口。
+        应该在任务完成后调用，特别是在批处理场景下。
+        """
+        # 清空模型实例引用
+        self.whisper_model_instance = None
+
+        # 清空结果数据
+        self.transcription_result = None
+        self.translation_result = None
+
+        # 可选：清空音频文件引用
+        self.audio_path = None
+
 
 @dataclass
 class ProcessingResult:

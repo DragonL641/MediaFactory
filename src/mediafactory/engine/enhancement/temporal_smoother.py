@@ -19,6 +19,8 @@ class TemporalSmootherConfig:
     window_size: int = 3
     # 混合强度（0.0-1.0，越大平滑效果越强）
     strength: float = 0.5
+    # 光流计算分辨率缩放因子（0.25 表示使用 1/4 分辨率计算光流，减少 93.75% 计算量）
+    flow_resolution_scale: float = 0.25
     # 光流金字塔尺度
     flow_pyramid_scale: float = 0.5
     # 光流金字塔层数
@@ -50,7 +52,7 @@ class TemporalSmoother:
         self.config = config or TemporalSmootherConfig()
         self._validate_config()
 
-        # 帧缓冲区：存储 (原始帧, 增强帧, 灰度帧)
+        # 帧缓冲区：存储 (原始帧, 增强帧, 低分辨率灰度帧)
         self._buffer: Deque[Tuple[np.ndarray, np.ndarray, np.ndarray]] = deque(
             maxlen=self.config.window_size
         )
@@ -123,13 +125,24 @@ class TemporalSmoother:
         使用光流对帧进行变形
 
         Args:
-            frame: 输入帧
-            flow: 光流场
+            frame: 输入帧（增强后的高分辨率帧）
+            flow: 光流场（基于原始帧计算）
 
         Returns:
             变形后的帧
         """
         h, w = frame.shape[:2]
+        flow_h, flow_w = flow.shape[:2]
+
+        # 检测尺寸不匹配并缩放光流场
+        # 当启用超分辨率增强时，光流基于原始帧计算，但需要对增强后的高分辨率帧进行变形
+        if flow_h != h or flow_w != w:
+            scale_y = h / flow_h
+            scale_x = w / flow_w
+            # 缩放光流向量的幅度（光流值表示像素位移，需要按比例缩放）
+            flow = flow * np.array([scale_x, scale_y], dtype=np.float32)
+            # 缩放光流场的分辨率以匹配目标帧
+            flow = cv2.resize(flow, (w, h), interpolation=cv2.INTER_LINEAR)
 
         # 创建坐标网格
         y, x = np.mgrid[0:h, 0:w].astype(np.float32)
@@ -235,11 +248,23 @@ class TemporalSmoother:
         else:
             gray = original_frame.copy()
 
+        # 缩小到低分辨率用于光流计算（大幅减少计算量）
+        if self.config.flow_resolution_scale < 1.0:
+            flow_gray = cv2.resize(
+                gray,
+                None,
+                fx=self.config.flow_resolution_scale,
+                fy=self.config.flow_resolution_scale,
+                interpolation=cv2.INTER_AREA
+            )
+        else:
+            flow_gray = gray
+
         # 添加到缓冲区
         self._buffer.append((
             original_frame.copy(),
             enhanced_frame.copy(),
-            gray,
+            flow_gray,
         ))
 
         # 缓冲区未满，延迟输出

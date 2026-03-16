@@ -402,6 +402,38 @@ class SubtitleService:
             if progress_adapter and hasattr(progress_adapter, 'stop_polling'):
                 progress_adapter.stop_polling()
 
+    def cleanup(self) -> None:
+        """清理服务持有的所有资源
+
+        实现 ResourceCleanupProtocol 接口。
+        在应用退出或服务不再使用时调用。
+        """
+        import gc
+
+        from mediafactory.logging import log_debug
+        log_info("[SubtitleService] Starting cleanup...")
+
+        # 清理翻译引擎
+        if self._local_translation_engine is not None:
+            if hasattr(self._local_translation_engine, "cleanup"):
+                log_debug("[SubtitleService] Cleaning up local translation engine")
+                self._local_translation_engine.cleanup()
+            self._local_translation_engine = None
+
+        if self._llm_translation_engine is not None:
+            if hasattr(self._llm_translation_engine, "cleanup"):
+                log_debug("[SubtitleService] Cleaning up LLM translation engine")
+                self._llm_translation_engine.cleanup()
+            self._llm_translation_engine = None
+
+        # 清理其他引擎
+        self._audio_engine = None
+        self._recognition_engine = None
+        self._srt_engine = None
+
+        gc.collect()
+        log_info("[SubtitleService] Cleanup completed")
+
 
 class AudioService:
     """音频提取服务"""
@@ -909,6 +941,28 @@ class TranslationService:
             # 停止轮询任务
             if progress_adapter and hasattr(progress_adapter, 'stop_polling'):
                 progress_adapter.stop_polling()
+
+    def cleanup(self) -> None:
+        """清理服务持有的所有资源
+
+        实现 ResourceCleanupProtocol 接口。
+        在应用退出或服务不再使用时调用。
+        """
+        import gc
+
+        from mediafactory.logging import log_debug, log_info
+
+        log_info("[TranslationService] Starting cleanup...")
+
+        # 清理翻译引擎
+        if self._engine is not None:
+            if hasattr(self._engine, "cleanup"):
+                log_debug("[TranslationService] Cleaning up translation engine")
+                self._engine.cleanup()
+            self._engine = None
+
+        gc.collect()
+        log_info("[TranslationService] Cleanup completed")
 
 
 class VideoEnhancementService:

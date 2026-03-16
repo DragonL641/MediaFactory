@@ -6,7 +6,9 @@ Supports:
 - MADLAD400 translation models with Apache 2.0 license for commercial use
 """
 
+import gc
 import threading
+import weakref
 from typing import Any, Optional, Tuple
 
 import torch
@@ -36,6 +38,9 @@ class LocalModelManager:
     def __init__(self):
         self.config_manager = get_config_manager()
         self.config = self.config_manager.config
+        # 跟踪已加载的模型，用于卸载时清理
+        self._loaded_models: dict[str, tuple[Any, Any]] = {}  # huggingface_id -> (model, tokenizer)
+        self._models_lock = threading.Lock()
 
     def get_model_path(self) -> str:
         """Get the local model storage path.
@@ -228,7 +233,9 @@ class LocalModelManager:
                 def stop(self):
                     self._stop_event.set()
                     if self._thread:
-                        self._thread.join(timeout=1.0)
+                        self._thread.join(timeout=5.0)  # 增加超时到 5 秒
+                        if self._thread.is_alive():
+                            log_warning("HeartbeatProgress thread did not stop gracefully within timeout")
 
             # Start heartbeat before blocking call
             heartbeat = HeartbeatProgress(progress, interval=2.0)
@@ -267,6 +274,15 @@ class LocalModelManager:
             else:
                 log_info(f"[LocalModelManager] Using CPU device")
 
+            # 使用弱引用避免循环引用（闭包捕获模型对象）
+            model_ref = weakref.ref(model)
+            tokenizer_ref = weakref.ref(tokenizer)
+
+            # 记录已加载的模型，用于卸载
+            with self._models_lock:
+                self._loaded_models[huggingface_id] = (model, tokenizer)
+            log_debug(f"[LocalModelManager] Model tracked for cleanup: {huggingface_id}")
+
             # Create a translation callable
             def translate_callable(
                 text: str,
@@ -275,6 +291,15 @@ class LocalModelManager:
                 **kwargs,
             ):
                 """Translation callable compatible with pipeline interface."""
+                # 通过弱引用访问模型，避免循环引用
+                m = model_ref()
+                t = tokenizer_ref()
+                if m is None or t is None:
+                    raise RuntimeError(
+                        f"Translation model '{huggingface_id}' has been released. "
+                        "Please reload the model before translating."
+                    )
+
                 log_debug(
                     f"[Translation] Input: {text[:80]}..."
                     if len(text) > 80
@@ -300,10 +325,10 @@ class LocalModelManager:
                     log_debug(f"[Translation] M2M100: {src_code} -> {tgt_code}")
 
                     # 设置源语言
-                    tokenizer.src_lang = src_code
+                    t.src_lang = src_code
 
                     # 编码输入
-                    inputs = tokenizer(
+                    inputs = t(
                         text,
                         return_tensors="pt",
                         truncation=truncation,
@@ -311,10 +336,10 @@ class LocalModelManager:
                     )
 
                     # Move inputs to same device as model
-                    inputs = {k: v.to(model.device) for k, v in inputs.items()}
+                    inputs = {k: v.to(m.device) for k, v in inputs.items()}
 
                     # 生成翻译，使用 forced_bos_token_id 指定目标语言
-                    forced_bos_token_id = tokenizer.get_lang_id(tgt_code)
+                    forced_bos_token_id = t.get_lang_id(tgt_code)
                     gen_kwargs = {
                         "max_length": max_length,
                         "forced_bos_token_id": forced_bos_token_id,
@@ -331,7 +356,7 @@ class LocalModelManager:
                             input_text = f"{tgt_token} {text}"
                             log_debug(f"[Translation] Target language token: {tgt_token}")
 
-                    inputs = tokenizer(
+                    inputs = t(
                         input_text,
                         return_tensors="pt",
                         truncation=truncation,
@@ -339,16 +364,16 @@ class LocalModelManager:
                     )
 
                     # Move inputs to same device as model
-                    inputs = {k: v.to(model.device) for k, v in inputs.items()}
+                    inputs = {k: v.to(m.device) for k, v in inputs.items()}
 
                     # Generate translation
                     gen_kwargs = {"max_length": max_length}
 
                 with torch.no_grad():
-                    translated = model.generate(**inputs, **gen_kwargs)
+                    translated = m.generate(**inputs, **gen_kwargs)
 
                 # Decode and return in pipeline-compatible format
-                translated_text = tokenizer.decode(
+                translated_text = t.decode(
                     translated[0], skip_special_tokens=True
                 )
                 log_debug(
@@ -480,6 +505,59 @@ class LocalModelManager:
         """
         # MADLAD400 使用统一的语言代码
         return lang
+
+    def unload_translation_model(self, huggingface_id: str) -> bool:
+        """卸载指定的翻译模型以释放内存。
+
+        Args:
+            huggingface_id: HuggingFace 模型 ID（如 "google/madlad400-3b-mt"）
+
+        Returns:
+            True 如果模型成功卸载，False 如果模型未加载
+        """
+        with self._models_lock:
+            if huggingface_id not in self._loaded_models:
+                log_debug(f"[LocalModelManager] Model not loaded, nothing to unload: {huggingface_id}")
+                return False
+
+            model, tokenizer = self._loaded_models.pop(huggingface_id)
+            log_info(f"[LocalModelManager] Unloading model: {huggingface_id}")
+
+            # 删除模型和 tokenizer 引用
+            del model
+            del tokenizer
+
+        # 触发垃圾回收
+        gc.collect()
+        log_info("[LocalModelManager] gc.collect() completed")
+
+        # 清理 CUDA 缓存
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+            log_info("[LocalModelManager] torch.cuda.empty_cache() completed")
+
+        log_info(f"[LocalModelManager] Model unloaded successfully: {huggingface_id}")
+        return True
+
+    def unload_all_translation_models(self) -> int:
+        """卸载所有已加载的翻译模型。
+
+        Returns:
+            卸载的模型数量
+        """
+        count = 0
+        with self._models_lock:
+            model_ids = list(self._loaded_models.keys())
+
+        for model_id in model_ids:
+            if self.unload_translation_model(model_id):
+                count += 1
+
+        return count
+
+    def cleanup(self) -> None:
+        """清理所有资源（实现 ResourceCleanupProtocol）。"""
+        self.unload_all_translation_models()
 
 
 # ==================== 单例管理 ====================

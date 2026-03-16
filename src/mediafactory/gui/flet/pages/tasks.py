@@ -438,11 +438,9 @@ class TasksPage:
                 result = await self._video_enhancement_service.enhance_video(
                     video_path=config.input_path,
                     page=self.page,
-                    preset=config.enhancement_preset,
                     scale=config.enhancement_scale,
                     model_type=config.enhancement_model,
                     denoise=config.enhancement_denoise,
-                    face_fix=config.enhancement_face_fix,
                     temporal=config.enhancement_temporal,
                     progress_callback=progress_callback,
                 )

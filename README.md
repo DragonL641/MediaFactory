@@ -24,7 +24,7 @@ A professional multimedia processing platform for subtitle generation and video-
 
 - **High-Quality Audio Extraction** - 48kHz stereo with voice enhancement filters
 - **Speech-to-Text** - Faster Whisper (4-6x faster than OpenAI Whisper)
-- **Translation** - Local models (NLLB, M2M) or LLM APIs (OpenAI, GLM)
+- **Translation** - Local models (M2M100, MADLAD400) or LLM APIs (OpenAI, DeepSeek, GLM)
 - **Subtitle Generation** - Complete pipeline with automatic translation fallback
 - **Batch Processing** - Efficient multi-file processing
 - **30+ Languages** supported for transcription and translation
@@ -105,7 +105,7 @@ cd MediaFactory
 uv sync --group core
 ```
 
-This will install PyTorch with CUDA 12.4 support from the official PyTorch repository.
+This will install PyTorch with CUDA 12.8 support from the official PyTorch repository.
 
 3. Run the application:
 ```bash
@@ -113,7 +113,7 @@ uv run mediafactory
 ```
 
 > **Note**: PyTorch is downloaded from `download.pytorch.org` (not PyPI) to ensure CUDA support.
-> CUDA 12.4 is backward compatible with all CUDA 12.x drivers (NVIDIA Driver ≥ 525.60.13).
+> CUDA 12.8 supports Blackwell (RTX 50 series) and earlier architectures, backward compatible with all CUDA 12.x drivers (NVIDIA Driver ≥ 525.60.13).
 > For very old GPUs or CPU-only systems, see [Alternative: Interactive Setup](#alternative-interactive-setup).
 
 ### For Developers
@@ -212,16 +212,10 @@ Create standalone executables with all dependencies:
 
 ```bash
 # Build for current platform
-# macOS:
-python scripts/build/build_darwin.py
-# Windows:
-python scripts/build/build_win.py
+pyinstaller scripts/pyinstaller/installer_simple.spec
 
-# Clean build artifacts
-# macOS:
-python scripts/build/build_darwin.py --clean
-# Windows:
-python scripts/build/build_win.py --clean
+# Clean build artifacts before rebuilding
+rm -rf build/ dist/ && pyinstaller scripts/pyinstaller/installer_simple.spec
 ```
 
 **Output**: `dist/MediaFactory.exe` (Windows) or `dist/MediaFactory.app` (macOS)
@@ -232,15 +226,18 @@ python scripts/build/build_win.py --clean
 
 **macOS (.dmg disk image):**
 ```bash
-python scripts/build/macos/create_dmg.py
+# First build the app with PyInstaller, then create DMG
+pyinstaller scripts/pyinstaller/installer_simple.spec
+# Use create-dmg or other tools to package
 ```
 **Output**: `dist/MediaFactory-3.2.1.dmg`
 
 **Windows (.exe installer):**
 - Requires: [Inno Setup](https://jrsoftware.org/isdl.php) 6.0+
 ```bash
-python scripts/build/windows/package_windows.py
-# Or use Inno Setup directly
+# First build the exe with PyInstaller
+pyinstaller scripts/pyinstaller/installer_simple.spec
+# Then use Inno Setup to create installer
 iscc scripts/build/windows/installer_windows.iss
 ```
 **Output**: `dist/MediaFactory-Setup-3.2.1.exe`

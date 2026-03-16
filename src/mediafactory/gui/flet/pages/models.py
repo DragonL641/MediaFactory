@@ -33,7 +33,6 @@ def _get_models_by_type():
         "translation": [],
         "super_resolution": [],
         "denoise": [],
-        "face_restore": [],
     }
     
     for model_id, info in MODEL_REGISTRY.items():
@@ -53,8 +52,6 @@ def _get_models_by_type():
             models["super_resolution"].append(model_data)
         elif info.model_type == ModelType.DENOISE:
             models["denoise"].append(model_data)
-        elif info.model_type == ModelType.FACE_RESTORE:
-            models["face_restore"].append(model_data)
     
     return models
 
@@ -161,14 +158,6 @@ class ModelsPage:
                 ft.Icons.BLUR_ON,
             ),
             ft.Container(height=8),
-            # === 人脸修复模型区域 ===
-            self._build_model_section(
-                "Face Restoration (CodeFormer)",
-                "Face detection and restoration models.",
-                models_by_type["face_restore"],
-                "enhancement",
-                ft.Icons.FACE,
-            ),
         ]
 
     def _build_model_section(

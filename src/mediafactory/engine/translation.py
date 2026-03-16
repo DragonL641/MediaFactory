@@ -493,3 +493,36 @@ class TranslationEngine:
             )
 
         log_info("API connection test successful")
+
+    # ==================== 资源清理 ====================
+
+    def cleanup(self) -> None:
+        """清理翻译引擎持有的所有资源。
+
+        实现 ResourceCleanupProtocol 接口。
+        应该在引擎不再使用时调用，以释放内存和连接。
+        """
+        import gc
+
+        log_info("[TranslationEngine] Starting cleanup...")
+
+        # 1. 清理语言检测器
+        if self._language_detector is not None:
+            log_debug("[TranslationEngine] Releasing language detector")
+            self._language_detector = None
+
+        # 2. 清理 LLM 后端
+        if self.llm_backend is not None:
+            if hasattr(self.llm_backend, "cleanup"):
+                try:
+                    log_debug("[TranslationEngine] Calling llm_backend.cleanup()")
+                    self.llm_backend.cleanup()
+                except Exception as e:
+                    log_warning(f"[TranslationEngine] Error cleaning up LLM backend: {e}")
+            self.llm_backend = None
+
+        # 3. 触发垃圾回收
+        gc.collect()
+        log_debug("[TranslationEngine] gc.collect() completed")
+
+        log_info("[TranslationEngine] Cleanup completed")
