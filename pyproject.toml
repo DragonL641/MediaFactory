@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "mediafactory"
-version = "0.2.0"
+version = "0.2.1"
 description = "Extensible multimedia processing platform with plugin architecture"
 readme = "README.md"
 authors = [{name = "Dragon", email = "fldx123456@163.com"}]
