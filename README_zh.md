@@ -5,10 +5,9 @@
   <p><i>专业级多媒体处理平台</i></p>
   <p>
     <a href="#功能特性">功能特性</a> •
-    <a href="#安装">安装</a> •
     <a href="#快速开始">快速开始</a> •
-    <a href="#配置">配置</a> •
-    <a href="#构建">构建</a>
+    <a href="#为什么选择-mediafactory">为什么选择</a> •
+    <a href="#系统要求">系统要求</a>
   </p>
 </div>
 
@@ -21,296 +20,138 @@
 
 ## 功能特性
 
-- **高质量音频提取** - 48kHz 立体声，语音增强滤波
-- **语音转文字** - Faster Whisper（比 OpenAI Whisper 快 4-6 倍）
-- **翻译** - 本地模型（M2M100、MADLAD400）或 LLM API（OpenAI、DeepSeek、智谱 GLM 等）
-- **字幕生成** - 完整流程，翻译失败自动回退
-- **视频增强** - 画质提升（超分辨率）、降噪处理、时序平滑
-- **批量处理** - 高效多文件处理，递归验证
-- **30+ 语言支持** - 转录和翻译
-- **统一进度跟踪** - 分阶段进度更新，GUI 桥接支持
-- **自包含部署** - 所有数据在安装目录，干净卸载
-- **安装向导** - 首次运行配置，硬件自动检测
+### 🎯 多种任务类型
 
----
+支持 5 种任务类型：音频提取、语音转文字、字幕生成、字幕翻译、视频增强。每个任务卡片显示状态、进度和预计剩余时间。
 
-### 竞品对比
+<p align="center">
+  <img src="docs/images/TaskTypes.png" alt="任务类型" width="350"/>
+</p>
 
-| 功能 | MediaFactory | pyVideoTrans | VideoCaptioner | SubtitleEdit |
-|------|:------------:|:------------:|:--------------:|:------------:|
-| **核心定位** | 多媒体平台 | 视频翻译 | LLM 字幕助手 | 字幕编辑器 |
-| **许可证** | MIT | GPL-3.0 | GPL-3.0 | GPL/LGPL |
-| **平台** | 跨平台 | 跨平台 | 跨平台 | Windows |
-| | | | | |
-| **语音识别** | ✅ Faster Whisper | ✅ 多种 | ✅ 多种 | ✅ Whisper |
-| **VAD 过滤** | ✅ 内置 VAD | ✅ | ✅ | ❌ |
-| **翻译** | ✅ 本地 + LLM | ✅ 多种 | ✅ 多种 | ✅ Google/DeepL |
-| **批量翻译** | ✅ 递归验证 | ✅ | ✅ | ❌ |
-| | | | | |
-| **SRT 格式** | ✅ | ✅ | ✅ | ✅ |
-| **ASS 格式** | ✅ 5 种样式模板 | ✅ | ✅ 多种 | ✅ 完整编辑器 |
-| **双语字幕** | ✅ 4 种布局 | ✅ | ✅ | ❌ |
-| **软字幕嵌入** | ✅ mov_text | ✅ | ✅ | ✅ |
-| **硬字幕烧录** | ✅ | ✅ | ✅ | ✅ |
-| | | | | |
-| **TTS 配音** | ❌ | ✅ 多种 TTS | ❌ | ✅ Azure/ElevenLabs |
-| **声音克隆** | ❌ | ✅ F5-TTS | ❌ | ❌ |
-| **字幕编辑** | ❌ | ❌ | ❌ | ✅ 完整编辑器 |
-| **波形编辑器** | ❌ | ❌ | ❌ | ✅ 可视化同步 |
-| **300+ 格式** | ❌ | ❌ | ❌ | ✅ |
-| | | | | |
-| **GUI** | ✅ Flet | ✅ PySide6 | ✅ Qt | ✅ WinForms |
-| **CLI 模式** | ✅ | ❌ | ❌ | ✅ |
-| **Pipeline 编排** | ✅ 核心特性 | ✅ | ❌ | ❌ |
-| **事件系统** | ✅ EventBus | ❌ | ❌ | ❌ |
-| **配置系统** | ✅ TOML + Pydantic | ❌ | JSON | XML |
-| **批量处理** | ✅ | ✅ | ✅ | ✅ |
+### 📦 批量添加任务
 
-### 为什么选择 MediaFactory？
+拖拽多个文件或整个文件夹。一次性设置源语言/目标语言和 LLM 配置，批量处理所有文件。
 
-**架构优势**：
-- **三层架构** - GUI → Service → Pipeline → Engine
-- **Pipeline 架构** - ProcessingStage 模式，可组合工作流
-- **事件系统** - EventBus 解耦组件
-- **类型安全配置** - TOML + Pydantic v2，支持热重载
+<p align="center">
+  <img src="docs/images/TaskBatchAdd.png" alt="批量添加" width="500"/>
+</p>
 
-**核心特性**：
-- 🚀 **Faster Whisper** - 比 OpenAI Whisper 快 4-6 倍
-- 🎯 **VAD 过滤** - 内置 VAD（Faster Whisper），减少幻觉
-- 🌐 **统一 LLM 后端** - OpenAI 兼容 API，支持所有主流服务
-- 📝 **批量翻译** - 递归验证，自动修复
-- 🎨 **ASS 样式** - 5 种预设模板 + 自定义样式文件
-- 🔀 **双语支持** - 4 种布局选项
-- 📦 **自包含** - 所有数据在安装目录
+### 🔒 支持本地模型
 
-**MediaFactory 不是**：
-- 不是完整的字幕编辑器（手动编辑请使用 SubtitleEdit）
-- 不是视频配音工具（TTS/声音克隆请使用 pyVideoTrans）
-- 不是在线服务（完全本地处理）
+使用开源模型完全本地运行。您的媒体文件不会离开电脑 — 完全隐私，配置完成后无需联网。
 
----
+<p align="center">
+  <img src="docs/images/LocalModelConfig.png" alt="本地模型配置" width="500"/>
+</p>
 
-## 安装
+### 🌐 灵活的 LLM 翻译
 
-### 用户安装
+选择 6+ 种 LLM 服务进行翻译：OpenAI、DeepSeek、智谱 GLM、通义千问、Moonshot，或添加自定义端点。全部通过 OpenAI 兼容 API 接入。
 
-1. 克隆仓库：
-```bash
-git clone https://github.com/Dragon/MediaFactory.git
-cd MediaFactory
-```
-
-2. 安装依赖：
-```bash
-uv sync --group core
-```
-
-此命令会从 PyTorch 官方源下载带 CUDA 12.8 支持的 PyTorch。
-
-3. 运行应用：
-```bash
-uv run mediafactory
-```
-
-> **说明**: PyTorch 从 `download.pytorch.org`（而非 PyPI）下载，以确保 CUDA 支持。
-> CUDA 12.8 支持 Blackwell (RTX 50系) 及更早架构，向后兼容所有 CUDA 12.x 驱动（NVIDIA 驱动 ≥ 525.60.13）。
-
-### 开发者安装
-
-1. 克隆并安装所有依赖：
-```bash
-git clone https://github.com/Dragon/MediaFactory.git
-cd MediaFactory
-uv sync --all-groups
-```
-
-2. 安装 pre-commit 钩子：
-```bash
-pre-commit install
-pre-commit run --all-files
-```
-
-### 系统要求
-
-- **Python**: 3.11、3.12 或 3.13（推荐 3.12）
-- **uv**: 现代 Python 包管理器（[安装 uv](https://docs.astral.sh/uv/)）
-- **FFmpeg**: 通过 imageio-ffmpeg 自动包含（无需手动安装）
-- **GPU**（可选）: 支持 CUDA 12.x 的 NVIDIA GPU（驱动 ≥ 525.60.13）
-
-### 硬件要求
-
-| 配置 | 内存 | 存储 | 说明 |
-|------|------|------|------|
-| **CPU 模式** | 4GB RAM | 2GB | 所有平台 |
-| **GPU 模式** | 8GB RAM | 15GB | NVIDIA GPU，4GB+ 显存，驱动 ≥ 525.60.13 |
-
-### 安装 Pre-commit 钩子（贡献者）
-
-如果您计划贡献代码，请安装 pre-commit 钩子：
-
-```bash
-pre-commit install
-pre-commit run --all-files
-```
+<p align="center">
+  <img src="docs/images/LLM-API-Config.png" alt="LLM API 配置" width="500"/>
+</p>
 
 ---
 
 ## 快速开始
 
-### GUI 应用
+**前置条件**：Python 3.11+ 和 [uv](https://docs.astral.sh/uv/)
 
 ```bash
-# 方式 1: 使用 console script
+# 1. 克隆仓库
+git clone https://github.com/Dragon/MediaFactory.git
+cd MediaFactory
+
+# 2. 安装依赖（包含 CUDA 12.8 版本的 PyTorch）
+uv sync --group core
+
+# 3. 下载模型（首次运行前必须）
+uv run python scripts/utils/download_model.py google/madlad400-3b-mt
+
+# 4. 运行应用
 uv run mediafactory
-
-# 方式 2: 使用 Python 模块
-uv run python -m mediafactory
-
-# 方式 3: 使用 Python API
-uv run python -c "from mediafactory import launch_gui; launch_gui()"
 ```
+
+> **说明**：PyTorch 从 `download.pytorch.org`（而非 PyPI）下载，以确保 CUDA 支持。
+> CUDA 12.8 支持 Blackwell（RTX 50 系列）及更早架构。
 
 ---
 
-## 配置
+## 为什么选择 MediaFactory？
 
-编辑 `config.toml`：
+AI 视频工具往往让你在质量和速度之间、云端便利和隐私之间做选择。MediaFactory 让你两者兼得。
 
-```toml
-[whisper]
-beam_size = 5
+- **快速且准确** — Faster Whisper 提供 4-6 倍加速，不牺牲质量
+- **本地或云端** — 本地模型保护隐私，LLM API 提供便利 — 由你选择
+- **真正的批量处理** — 真实进度追踪，不是黑盒
+- **干净卸载** — 所有数据在一个文件夹，删除即卸载干净
 
-[model]
-local_model_path = "models"
+### 竞品对比
 
-# LLM 翻译（OpenAI 兼容后端）
-[openai_compatible]
-current_preset = "openai"
+**vs. pyVideoTrans** — TTS 配音功能强大，但采用 GPL 许可证，专注于翻译工作流。MediaFactory 采用 MIT 许可证，架构更清晰，更易扩展。
 
-[openai_compatible.openai]
-api_key = "your-api-key"
-base_url = "https://api.openai.com/v1"
-model = "gpt-4o-mini"
+**vs. VideoCaptioner** — 专注于 LLM 的字幕助手，GPL 许可证。MediaFactory 同时提供本地和云端选项，许可证更宽松。
 
-[llm_translation]
-enable_batch = true
-batch_size = 100
-```
+**vs. SubtitleEdit** — 手动字幕编辑的黄金标准，支持 300+ 格式。MediaFactory 专注于自动生成，而非手动编辑 — 两者配合使用效果更佳。
 
-支持的 LLM 后端：OpenAI、DeepSeek、智谱 GLM、通义千问、Moonshot。
-
----
-
-## 构建
-
-MediaFactory 支持多种打包方式，从独立可执行文件到完整安装程序。
-
-### PyInstaller 构建
-
-创建包含所有依赖的独立可执行文件：
-
-```bash
-# 为当前平台构建
-pyinstaller scripts/pyinstaller/installer_simple.spec
-
-# 清理构建产物后重新构建
-rm -rf build/ dist/ && pyinstaller scripts/pyinstaller/installer_simple.spec
-```
-
-**输出**: `dist/MediaFactory.exe` (Windows) 或 `dist/MediaFactory.app` (macOS)
-
-**体积**: ~200-500MB（不含 ML 依赖）
-
-### 平台安装程序
-
-**macOS (.dmg 磁盘镜像)**:
-```bash
-# 先用 PyInstaller 构建应用，再创建 DMG
-pyinstaller scripts/pyinstaller/installer_simple.spec
-# 使用 create-dmg 或其他工具打包
-```
-**输出**: `dist/MediaFactory-0.2.0.dmg`
-
-**Windows (.exe 安装程序)**:
-- 要求: [Inno Setup](https://jrsoftware.org/isdl.php) 6.0+
-```bash
-# 先用 PyInstaller 构建 exe
-pyinstaller scripts/pyinstaller/installer_simple.spec
-# 然后使用 Inno Setup 创建安装程序
-iscc scripts/build/windows/installer_windows.iss
-```
-**输出**: `dist/MediaFactory-Setup-0.2.0.exe`
-
-### 安装向导
-
-用户首次运行 GUI 时，安装向导自动启动：
-
-**功能**：
-- 快速安装（uv 下载依赖比 pip 快 10-100 倍）
-- 自动检测 GPU 和推荐 PyTorch 版本
-- 国内用户镜像选择
-- 友好的图形化向导
-
-**安装步骤**：
-1. 欢迎页面 - 介绍
-2. 硬件检测 - 自动检测 NVIDIA GPU 和 CUDA 版本
-3. 镜像选择 - 选择下载源（国内镜像/官方源）
-4. 配置生成 - 基于 `config.toml.example` 生成用户配置
-5. 依赖安装 - 安装 PyTorch 和其他依赖
-6. 模型下载 - 下载 Whisper 和翻译模型
-
-**预计时间**: 5-15 分钟（取决于网络速度）
-
-### 构建配置
-
-编辑构建脚本以自定义：
-
-**`scripts/pyinstaller/build_installer.py`**:
-```python
-PRODUCT_NAME = "MediaFactory"
-PRODUCT_VERSION = "0.2.0"
-ENCRYPT_BYTECODE = True
-COMPRESS_OUTPUT = True
-```
-
-**`scripts/build/windows/installer_windows.iss`**:
-```iss
-#define AppVersion "0.2.0"
-#define AppPublisher "Your Name"
-```
-
-### 发布清单
-
-发布前确保：
-
-- [ ] 更新版本号（所有构建脚本）
-- [ ] 测试安装程序在干净系统上运行
-- [ ] 验证首次运行向导正常工作
-- [ ] 测试 GPU/CPU 自动检测
-- [ ] 验证模型下载功能
-- [ ] 检查配置文件生成
-
-**注意**: 翻译模型（2GB+）不打包在安装程序中，用户需通过安装向导或手动下载。
+| 功能 | MediaFactory | pyVideoTrans | VideoCaptioner | SubtitleEdit |
+|------|:------------:|:------------:|:--------------:|:------------:|
+| **核心定位** | 自动生成 | 视频翻译 | LLM 字幕 | 手动编辑 |
+| **许可证** | MIT | GPL-3.0 | GPL-3.0 | GPL/LGPL |
+| **语音识别** | ✅ Faster Whisper | ✅ 多种 | ✅ 多种 | ✅ Whisper |
+| **本地翻译** | ✅ | ✅ | ❌ | ❌ |
+| **LLM 翻译** | ✅ 6+ 服务商 | ✅ | ✅ | ✅ Google/DeepL |
+| **批量处理** | ✅ | ✅ | ✅ | ✅ |
+| **字幕编辑** | ❌ | ❌ | ❌ | ✅ 完整编辑器 |
+| **TTS 配音** | ❌ | ✅ | ❌ | ✅ |
 
 ---
 
-## 故障排除
+## 系统要求
 
-### 常见问题
+### 硬件要求
 
-| 问题 | 解决方案 |
-|------|----------|
-| **FFmpeg 未找到** | MediaFactory 使用内置 imageio-ffmpeg，无需手动安装 |
-| **内存不足 (OOM)** | 使用更小的 Whisper 模型（small 而非 large-v3），或强制 CPU 模式 |
-| **识别准确率低** | 尝试 `large-v3` 模型；确保音频源清晰；检查源语言设置 |
-| **翻译模型缺失** | 运行 `uv run python scripts/utils/download_model.py --list` 查看可用模型 |
-| **macOS GPU 未使用** | Faster Whisper 不支持 MPS；自动使用 CPU |
-| **API 翻译失败** | 检查 config.toml 中的 API key；验证网络连接和配额 |
-| **进度卡在 0%** | 确保使用 v3.0+；检查 GUI 回调；查看日志文件错误 |
+| 模式 | 内存 | 存储 | 说明 |
+|------|------|------|------|
+| **CPU 模式** | 4GB | 2GB | 所有平台通用 |
+| **GPU 模式** | 8GB | 15GB | NVIDIA GPU，4GB+ 显存，驱动 ≥ 525.60.13 |
 
-### 日志文件
+> **macOS 用户**：Faster Whisper 不支持 Metal (MPS)，自动使用 CPU 模式。
 
-所有日志写入：`logs/LOG-YYYY-MM-DD-HHMM.log`（在应用目录）
+### 软件要求
+
+- **Python**: 3.11、3.12 或 3.13（推荐 3.12）
+- **uv**: 现代 Python 包管理器（[安装 uv](https://docs.astral.sh/uv/)）
+- **FFmpeg**: 通过 imageio-ffmpeg 自动包含（无需手动安装）
+
+---
+
+## 使用注意事项
+
+**模型选择**：使用 `faster-whisper-large-v3` 进行语音识别，推荐使用 GPU 获得最佳性能。
+
+**翻译质量**：LLM 翻译通常比本地模型产生更自然的结果。对隐私要求高时使用本地模型。
+
+**模型下载**：首次运行前需下载翻译模型：
+
+```bash
+# 列出可用模型
+uv run python scripts/utils/download_model.py --list
+
+# 下载翻译模型
+uv run python scripts/utils/download_model.py google/madlad400-3b-mt
+```
+
+**日志文件**：所有日志写入应用目录下的 `logs/LOG-YYYY-MM-DD-HHMM.log`。
+
+---
+
+## MediaFactory 不是什么
+
+- **不是字幕编辑器** — 手动调整时间轴请使用 [SubtitleEdit](https://github.com/SubtitleEdit/subtitleedit)
+- **不是配音工具** — TTS 和声音克隆请使用 [pyVideoTrans](https://github.com/jianchang512/pyvideotrans)
+- **不是纯在线平台** — 核心处理（语音识别、音频提取）在本地运行，仅翻译可选用云端 LLM API
 
 ---
 

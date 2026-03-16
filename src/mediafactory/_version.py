@@ -85,3 +85,8 @@ def get_version() -> str:
 
 
 __version__ = get_version()
+
+
+if __name__ == "__main__":
+    # 允许构建脚本直接调用: python src/mediafactory/_version.py
+    print(get_version())

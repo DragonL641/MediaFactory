@@ -5,11 +5,9 @@
   <p><i>Professional Multimedia Processing Platform</i></p>
   <p>
     <a href="#features">Features</a> •
-    <a href="#installation">Installation</a> •
     <a href="#quick-start">Quick Start</a> •
-    <a href="#configuration">Configuration</a> •
-    <a href="#building">Building</a> •
-    <a href="#troubleshooting">Troubleshooting</a>
+    <a href="#why-mediafactory">Why MediaFactory</a> •
+    <a href="#requirements">Requirements</a>
   </p>
 </div>
 
@@ -22,296 +20,138 @@ A professional multimedia processing platform for subtitle generation and video-
 
 ## Features
 
-- **High-Quality Audio Extraction** - 48kHz stereo with voice enhancement filters
-- **Speech-to-Text** - Faster Whisper (4-6x faster than OpenAI Whisper)
-- **Translation** - Local models (M2M100, MADLAD400) or LLM APIs (OpenAI, DeepSeek, GLM)
-- **Subtitle Generation** - Complete pipeline with automatic translation fallback
-- **Batch Processing** - Efficient multi-file processing
-- **30+ Languages** supported for transcription and translation
-- **Unified Progress Tracking** - Stage-aware progress updates with GUI bridge
-- **Self-Contained Deployment** - All data in installation directory for clean uninstall
-- **Setup Wizard** - First-run configuration with hardware detection
+### 🎯 Multiple Task Types
 
----
+Support for 5 task types: Audio Extraction, Speech-to-Text, Subtitle Generation, Subtitle Translation, and Video Enhancement. Each task card shows status, progress, and estimated time remaining.
 
-### Competitive Comparison
+<p align="center">
+  <img src="docs/images/TaskTypes.png" alt="Task Types" width="350"/>
+</p>
 
-| Feature | MediaFactory | pyVideoTrans | VideoCaptioner | SubtitleEdit |
-|---------|:------------:|:------------:|:--------------:|:------------:|
-| **Core Focus** | Multimedia Platform | Video Translation | LLM Subtitle Assistant | Subtitle Editor |
-| **License** | MIT | GPL-3.0 | GPL-3.0 | GPL/LGPL |
-| **Platform** | Cross-platform | Cross-platform | Cross-platform | Windows |
-| | | | | |
-| **Speech Recognition** | ✅ Faster Whisper | ✅ Multiple | ✅ Multiple | ✅ Whisper |
-| **VAD Filtering** | ✅ Built-in VAD | ✅ | ✅ | ❌ |
-| **Translation** | ✅ Local + LLM | ✅ Multiple | ✅ LLM-focused | ✅ Google/DeepL |
-| **Batch Translation** | ✅ Recursive Validation | ✅ | ✅ | ❌ |
-| | | | | |
-| **SRT Format** | ✅ | ✅ | ✅ | ✅ |
-| **ASS Format** | ✅ 5 Style Templates | ✅ | ✅ Multiple | ✅ Full Editor |
-| **Bilingual Subtitles** | ✅ 4 Layouts | ✅ | ✅ | ❌ |
-| **Soft Subtitle Embed** | ✅ mov_text | ✅ | ✅ | ✅ |
-| **Hard Subtitle Burn** | ✅ | ✅ | ✅ | ✅ |
-| | | | | |
-| **TTS Dubbing** | ❌ | ✅ Multiple TTS | ❌ | ✅ Azure/ElevenLabs |
-| **Voice Cloning** | ❌ | ✅ F5-TTS | ❌ | ❌ |
-| **Subtitle Editing** | ❌ | ❌ | ❌ | ✅ Full Editor |
-| **Waveform Editor** | ❌ | ❌ | ❌ | ✅ Visual Sync |
-| **300+ Formats** | ❌ | ❌ | ❌ | ✅ |
-| | | | | |
-| **GUI** | ✅ Flet | ✅ PySide6 | ✅ Qt | ✅ WinForms |
-| **CLI Mode** | ✅ | ❌ | ❌ | ✅ |
-| **Pipeline Orchestration** | ✅ Core Feature | ✅ | ❌ | ❌ |
-| **Event System** | ✅ EventBus | ❌ | ❌ | ❌ |
-| **Config System** | ✅ TOML + Pydantic | ❌ | JSON | XML |
-| **Batch Processing** | ✅ | ✅ | ✅ | ✅ |
+### 📦 Batch Add Tasks
 
-### Why MediaFactory?
+Drag and drop multiple files or entire folders. Set source/target languages and LLM settings once, then process all files in one go.
 
-**Architecture Advantages**:
-- **3-Layer Architecture** - GUI → Service → Pipeline → Engine
-- **Pipeline Architecture** - ProcessingStage pattern for composable workflows
-- **Event System** - EventBus for decoupled components
-- **Type-Safe Config** - TOML + Pydantic v2 with hot reload
+<p align="center">
+  <img src="docs/images/TaskBatchAdd.png" alt="Batch Add Tasks" width="500"/>
+</p>
 
-**Key Features**:
-- 🚀 **Faster Whisper** - 4-6x faster than OpenAI Whisper
-- 🎯 **VAD Filtering** - Built-in VAD (Faster Whisper) reduces hallucinations
-- 🌐 **Unified LLM Backend** - OpenAI-compatible API supports all major services
-- 📝 **Batch Translation** - Recursive validation with auto-repair
-- 🎨 **ASS Styling** - 5 preset templates + custom style files
-- 🔀 **Bilingual Support** - 4 layout options for dual-language subtitles
-- 📦 **Self-Contained** - All data in installation directory
+### 🔒 Local Model Support
 
-**What MediaFactory is NOT**:
-- Not a full subtitle editor (use SubtitleEdit for manual editing)
-- Not a video dubbing tool (use pyVideoTrans for TTS/voice cloning)
-- Not an online service (fully local processing)
+Run everything locally with open-source models. Your media files never leave your computer — complete privacy, no internet required after setup.
 
----
+<p align="center">
+  <img src="docs/images/LocalModelConfig.png" alt="Local Model Config" width="500"/>
+</p>
 
-## Installation
+### 🌐 Flexible LLM Translation
 
-### For Users
+Choose from 6+ LLM providers for translation: OpenAI, DeepSeek, GLM (智谱AI), Qwen (通义千问), Moonshot, or add your own custom endpoint. All via OpenAI-compatible API.
 
-1. Clone the repository:
-```bash
-git clone https://github.com/Dragon/MediaFactory.git
-cd MediaFactory
-```
-
-2. Install dependencies:
-```bash
-uv sync --group core
-```
-
-This will install PyTorch with CUDA 12.8 support from the official PyTorch repository.
-
-3. Run the application:
-```bash
-uv run mediafactory
-```
-
-> **Note**: PyTorch is downloaded from `download.pytorch.org` (not PyPI) to ensure CUDA support.
-> CUDA 12.8 supports Blackwell (RTX 50 series) and earlier architectures, backward compatible with all CUDA 12.x drivers (NVIDIA Driver ≥ 525.60.13).
-> For very old GPUs or CPU-only systems, see [Alternative: Interactive Setup](#alternative-interactive-setup).
-
-### For Developers
-
-1. Clone and install all dependencies:
-```bash
-git clone https://github.com/Dragon/MediaFactory.git
-cd MediaFactory
-uv sync --all-groups
-```
-
-2. Install pre-commit hooks:
-```bash
-pre-commit install
-pre-commit run --all-files
-```
-
-### Requirements
-
-- **Python**: 3.11, 3.12, or 3.13 (3.12 recommended)
-- **uv**: Modern Python package manager ([install uv](https://docs.astral.sh/uv/))
-- **FFmpeg**: Included via imageio-ffmpeg (no manual installation needed)
-- **GPU** (optional): NVIDIA GPU with CUDA 12.x support (Driver ≥ 525.60.13)
-
-### Hardware Requirements
-
-| Configuration | Memory | Storage | Notes |
-|---------------|--------|---------|-------|
-| **CPU Mode** | 4GB RAM | 2GB | All platforms |
-| **GPU Mode** | 8GB RAM | 15GB | NVIDIA GPU with 4GB+ VRAM, Driver ≥ 525.60.13 |
-
-### Install Pre-commit Hooks (For Contributors)
-
-If you plan to contribute code, install pre-commit hooks:
-
-```bash
-pre-commit install
-pre-commit run --all-files
-```
+<p align="center">
+  <img src="docs/images/LLM-API-Config.png" alt="LLM API Config" width="500"/>
+</p>
 
 ---
 
 ## Quick Start
 
-### GUI
+**Prerequisites**: Python 3.11+ and [uv](https://docs.astral.sh/uv/)
 
 ```bash
-# Method 1: Using console script
+# 1. Clone the repository
+git clone https://github.com/Dragon/MediaFactory.git
+cd MediaFactory
+
+# 2. Install dependencies (includes PyTorch with CUDA 12.8)
+uv sync --group core
+
+# 3. Download models (required before first run)
+uv run python scripts/utils/download_model.py google/madlad400-3b-mt
+
+# 4. Run the application
 uv run mediafactory
-
-# Method 2: Using Python module
-uv run python -m mediafactory
-
-# Method 3: Using Python API
-uv run python -c "from mediafactory import launch_gui; launch_gui()"
 ```
+
+> **Note**: PyTorch is downloaded from `download.pytorch.org` (not PyPI) to ensure CUDA support.
+> CUDA 12.8 supports Blackwell (RTX 50 series) and earlier architectures.
 
 ---
 
-## Configuration
+## Why MediaFactory?
 
-Edit `config.toml`:
+AI video tools often force you to choose between quality and speed, or between cloud convenience and privacy. MediaFactory gives you both.
 
-```toml
-[whisper]
-beam_size = 5
+- **Fast and accurate** — Faster Whisper delivers 4-6x speedup without sacrificing quality
+- **Local or cloud** — Use local models for privacy, or LLM APIs for convenience — your choice
+- **Batch processing done right** — Real progress tracking, not a black box
+- **Clean uninstall** — All data stays in one folder, delete it and it's gone
 
-[model]
-local_model_path = "models"
+### How we compare
 
-# LLM Translation (OpenAI-compatible backend)
-[openai_compatible]
-current_preset = "openai"
+**vs. pyVideoTrans** — Great for TTS dubbing, but GPL-licensed and focused on translation workflows. MediaFactory is MIT-licensed with a cleaner architecture for extensibility.
 
-[openai_compatible.openai]
-api_key = "your-api-key"
-base_url = "https://api.openai.com/v1"
-model = "gpt-4o-mini"
+**vs. VideoCaptioner** — LLM-focused subtitle assistant with GPL license. MediaFactory offers both local and cloud options with a more permissive license.
 
-[llm_translation]
-enable_batch = true
-batch_size = 100
-```
+**vs. SubtitleEdit** — The gold standard for manual subtitle editing with 300+ format support. MediaFactory is for automated generation, not manual editing — use both together.
 
-Supported LLM backends: OpenAI, DeepSeek, GLM (智谱AI), Qwen (通义千问), Moonshot.
-
----
-
-## Building
-
-MediaFactory supports multiple packaging methods, from standalone executables to full installers.
-
-### PyInstaller Build
-
-Create standalone executables with all dependencies:
-
-```bash
-# Build for current platform
-pyinstaller scripts/pyinstaller/installer_simple.spec
-
-# Clean build artifacts before rebuilding
-rm -rf build/ dist/ && pyinstaller scripts/pyinstaller/installer_simple.spec
-```
-
-**Output**: `dist/MediaFactory.exe` (Windows) or `dist/MediaFactory.app` (macOS)
-
-**Size**: ~200-500MB (without ML dependencies)
-
-### Platform Installers
-
-**macOS (.dmg disk image):**
-```bash
-# First build the app with PyInstaller, then create DMG
-pyinstaller scripts/pyinstaller/installer_simple.spec
-# Use create-dmg or other tools to package
-```
-**Output**: `dist/MediaFactory-0.2.0.dmg`
-
-**Windows (.exe installer):**
-- Requires: [Inno Setup](https://jrsoftware.org/isdl.php) 6.0+
-```bash
-# First build the exe with PyInstaller
-pyinstaller scripts/pyinstaller/installer_simple.spec
-# Then use Inno Setup to create installer
-iscc scripts/build/windows/installer_windows.iss
-```
-**Output**: `dist/MediaFactory-Setup-0.2.0.exe`
-
-### Setup Wizard
-
-When users run the GUI for the first time, the Setup Wizard starts automatically:
-
-**Features:**
-- Fast installation (uv downloads dependencies 10-100x faster than pip)
-- Auto-detection of GPU and recommended PyTorch version
-- Mirror selection for users in China
-- User-friendly graphical wizard
-
-**Setup Steps:**
-1. Welcome page - Introduction
-2. Hardware detection - Auto-detect NVIDIA GPU and CUDA version
-3. Mirror selection - Choose download source (China mirror / official)
-4. Config generation - Create user config from `config.toml.example`
-5. Dependency installation - Install PyTorch and other dependencies
-6. Model download - Download Whisper and translation models
-
-**Estimated time**: 5-15 minutes (depending on network speed)
-
-### Build Configuration
-
-Edit build scripts to customize:
-
-**`scripts/pyinstaller/build_installer.py`**:
-```python
-PRODUCT_NAME = "MediaFactory"
-PRODUCT_VERSION = "0.2.0"
-ENCRYPT_BYTECODE = True
-COMPRESS_OUTPUT = True
-```
-
-**`scripts/build/windows/installer_windows.iss`**:
-```iss
-#define AppVersion "0.2.0"
-#define AppPublisher "Your Name"
-```
-
-### Release Checklist
-
-Before release, ensure:
-
-- [ ] Update version numbers in all build scripts
-- [ ] Test installer on clean systems
-- [ ] Verify first-run wizard works correctly
-- [ ] Test GPU/CPU auto-detection
-- [ ] Verify model download functionality
-- [ ] Check config file generation
-
-**Note**: Translation models (2GB+) are NOT bundled. Users must download separately via the setup wizard or manually.
+| Feature | MediaFactory | pyVideoTrans | VideoCaptioner | SubtitleEdit |
+|---------|:------------:|:------------:|:--------------:|:------------:|
+| **Core Focus** | Auto Generation | Video Translation | LLM Subtitles | Manual Editing |
+| **License** | MIT | GPL-3.0 | GPL-3.0 | GPL/LGPL |
+| **Speech Recognition** | ✅ Faster Whisper | ✅ Multiple | ✅ Multiple | ✅ Whisper |
+| **Local Translation** | ✅ | ✅ | ❌ | ❌ |
+| **LLM Translation** | ✅ 6+ Providers | ✅ | ✅ | ✅ Google/DeepL |
+| **Batch Processing** | ✅ | ✅ | ✅ | ✅ |
+| **Subtitle Editing** | ❌ | ❌ | ❌ | ✅ Full Editor |
+| **TTS Dubbing** | ❌ | ✅ | ❌ | ✅ |
 
 ---
 
-## Troubleshooting
+## Requirements
 
-### Common Issues
+### Hardware
 
-| Problem | Solution |
-|---------|----------|
-| **FFmpeg not found** | MediaFactory uses built-in imageio-ffmpeg, no manual installation needed |
-| **Out of memory (OOM)** | Use smaller Whisper model (small instead of large-v3), or force CPU mode |
-| **Poor accuracy** | Try `large-v3` model; ensure audio source is clear; check source language setting |
-| **Missing translation model** | Run `uv run python scripts/utils/download_model.py --list` to see available models |
-| **macOS GPU not used** | Faster Whisper doesn't support MPS; CPU is used automatically |
-| **API translation fails** | Check API key in config.toml; verify network connection and quota |
-| **Progress stuck at 0%** | Ensure v3.0+; check GUI callbacks; see log file for errors |
+| Mode | RAM | Storage | Notes |
+|------|-----|---------|-------|
+| **CPU** | 4GB | 2GB | Works on any platform |
+| **GPU** | 8GB | 15GB | NVIDIA GPU with 4GB+ VRAM, Driver ≥ 525.60.13 |
 
-### Log Files
+> **macOS users**: Faster Whisper doesn't support Metal (MPS). CPU mode is used automatically.
 
-All logs are written to: `logs/LOG-YYYY-MM-DD-HHMM.log` (in application directory)
+### Software
+
+- **Python**: 3.11, 3.12, or 3.13 (3.12 recommended)
+- **uv**: Modern Python package manager ([install uv](https://docs.astral.sh/uv/))
+- **FFmpeg**: Included via imageio-ffmpeg (no manual installation needed)
+
+---
+
+## Usage Notes
+
+**Model selection**: Uses `faster-whisper-large-v3` for speech recognition. GPU recommended for best performance.
+
+**Translation quality**: LLM translation generally produces more natural results than local models. Use local models when privacy is critical.
+
+**Model download**: Download translation model before first run:
+
+```bash
+# List available models
+uv run python scripts/utils/download_model.py --list
+
+# Download translation model
+uv run python scripts/utils/download_model.py google/madlad400-3b-mt
+```
+
+**Log files**: All logs are written to `logs/LOG-YYYY-MM-DD-HHMM.log` in the application directory.
+
+---
+
+## What MediaFactory is NOT
+
+- **Not a subtitle editor** — For manual timing adjustments, use [SubtitleEdit](https://github.com/SubtitleEdit/subtitleedit)
+- **Not a dubbing tool** — For TTS and voice cloning, use [pyVideoTrans](https://github.com/jianchang512/pyvideotrans)
+- **Not an online platform** — Core processing (speech recognition, audio extraction) runs locally. Only translation can optionally use cloud LLM APIs.
 
 ---
 

@@ -35,26 +35,33 @@ def get_project_root() -> Path:
 
 
 def get_project_version() -> str:
-    """获取项目版本号（使用 tomli 解析 pyproject.toml）"""
+    """获取项目版本号（调用 _version.py 统一版本源）"""
     root = get_project_root()
-    pyproject_path = root / "pyproject.toml"
+    version_script = root / "src" / "mediafactory" / "_version.py"
 
-    # 优先使用 tomli 库解析
-    if tomli is not None:
+    if version_script.exists():
         try:
-            with open(pyproject_path, "rb") as f:
-                data = tomli.load(f)
-            version = data.get("project", {}).get("version", "")
-
-            # 验证版本号格式 (major.minor.patch[-prerelease])
-            if version and re.match(r'^\d+\.\d+\.\d+(?:[a-z]+\.\d+)?$', version):
-                return version
-
-            log_warn(f"版本号格式无效: {version}")
+            result = subprocess.run(
+                [sys.executable, str(version_script)],
+                capture_output=True,
+                text=True,
+                check=False,
+                cwd=str(root),
+            )
+            if result.returncode == 0:
+                version = result.stdout.strip()
+                if version:
+                    return version
+                log_warn("_version.py 返回空版本号")
+            else:
+                log_warn(f"_version.py 执行失败: {result.stderr}")
         except Exception as e:
-            log_warn(f"使用 tomli 解析版本失败: {e}")
+            log_warn(f"调用 _version.py 失败: {e}")
+    else:
+        log_warn(f"_version.py 不存在: {version_script}")
 
-    # 回退：简单字符串解析
+    # 回退：直接解析 pyproject.toml（最后手段）
+    pyproject_path = root / "pyproject.toml"
     try:
         with open(pyproject_path, "r", encoding="utf-8") as f:
             for line in f:
@@ -64,7 +71,7 @@ def get_project_version() -> str:
                     if version:
                         return version
     except Exception as e:
-        log_warn(f"字符串解析版本失败: {e}")
+        log_warn(f"回退解析版本失败: {e}")
 
     return "0.0.0"
 

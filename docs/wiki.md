@@ -30,6 +30,7 @@
    - [插件架构实现](#插件架构实现)
    - [事件驱动架构](#事件驱动架构)
    - [工程实现细节](#工程实现细节)
+   - [版本管理架构](#版本管理架构)
    - [GUI 框架实现](#gui框架原理)
    - [并发编程实现](#并发编程原理)
    - [Python 打包实现](#python打包原理)
@@ -1863,6 +1864,159 @@ def batch_translate_with_validation(texts, target_size=100):
 ### 工程实现细节
 
 本节介绍 MediaFactory 的具体工程实现，包括配置管理、GUI 框架、并发编程、远端 LLM 调用等。
+
+---
+
+### 版本管理架构
+
+#### 设计理念
+
+MediaFactory 采用 **pyproject.toml 作为单一真相源** 的版本管理策略。
+
+**为什么不采用 setuptools-scm**：
+
+| 考量因素 | setuptools-scm | MediaFactory 当前方案 |
+|---------|---------------|---------------------|
+| 适用场景 | PyPI 发布的库 | 本地桌面应用 |
+| 构建系统 | setuptools | PyInstaller |
+| Git 依赖 | 强依赖 | 无依赖 |
+| 版本来源 | Git tag 自动生成 | pyproject.toml 手动维护 |
+
+**结论**：MediaFactory 是桌面应用而非 PyPI 库，setuptools-scm 带来的复杂性不值得。
+
+---
+
+#### 三层执行环境
+
+MediaFactory 在三种不同的执行环境中需要获取版本号：
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    运行时环境 (Runtime)                      │
+│                                                             │
+│  已安装的 mediafactory 包                                    │
+│  ┌─────────────────────────────────────────────────────────┐│
+│  │ from mediafactory._version import get_version          ││
+│  │ version = get_version()  # 直接调用                    ││
+│  └─────────────────────────────────────────────────────────┘│
+└─────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────┐
+│                    构建脚本环境 (Build)                       │
+│                                                             │
+│  scripts/ 下的构建脚本，mediafactory 模块未安装               │
+│  ┌─────────────────────────────────────────────────────────┐│
+│  │ # 通过 subprocess 调用 _version.py                     ││
+│  │ result = subprocess.run([sys.executable,               ││
+│  │     "src/mediafactory/_version.py"])                   ││
+│  │ version = result.stdout.strip()                        ││
+│  └─────────────────────────────────────────────────────────┘│
+└─────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────┐
+│                    PyInstaller 环境 (Packaging)              │
+│                                                             │
+│  .spec 文件执行时，模块未构建                                 │
+│  ┌─────────────────────────────────────────────────────────┐│
+│  │ # 同样通过 subprocess 调用 _version.py                 ││
+│  │ result = subprocess.run([sys.executable,               ││
+│  │     version_script])                                   ││
+│  └─────────────────────────────────────────────────────────┘│
+└─────────────────────────────────────────────────────────────┘
+```
+
+**关键洞察**：构建脚本不能直接导入 `mediafactory._version`，因为模块未安装。使用 subprocess 调用是正确的分层设计。
+
+---
+
+#### 统一版本读取架构
+
+```
+                    pyproject.toml
+                    (单一真相源)
+                          │
+                          ▼
+              ┌───────────────────────┐
+              │  _version.py          │
+              │  - get_version()      │
+              │  - __main__ 入口      │
+              │  - LRU 缓存           │
+              └───────────┬───────────┘
+                          │
+         ┌────────────────┼────────────────┐
+         │                │                │
+         ▼                ▼                ▼
+┌─────────────┐  ┌─────────────────┐  ┌─────────────┐
+│  运行时      │  │  构建脚本        │  │  PyInstaller│
+│  直接导入    │  │  subprocess     │  │  subprocess │
+└─────────────┘  └─────────────────┘  └─────────────┘
+```
+
+**实现要点**：
+
+1. **`_version.py`**：核心版本模块
+   - 从 pyproject.toml 读取版本
+   - 提供 `get_version()` 函数
+   - 支持 `python _version.py` 命令行调用
+   - 使用 `@lru_cache` 缓存结果
+
+2. **构建脚本** (`build_common.py`)：
+   - 通过 subprocess 调用 `_version.py`
+   - 失败时回退到直接解析 pyproject.toml
+
+3. **PyInstaller spec**：
+   - 同样通过 subprocess 调用
+   - 保持与构建脚本一致的逻辑
+
+---
+
+#### 代码示例
+
+**运行时使用**：
+
+```python
+from mediafactory._version import get_version, __version__
+
+# 方式 1：函数调用
+version = get_version()
+
+# 方式 2：直接使用模块常量
+print(__version__)
+```
+
+**构建脚本使用**：
+
+```python
+# scripts/utils/build_common.py
+def get_project_version() -> str:
+    version_script = root / "src" / "mediafactory" / "_version.py"
+    result = subprocess.run(
+        [sys.executable, str(version_script)],
+        capture_output=True, text=True
+    )
+    return result.stdout.strip()
+```
+
+**命令行使用**：
+
+```bash
+# 直接执行获取版本号
+python src/mediafactory/_version.py
+# 输出: 0.2.0
+```
+
+---
+
+#### 最佳实践总结
+
+| 场景 | 推荐方式 | 原因 |
+|------|---------|------|
+| 运行时代码 | `from mediafactory._version import get_version` | 直接导入，性能最优 |
+| 构建脚本 | `subprocess` 调用 `_version.py` | 模块未安装，无法导入 |
+| CI/CD | `python src/mediafactory/_version.py` | 简单直接 |
+| 调试 | 同上 | 无需进入 Python 环境 |
+
+---
 
 #### 配置管理实现
 

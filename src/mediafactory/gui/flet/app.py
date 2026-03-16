@@ -9,6 +9,7 @@ import threading
 import flet as ft
 
 from mediafactory.logging import log_info, log_error, setup_app_logging
+from mediafactory._version import __version__
 from mediafactory.gui.flet.theme import get_theme
 from mediafactory.gui.flet.components.navigation import TopNavigation, NAV_ITEMS
 
@@ -209,7 +210,7 @@ class MediaFactoryApp:
                                 color=theme.color_scheme.on_surface,
                             ),
                             ft.Text(
-                                "Version 3.2.0 | Multimedia Processing Platform",
+                                f"Version {__version__} | Multimedia Processing Platform",
                                 size=11,
                                 color=theme.color_scheme.on_surface_variant,
                             ),

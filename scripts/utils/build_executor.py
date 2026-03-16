@@ -113,6 +113,24 @@ def run_inno_setup(version: str) -> bool:
     root = get_project_root()
     dist_dir = root / "dist"
 
+    # 检查构建产物：onefile 模式输出单个 exe，onedir 模式输出目录
+    onefile_exe = dist_dir / f"{PROJECT_NAME}.exe"
+    onedir_path = dist_dir / PROJECT_NAME
+
+    if onefile_exe.exists():
+        # onefile 模式：单个 exe 文件
+        source_pattern = str(onefile_exe)
+        exe_path = f"{{app}}\\{PROJECT_NAME}.exe"
+        log_info("检测到 onefile 模式")
+    elif onedir_path.exists():
+        # onedir 模式：目录
+        source_pattern = f"{onedir_path}\\*"
+        exe_path = f"{{app}}\\{PROJECT_NAME}\\{PROJECT_NAME}.exe"
+        log_info("检测到 onedir 模式")
+    else:
+        log_error(f"未找到构建产物: {onefile_exe} 或 {onedir_path}")
+        return False
+
     # 检查 iscc 命令是否存在
     if shutil.which("iscc") is None:
         log_warn("Inno Setup 未安装，跳过安装程序创建")
@@ -134,14 +152,14 @@ ArchitecturesAllowed=x64
 ArchitecturesInstallIn64BitMode=x64
 
 [Files]
-Source: "{dist_dir}\\{PROJECT_NAME}\\*"; DestDir: "{{app}}"; Flags: recursesubdirs
+Source: "{source_pattern}"; DestDir: "{{app}}"; Flags: recursesubdirs ignoreversion
 
 [Icons]
-Name: "{{group}}\\{PROJECT_NAME}"; Filename: "{{app}}\\{PROJECT_NAME}.exe"
-Name: "{{autodesktop}}\\{PROJECT_NAME}"; Filename: "{{app}}\\{PROJECT_NAME}.exe"
+Name: "{{group}}\\{PROJECT_NAME}"; Filename: "{exe_path}"
+Name: "{{autodesktop}}\\{PROJECT_NAME}"; Filename: "{exe_path}"
 
 [Run]
-Filename: "{{app}}\\{PROJECT_NAME}.exe"; Description: "启动 {PROJECT_NAME}"; Flags: nowait postinstall
+Filename: "{exe_path}"; Description: "启动 {PROJECT_NAME}"; Flags: nowait postinstall
 """
 
     iss_path = root / "build" / "setup.iss"

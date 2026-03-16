@@ -14,6 +14,7 @@ MediaFactory 简化 PyInstaller 配置
 
 import os
 import platform
+import subprocess
 import sys
 from pathlib import Path
 
@@ -31,10 +32,28 @@ IS_MACOS = platform.system() == 'Darwin'
 IS_WINDOWS = platform.system() == 'Windows'
 IS_LINUX = platform.system() == 'Linux'
 
-# Version (from environment or pyproject.toml)
-# 从环境变量读取版本号，默认从 pyproject.toml 解析
+# Version (from environment or _version.py)
+# 从环境变量读取版本号，默认调用 _version.py 获取
 def _get_version_from_pyproject() -> str:
-    """从 pyproject.toml 读取版本号"""
+    """从 _version.py 获取版本号（统一版本源）"""
+    version_script = BASE_DIR / "src" / "mediafactory" / "_version.py"
+
+    if version_script.exists():
+        try:
+            result = subprocess.run(
+                [sys.executable, str(version_script)],
+                capture_output=True,
+                text=True,
+                cwd=str(BASE_DIR),
+            )
+            if result.returncode == 0:
+                version = result.stdout.strip()
+                if version:
+                    return version
+        except Exception:
+            pass
+
+    # 回退：直接解析 pyproject.toml（最后手段）
     pyproject_path = BASE_DIR / "pyproject.toml"
     if pyproject_path.exists():
         content = pyproject_path.read_text(encoding="utf-8")
