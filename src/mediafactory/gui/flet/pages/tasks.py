@@ -380,13 +380,13 @@ class TasksPage:
                 self._on_cancel_task(task.id)
 
     def _on_clear_all(self, e) -> None:
-        """清除所有已完成/失败/取消的任务"""
+        """清除所有已完成/失败/取消/待执行的任务"""
         # 收集要删除的任务ID
         to_remove = [
             t.id
             for t in self.state.tasks
             if t.status
-            in [TaskStatus.COMPLETED, TaskStatus.FAILED, TaskStatus.CANCELLED]
+            in [TaskStatus.IDLE, TaskStatus.COMPLETED, TaskStatus.FAILED, TaskStatus.CANCELLED]
         ]
         # 删除任务
         for task_id in to_remove:
@@ -595,7 +595,7 @@ class TasksPage:
             if self._cancel_all_btn:
                 self._cancel_all_btn.disabled = not has_running
             if self._clear_all_btn:
-                self._clear_all_btn.disabled = not has_cleared_status or has_running
+                self._clear_all_btn.disabled = has_running
             self.page.update()
         except Exception:
             pass  # 页面可能已切换，忽略更新错误

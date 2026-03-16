@@ -70,7 +70,7 @@ dist/
 │   ├── models/                        # 模型目录（需用户下载）
 │   │   └── README.txt                 # 模型目录说明
 │   └── _internal/                     # 依赖文件
-└── MediaFactory-3.2.0-{platform}.zip  # 压缩产物（自动生成）
+└── MediaFactory-0.2.0-{platform}.zip  # 压缩产物（自动生成）
 ```
 
 ## 配置
@@ -80,7 +80,7 @@ dist/
 ```python
 # Build configuration (hardcoded)
 PRODUCT_NAME = "MediaFactory"
-PRODUCT_VERSION = "3.2.0"
+PRODUCT_VERSION = "0.2.0"
 ENCRYPT_BYTECODE = True
 ENCRYPTION_KEY = None  # Uses default "mediafactory-2026-secure" if None
 COMPRESS_OUTPUT = True
@@ -121,14 +121,14 @@ ENCRYPT_BYTECODE = False
 ```bash
 python scripts/build/build_darwin.py
 ```
-**输出**: `dist/MediaFactory-Installer-3.2.0.pkg`
+**输出**: `dist/MediaFactory-Installer-0.2.0.pkg`
 
 **Windows (.exe 安装程序)**:
 - 要求: [Inno Setup](https://jrsoftware.org/isdl.php) 6.0+
 ```bash
 python scripts/build/build_win.py
 ```
-**输出**: `dist/MediaFactory-Setup-3.2.0.exe`
+**输出**: `dist/MediaFactory-Setup-0.2.0.exe`
 
 ## 图标文件
 

@@ -115,6 +115,21 @@ class TaskCard:
                 )
             )
 
+        # IDLE 状态也显示删除按钮
+        if not is_running and not is_finished:
+            action_buttons.append(
+                ft.IconButton(
+                    icon=ft.Icons.DELETE_OUTLINED,
+                    icon_size=16,
+                    tooltip="Delete",
+                    on_click=lambda e: self._on_delete_click(),
+                    style=ft.ButtonStyle(
+                        color=self.theme.color_scheme.on_surface_variant,
+                        padding=4,
+                    ),
+                )
+            )
+
         if is_finished:
             action_buttons.append(
                 ft.IconButton(
@@ -130,7 +145,7 @@ class TaskCard:
             )
 
         # 第一行：图标 + 名称 + 状态 + 摘要 + 按钮
-        # 状态徽章，失败时添加 tooltip 显示错误信息
+        # 状态徽章
         status_badge = ft.Container(
             content=ft.Text(
                 status_text,
@@ -141,8 +156,28 @@ class TaskCard:
             padding=ft.padding.symmetric(horizontal=6, vertical=1),
             bgcolor=self._get_status_bgcolor(status_color),
             border_radius=self.theme.radius_sm,
-            tooltip=self._format_error_tooltip() if is_failed and self.task.error else None,
         )
+
+        # 失败状态：状态徽章 + 错误图标组合
+        if is_failed and self.task.error:
+            status_display = ft.Row(
+                controls=[
+                    status_badge,
+                    ft.Container(
+                        content=ft.Icon(
+                            ft.Icons.ERROR_OUTLINE,
+                            size=14,
+                            color=self.theme.color_scheme.error,
+                        ),
+                        tooltip=self._format_error_tooltip(),
+                    ),
+                ],
+                spacing=4,
+                vertical_alignment=ft.CrossAxisAlignment.CENTER,
+            )
+        else:
+            # 其他状态：仅状态徽章
+            status_display = status_badge
 
         row1_controls = [
             ft.Icon(
@@ -158,7 +193,7 @@ class TaskCard:
                 expand=True,
                 overflow=ft.TextOverflow.ELLIPSIS,
             ),
-            status_badge,
+            status_display,
         ]
 
         # 添加配置摘要（紧凑显示）

@@ -41,7 +41,7 @@ def _get_version_from_pyproject() -> str:
         for line in content.splitlines():
             if line.startswith("version = "):
                 return line.split('"')[1]
-    return "3.2.1"  # 回退版本
+    return "0.2.0"  # 回退版本
 
 APP_VERSION = os.environ.get("APP_VERSION", _get_version_from_pyproject())
 PROJECT_NAME = "MediaFactory"
@@ -162,6 +162,9 @@ a.datas = [x for x in a.datas if '.DS_Store' not in str(x[0])]
 
 # Strip 符号（macOS 除外）
 strip = not IS_MACOS
+
+# UPX 压缩（禁用以避免兼容性问题）
+UPX_AVAILABLE = False
 
 # PYZ 加密
 pyz = PYZ(a.pure, a.zipped_data)

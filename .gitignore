@@ -181,6 +181,7 @@ logs/
 /CONSISTENCY_REPORT.md
 /PRE_RELEASE_CHECK.md
 build/
+!scripts/build/
 dist/
 .serena/
 .qoder/

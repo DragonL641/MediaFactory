@@ -230,7 +230,7 @@ rm -rf build/ dist/ && pyinstaller scripts/pyinstaller/installer_simple.spec
 pyinstaller scripts/pyinstaller/installer_simple.spec
 # Use create-dmg or other tools to package
 ```
-**Output**: `dist/MediaFactory-3.2.1.dmg`
+**Output**: `dist/MediaFactory-0.2.0.dmg`
 
 **Windows (.exe installer):**
 - Requires: [Inno Setup](https://jrsoftware.org/isdl.php) 6.0+
@@ -240,7 +240,7 @@ pyinstaller scripts/pyinstaller/installer_simple.spec
 # Then use Inno Setup to create installer
 iscc scripts/build/windows/installer_windows.iss
 ```
-**Output**: `dist/MediaFactory-Setup-3.2.1.exe`
+**Output**: `dist/MediaFactory-Setup-0.2.0.exe`
 
 ### Setup Wizard
 
@@ -269,14 +269,14 @@ Edit build scripts to customize:
 **`scripts/pyinstaller/build_installer.py`**:
 ```python
 PRODUCT_NAME = "MediaFactory"
-PRODUCT_VERSION = "3.2.1"
+PRODUCT_VERSION = "0.2.0"
 ENCRYPT_BYTECODE = True
 COMPRESS_OUTPUT = True
 ```
 
 **`scripts/build/windows/installer_windows.iss`**:
 ```iss
-#define AppVersion "3.2.1"
+#define AppVersion "0.2.0"
 #define AppPublisher "Your Name"
 ```
 
