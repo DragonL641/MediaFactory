@@ -359,6 +359,9 @@ class TaskCard:
 
         直接更新已渲染的组件属性，避免重建整个列表。
         适用于高频进度更新场景。
+
+        Raises:
+            RuntimeError: 当组件结构需要完全重建时抛出（如状态变化）
         """
         if not self._component:
             return
@@ -420,13 +423,13 @@ class TaskCard:
 
             # 更新第二行（进度条行）
             is_running = self.task.status == TaskStatus.RUNNING
+            has_second_row = len(column.controls) >= 2
 
             if is_running:
                 # 如果第二行不存在，需要重建组件
-                if len(column.controls) < 2:
-                    self._component = None
-                    self.build()
-                    return
+                if not has_second_row:
+                    # 标记需要重建，让 TasksPage 处理
+                    raise RuntimeError("Component needs rebuild for running state")
 
                 row2 = column.controls[1]
                 if not isinstance(row2, ft.Row):
@@ -457,6 +460,12 @@ class TaskCard:
                         msg_text.value = (
                             f" • {self.task.message}" if self.task.message else ""
                         )
+            else:
+                # 任务不在运行状态，但组件仍有第二行（进度条）
+                # 这意味着状态从 RUNNING 变为 COMPLETED/FAILED/CANCELLED
+                # 需要重建组件以移除进度条
+                if has_second_row:
+                    raise RuntimeError("Component needs rebuild for finished state")
 
             # 更新容器透明度（取消状态变淡）
             container.opacity = 0.7 if self.task.status == TaskStatus.CANCELLED else 1.0
@@ -464,6 +473,9 @@ class TaskCard:
             # 触发UI更新
             self._component.update()
 
+        except RuntimeError:
+            # 重新抛出 RuntimeError，让 TasksPage 捕获并处理重建
+            raise
         except Exception:
-            # 如果增量更新失败，标记需要重建
+            # 其他异常，标记需要重建
             self._component = None

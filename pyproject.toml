@@ -29,8 +29,8 @@ keywords = ["media", "video", "audio", "subtitle", "whisper", "speech-recognitio
 # Core dependencies (启动必需 - ~200MB)
 # ==============================================================================
 dependencies = [
-    # GUI 框架 (锁定到 0.80.x 系列以保持 API 一致性)
-    "flet>=0.80.0,<0.90.0",
+    # GUI 框架 (固定到 0.82.2 稳定版)
+    "flet==0.82.2",
     # 配置和日志
     "loguru>=0.7.2",
     "pydantic>=2.9.0,<3.0.0",
@@ -82,7 +82,7 @@ mediafactory = "mediafactory.gui.flet.app:launch_gui"
 # 打包依赖（PyInstaller 要打包的依赖，不含 ML）
 # 用于验证打包依赖的完整性，与 [project.dependencies] 一致
 bundle = [
-    "flet>=0.80.0,<0.90.0",
+    "flet==0.82.2",
     "loguru>=0.7.2",
     "pydantic>=2.9.0,<3.0.0",
     "tomli>=2.0.1",
@@ -105,7 +105,7 @@ bundle = [
 # PyTorch 从官方源下载以获取 CUDA 支持
 core = [
     # 包含所有打包依赖
-    "flet>=0.80.0,<0.90.0",
+    "flet==0.82.2",
     "loguru>=0.7.2",
     "pydantic>=2.9.0,<3.0.0",
     "tomli>=2.0.1",

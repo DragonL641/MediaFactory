@@ -5,8 +5,6 @@
 """
 
 import asyncio
-import inspect
-import queue
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Union
@@ -45,114 +43,28 @@ class ProcessingResult:
     metadata: Dict[str, Any] = field(default_factory=dict)
 
 
-class _ServiceProgressAdapter(ProgressCallback):
+class _SimpleProgressAdapter(ProgressCallback):
     """
-    将 GUI 回调适配为 ProgressCallback 协议
+    简化的进度适配器
 
-    使用队列模式进行跨线程进度传递：
-    1. 后台线程调用 update() 将进度放入队列
-    2. 轮询任务在主事件循环中从队列取出进度并调用回调
-    3. 这确保 page.update() 只在主事件循环中调用
-
-    支持两种回调签名：
-    1. (ProcessingProgress) -> None - 直接传递 ProcessingProgress 对象
-    2. (progress: float, message: str) -> None - GUI 异步回调格式
+    直接调用回调函数，不使用队列和轮询。
+    适用于 Flet 0.80+ 的 page.run_task() 模式。
     """
 
     def __init__(
         self,
-        callback: Union[
-            Callable[[ProcessingProgress], None], Callable[[float, str], None]
-        ],
-        page: ft.Page,
+        callback: Callable[[float, str], None],
         is_cancelled_func: Optional[Callable[[], bool]] = None,
     ):
         self._callback = callback
-        self._page = page
         self._is_cancelled_func = is_cancelled_func
-        self._current_stage: str = "model_loading"
-
-        # 队列用于跨线程通信
-        self._queue: queue.Queue = queue.Queue()
-        self._polling = True
-
-        # 检测回调类型
-        self._is_async = inspect.iscoroutinefunction(callback)
-        self._callback_signature = self._detect_callback_signature()
-
-        # 启动轮询任务（在主事件循环中）
-        if self._is_async:
-            page.run_task(self._poll_progress)
-
-    def _detect_callback_signature(self) -> str:
-        """检测回调签名类型"""
-        try:
-            sig = inspect.signature(self._callback)
-            params = list(sig.parameters.values())
-            if len(params) == 1:
-                return "processing_progress"  # (ProcessingProgress)
-            elif len(params) >= 2:
-                return "progress_message"  # (progress, message, ...)
-            return "unknown"
-        except (ValueError, TypeError):
-            # 无法检测签名，默认使用 (progress, message) 格式
-            return "progress_message"
-
-    def set_stage(self, stage: str) -> None:
-        """设置当前阶段"""
-        self._current_stage = stage
-
-    async def _poll_progress(self) -> None:
-        """
-        在主事件循环中轮询进度队列
-
-        这是 Flet 推荐的模式，确保所有 UI 更新都在主事件循环中执行。
-        """
-        while self._polling:
-            try:
-                # 非阻塞获取
-                item = self._queue.get_nowait()
-                args = item
-
-                # 调用回调
-                if self._callback_signature == "progress_message":
-                    await self._callback(*args)
-                else:
-                    await self._callback(args)
-
-            except queue.Empty:
-                # 队列为空，短暂休眠后重试
-                await asyncio.sleep(0.05)
-            except Exception as e:
-                # 记录错误但不中断轮询
-                log_debug(f"[ProgressAdapter] _poll_progress error: {e}")
-                await asyncio.sleep(0.05)
 
     def update(self, progress: float, message: str = "") -> None:
-        """
-        更新进度（可从任意线程调用）
-
-        将进度信息放入队列，由轮询任务在主事件循环中处理。
-        """
+        """更新进度"""
         try:
-            if self._callback_signature == "progress_message":
-                # 直接传递 (progress, message)
-                self._queue.put((progress, message))
-            else:
-                # 包装为 ProcessingProgress
-                progress_data = ProcessingProgress(
-                    stage=self._current_stage,
-                    progress=progress,
-                    message=message,
-                )
-                self._queue.put(progress_data)
+            self._callback(progress, message)
         except Exception as e:
-            # 进度更新失败不应中断处理流程
             log_debug(f"[ProgressAdapter] update failed: {e}")
-
-    def stop_polling(self) -> None:
-        """停止轮询任务"""
-        self._polling = False
 
     def is_cancelled(self) -> bool:
         """检查是否已取消"""
@@ -299,13 +211,12 @@ class SubtitleService:
         else:
             output_path = Path(output_path)
 
-        progress_adapter: Optional[_ServiceProgressAdapter] = None
+        progress_adapter: Optional[ProgressCallback] = None
         try:
             # 创建进度适配器
             if progress_callback:
-                progress_adapter = _ServiceProgressAdapter(
+                progress_adapter = _SimpleProgressAdapter(
                     callback=progress_callback,
-                    page=page,
                     is_cancelled_func=self._is_cancelled,
                 )
             else:
@@ -398,9 +309,7 @@ class SubtitleService:
             )
             return ProcessingResult(success=False, error=str(e))
         finally:
-            # 停止轮询任务
-            if progress_adapter and hasattr(progress_adapter, 'stop_polling'):
-                progress_adapter.stop_polling()
+            pass  # 进度适配器无需清理
 
     def cleanup(self) -> None:
         """清理服务持有的所有资源
@@ -484,7 +393,7 @@ class AudioService:
         """
         self.reset()
 
-        progress_adapter: Optional[_ServiceProgressAdapter] = None
+        progress_adapter: Optional[ProgressCallback] = None
         try:
             video_path = Path(video_path)
             video_dir = video_path.parent
@@ -497,9 +406,8 @@ class AudioService:
 
             # 创建进度适配器
             if progress_callback:
-                progress_adapter = _ServiceProgressAdapter(
+                progress_adapter = _SimpleProgressAdapter(
                     callback=progress_callback,
-                    page=page,
                     is_cancelled_func=lambda: self._cancelled,
                 )
             else:
@@ -539,9 +447,7 @@ class AudioService:
             )
             return ProcessingResult(success=False, error=str(e))
         finally:
-            # 停止轮询任务
-            if progress_adapter and hasattr(progress_adapter, 'stop_polling'):
-                progress_adapter.stop_polling()
+            pass  # 进度适配器无需清理
 
 
 class TranscriptionService:
@@ -615,7 +521,7 @@ class TranscriptionService:
         """
         self.reset()
 
-        progress_adapter: Optional[_ServiceProgressAdapter] = None
+        progress_adapter: Optional[ProgressCallback] = None
         try:
             audio_path_obj = Path(audio_path)
             audio_dir = audio_path_obj.parent
@@ -633,9 +539,8 @@ class TranscriptionService:
 
             # 创建进度适配器
             if progress_callback:
-                progress_adapter = _ServiceProgressAdapter(
+                progress_adapter = _SimpleProgressAdapter(
                     callback=progress_callback,
-                    page=page,
                     is_cancelled_func=lambda: self._cancelled,
                 )
             else:
@@ -702,9 +607,7 @@ class TranscriptionService:
             )
             return ProcessingResult(success=False, error=str(e))
         finally:
-            # 停止轮询任务
-            if progress_adapter and hasattr(progress_adapter, 'stop_polling'):
-                progress_adapter.stop_polling()
+            pass  # 进度适配器无需清理
 
 
 class TranslationService:
@@ -745,9 +648,8 @@ class TranslationService:
             # 创建进度适配器
             progress_adapter: ProgressCallback
             if progress_callback:
-                progress_adapter = _ServiceProgressAdapter(
+                progress_adapter = _SimpleProgressAdapter(
                     callback=progress_callback,
-                    page=page,
                     is_cancelled_func=lambda: self._cancelled,
                 )
             else:
@@ -795,7 +697,7 @@ class TranslationService:
         """翻译 SRT 字幕文件（源语言自动检测）"""
         self.reset()
 
-        progress_adapter: Optional[_ServiceProgressAdapter] = None
+        progress_adapter: Optional[ProgressCallback] = None
         try:
             from mediafactory.engine.srt import SRTEngine
 
@@ -809,9 +711,8 @@ class TranslationService:
 
             # 创建进度适配器
             if progress_callback:
-                progress_adapter = _ServiceProgressAdapter(
+                progress_adapter = _SimpleProgressAdapter(
                     callback=progress_callback,
-                    page=page,
                     is_cancelled_func=lambda: self._cancelled,
                 )
             else:
@@ -938,9 +839,7 @@ class TranslationService:
             )
             return ProcessingResult(success=False, error=str(e))
         finally:
-            # 停止轮询任务
-            if progress_adapter and hasattr(progress_adapter, 'stop_polling'):
-                progress_adapter.stop_polling()
+            pass  # 进度适配器无需清理
 
     def cleanup(self) -> None:
         """清理服务持有的所有资源
@@ -1025,7 +924,7 @@ class VideoEnhancementService:
         """
         self.reset()
 
-        progress_adapter: Optional[_ServiceProgressAdapter] = None
+        progress_adapter: Optional[ProgressCallback] = None
         try:
             from mediafactory.engine.video_enhancement import (
                 VideoEnhancementEngine,
@@ -1034,9 +933,8 @@ class VideoEnhancementService:
 
             # 创建进度适配器
             if progress_callback:
-                progress_adapter = _ServiceProgressAdapter(
+                progress_adapter = _SimpleProgressAdapter(
                     callback=progress_callback,
-                    page=page,
                     is_cancelled_func=self._is_cancelled,
                 )
             else:
@@ -1092,9 +990,7 @@ class VideoEnhancementService:
             )
             return ProcessingResult(success=False, error=str(e))
         finally:
-            # 停止轮询任务
-            if progress_adapter and hasattr(progress_adapter, 'stop_polling'):
-                progress_adapter.stop_polling()
+            pass  # 进度适配器无需清理
 
 
 # 服务单例

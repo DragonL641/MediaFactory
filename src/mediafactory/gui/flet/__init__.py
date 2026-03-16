@@ -45,13 +45,6 @@ from mediafactory.gui.flet.router import (
     get_all_routes,
 )
 
-# 异步处理
-from mediafactory.gui.flet.async_handler import (
-    AsyncTaskManager,
-    AsyncTask,
-    TaskState,
-)
-
 # 服务
 from mediafactory.gui.flet.services import (
     SubtitleService,
@@ -107,10 +100,6 @@ __all__ = [
     "Route",
     "get_route_by_path",
     "get_all_routes",
-    # 异步
-    "AsyncTaskManager",
-    "AsyncTask",
-    "TaskState",
     # 服务
     "SubtitleService",
     "AudioService",

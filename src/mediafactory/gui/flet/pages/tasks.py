@@ -8,6 +8,7 @@
 """
 
 from typing import Dict, Any, Optional, List
+import asyncio
 import uuid
 import flet as ft
 
@@ -18,7 +19,6 @@ from mediafactory.gui.flet.state import (
     TaskStatus,
     TaskConfig,
 )
-from mediafactory.gui.flet.async_handler import AsyncTaskManager
 from mediafactory.gui.flet.components.status_banner import show_success, show_error
 from mediafactory.gui.flet.components.task_card import TaskCard
 from mediafactory.gui.flet.components.task_config_dialog import (
@@ -44,7 +44,10 @@ class TasksPage:
         self.page = page
         self.theme = get_theme()
         self.state = get_state()
-        self.task_manager = AsyncTaskManager(page)
+        # 取消标志字典
+        self._cancel_flags: Dict[str, bool] = {}
+        # 串行锁：确保任务串行执行，避免并发模型加载导致 OOM
+        self._task_lock = asyncio.Lock()
 
         # 服务
         self._subtitle_service = get_subtitle_service()
@@ -274,10 +277,13 @@ class TasksPage:
         self._update_batch_buttons()
 
     def _on_start_task(self, task_id: str) -> None:
-        """启动单个任务"""
+        """启动单个任务（使用 Flet 原生 page.run_task）"""
         task = next((t for t in self.state.tasks if t.id == task_id), None)
         if not task or not task.config:
             return
+
+        # 初始化取消标志
+        self._cancel_flags[task_id] = False
 
         # 更新任务状态
         self.state.update_task(
@@ -285,25 +291,57 @@ class TasksPage:
         )
         self._refresh_task_list()
 
-        # 使用新的 execute() 方法
-        import asyncio
-
-        asyncio.create_task(
-            self.task_manager.execute(
-                task_id=task_id,
-                name=task.name,
-                coroutine=lambda cb: self._execute_task(task, cb),
-                on_progress=lambda p, m: self._on_task_progress(task_id, p, m),
-                on_complete=lambda r: self._on_task_complete(task_id, r),
-                on_error=lambda e: self._on_task_error(task_id, e),
-            )
-        )
+        # 使用 Flet 原生的 page.run_task() 运行后台协程
+        self.page.run_task(self._execute_task_async, task_id)
 
         self._update_batch_buttons()
 
+    async def _execute_task_async(self, task_id: str) -> None:
+        """异步执行任务（使用串行锁保护，避免并发模型加载）"""
+        # 使用锁确保串行执行
+        async with self._task_lock:
+            task = next((t for t in self.state.tasks if t.id == task_id), None)
+            if not task or not task.config:
+                return
+
+            try:
+                # 定义进度回调（直接更新 UI）
+                def progress_callback(progress: float, message: str = ""):
+                    self.state.update_task(task_id, progress=progress, message=message)
+                    self._update_task_card_ui(task_id)
+
+                # 执行任务
+                result = await self._execute_task(task, progress_callback)
+
+                # 处理完成
+                self._on_task_complete(task_id, result)
+
+            except Exception as e:
+                self._on_task_error(task_id, str(e))
+            finally:
+                # 清理取消标志
+                self._cancel_flags.pop(task_id, None)
+
+    def _update_task_card_ui(self, task_id: str) -> None:
+        """增量更新任务卡片 UI
+
+        当任务状态变化需要重建时，会回退到完全刷新。
+        """
+        task_card = self._task_cards.get(task_id)
+        if task_card:
+            task = next((t for t in self.state.tasks if t.id == task_id), None)
+            if task:
+                task_card.update_task(task)
+                try:
+                    task_card.update_ui()
+                except RuntimeError:
+                    # 如果需要重建，回退到完全重建任务列表
+                    self._refresh_task_list()
+
     def _on_cancel_task(self, task_id: str) -> None:
         """取消任务"""
-        self.task_manager.cancel_task(task_id)
+        # 设置取消标志
+        self._cancel_flags[task_id] = True
         self.state.update_task(
             task_id, status=TaskStatus.CANCELLED, message="Cancelled"
         )
@@ -450,27 +488,6 @@ class TasksPage:
         except Exception as ex:
             return {"success": False, "error": str(ex)}
 
-    def _on_task_progress(
-        self, task_id: str, progress: float, message: str = ""
-    ) -> None:
-        """任务进度更新"""
-        self.state.update_task(
-            task_id,
-            progress=progress,
-            message=message,
-        )
-        # 使用增量更新代替重建整个列表
-        task_card = self._task_cards.get(task_id)
-        if task_card:
-            try:
-                # 从任务列表中查找任务
-                task = next((t for t in self.state.tasks if t.id == task_id), None)
-                if task:
-                    task_card.update_task(task)
-                    task_card.update_ui()
-            except Exception as e:
-                log_error_with_context("Failed to update task card", e, {"task_id": task_id})
-
     def _on_task_complete(self, task_id: str, result: Dict[str, Any]) -> None:
         """任务完成"""
         if result.get("success"):
@@ -497,7 +514,23 @@ class TasksPage:
             )
             # 不再显示 Banner，错误信息通过 Tooltip 在任务卡片上显示
 
-        self._refresh_task_list()
+        # 使用增量更新模式
+        task_card = self._task_cards.get(task_id)
+        if task_card:
+            try:
+                task = next((t for t in self.state.tasks if t.id == task_id), None)
+                if task:
+                    task_card.update_task(task)
+                    task_card.update_ui()
+            except RuntimeError:
+                # RuntimeError 表示组件需要重建（状态变化）
+                self._refresh_task_list()
+            except Exception as e:
+                log_error_with_context("Failed to update task card on complete", e, {"task_id": task_id})
+        else:
+            # 如果找不到任务卡片，回退到完全重建
+            self._refresh_task_list()
+
         self._update_batch_buttons()
 
     def _on_task_error(self, task_id: str, error: str) -> None:
@@ -511,7 +544,24 @@ class TasksPage:
             show_error(self.page, f"Task error: {error}")
         except Exception as e:
             log_error_with_context("Failed to show error banner", e, {})
-        self._refresh_task_list()
+
+        # 使用增量更新模式
+        task_card = self._task_cards.get(task_id)
+        if task_card:
+            try:
+                task = next((t for t in self.state.tasks if t.id == task_id), None)
+                if task:
+                    task_card.update_task(task)
+                    task_card.update_ui()
+            except RuntimeError:
+                # RuntimeError 表示组件需要重建（状态变化）
+                self._refresh_task_list()
+            except Exception as e:
+                log_error_with_context("Failed to update task card on error", e, {"task_id": task_id})
+        else:
+            # 如果找不到任务卡片，回退到完全重建
+            self._refresh_task_list()
+
         self._update_batch_buttons()
 
     def _refresh_task_list(self) -> None:
