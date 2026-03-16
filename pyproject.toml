@@ -47,8 +47,8 @@ dependencies = [
     "tqdm>=4.66.0",
     # 语言检测
     "langdetect>=1.0.9",
-    # Hugging Face 模型下载 (限制版本以保持与 transformers 兼容)
-    "huggingface-hub>=0.23.0,<0.28.0",
+    # Hugging Face 模型下载 (与 transformers 4.52+ 兼容)
+    "huggingface-hub>=0.30.0,<1.0.0",
     # LLM API SDKs (远程翻译，无需本地模型)
     "openai>=1.50.0",     # OpenAI SDK 支持 (统一后端)
     "tenacity>=8.2.0",   # 重试机制
@@ -93,7 +93,7 @@ bundle = [
     "opencv-python>=4.8.0",
     "numpy>=1.24.0",
     "langdetect>=1.0.9",
-    "huggingface-hub>=0.23.0,<0.28.0",
+    "huggingface-hub>=0.30.0,<1.0.0",
     "openai>=1.50.0",
     "tenacity>=8.2.0",
 ]
@@ -116,7 +116,7 @@ core = [
     "opencv-python>=4.8.0",
     "numpy>=1.24.0",
     "langdetect>=1.0.9",
-    "huggingface-hub>=0.23.0,<0.28.0",
+    "huggingface-hub>=0.30.0,<1.0.0",
     "openai>=1.50.0",
     "tenacity>=8.2.0",
     # ML 依赖（本地 ASR 和翻译功能）
@@ -125,7 +125,7 @@ core = [
     "torchaudio>=2.5.0",           # PyTorch Audio（CUDA 12.8）
     "faster-whisper>=1.0.0",        # Whisper（使用 faster-whisper）
     "gguf>=0.10.0",                 # GGUF 模型加载支持
-    "transformers>=4.46.0,<5.0.0",  # Transformers（锁定 4.46.x）
+    "transformers>=4.52.1,<5.0.0",  # Transformers（修复 CVE-2025-3933）
     "sentencepiece>=0.1.99",        # 支持库
     "accelerate>=1.0.0",            # 支持库
     "spandrel>=0.4.0",              # 统一模型加载库（视频增强）

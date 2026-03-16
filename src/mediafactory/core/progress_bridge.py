@@ -10,6 +10,7 @@ Architecture:
 
 from typing import Dict, Any, Optional, Callable
 from ..core.progress_protocol import ProgressCallback, NO_OP_PROGRESS
+from ..logging import log_debug
 
 
 class GUIProgressBridge(ProgressCallback):
@@ -212,9 +213,9 @@ class GUIProgressBridge(ProgressCallback):
                 else:
                     # Simple mode - direct pass-through
                     callback(progress, message)
-            except Exception:
-                # Silently handle GUI update errors
-                pass
+            except Exception as e:
+                # GUI 更新错误通常是因为组件已销毁，记录但不中断
+                log_debug(f"GUI progress update error: {e}")
 
     def is_cancelled(self) -> bool:
         """Check if the operation should be cancelled.
@@ -227,8 +228,8 @@ class GUIProgressBridge(ProgressCallback):
                 callback = self._gui_observers[self.CANCELLED]
                 if callable(callback):
                     return callback()
-            except Exception:
-                pass
+            except Exception as e:
+                log_debug(f"GUI cancellation check error: {e}")
         return False
 
     def set_file_index(self, index: int) -> None:

@@ -489,8 +489,8 @@ class TranscriptionService:
         if self._model_context is not None:
             try:
                 self._model_context.__exit__(None, None, None)
-            except Exception:
-                pass
+            except Exception as e:
+                log_debug(f"Model cleanup error: {e}")
             finally:
                 self._model_context = None
                 self._whisper_model = None
@@ -755,8 +755,8 @@ class TranslationService:
                         current_progress = min(current_progress + speed, end)
                         try:
                             progress_adapter.update(current_progress, msg)
-                        except Exception:
-                            pass
+                        except Exception as e:
+                            log_debug(f"Progress update error: {e}")
 
                     stage_idx += 1
 
@@ -768,8 +768,8 @@ class TranslationService:
                     current_progress = min(current_progress + 0.3, 90)
                     try:
                         progress_adapter.update(current_progress, "Finalizing...")
-                    except Exception:
-                        pass
+                    except Exception as e:
+                        log_debug(f"Progress update error: {e}")
 
             # 启动平滑进度任务
             smooth_progress_future = loop.run_in_executor(None, smooth_progress_task)
@@ -1232,8 +1232,8 @@ class ModelStatusService:
                 result["base_url"] = preset_config.base_url
                 result["api_key"] = preset_config.api_key
                 result["model"] = preset_config.model
-        except Exception:
-            pass
+        except Exception as e:
+            log_debug(f"Failed to get LLM config: {e}")
 
         return result
 

@@ -62,6 +62,9 @@ datas = [
     (str(BASE_DIR / "config.toml.example"), "."),
     # 资源文件
     (str(BASE_DIR / "src" / "mediafactory" / "resources"), "mediafactory/resources"),
+    # 许可证文件（法律合规要求）
+    (str(BASE_DIR / "NOTICE.txt"), "."),
+    (str(BASE_DIR / "THIRD_PARTY_LICENSES.txt"), "."),
 ]
 
 # =============================================================================
