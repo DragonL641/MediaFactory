@@ -43,7 +43,7 @@ A professional multimedia processing platform for subtitle generation and video-
 | **Platform** | Cross-platform | Cross-platform | Cross-platform | Windows |
 | | | | | |
 | **Speech Recognition** | ✅ Faster Whisper | ✅ Multiple | ✅ Multiple | ✅ Whisper |
-| **VAD Filtering** | ✅ Silero VAD | ✅ | ✅ | ❌ |
+| **VAD Filtering** | ✅ Built-in VAD | ✅ | ✅ | ❌ |
 | **Translation** | ✅ Local + LLM | ✅ Multiple | ✅ LLM-focused | ✅ Google/DeepL |
 | **Batch Translation** | ✅ Recursive Validation | ✅ | ✅ | ❌ |
 | | | | | |
@@ -76,7 +76,7 @@ A professional multimedia processing platform for subtitle generation and video-
 
 **Key Features**:
 - 🚀 **Faster Whisper** - 4-6x faster than OpenAI Whisper
-- 🎯 **VAD Filtering** - Built-in Silero VAD reduces hallucinations
+- 🎯 **VAD Filtering** - Built-in VAD (Faster Whisper) reduces hallucinations
 - 🌐 **Unified LLM Backend** - OpenAI-compatible API supports all major services
 - 📝 **Batch Translation** - Recursive validation with auto-repair
 - 🎨 **ASS Styling** - 5 preset templates + custom style files
@@ -184,11 +184,13 @@ beam_size = 5
 [model]
 local_model_path = "models"
 
-[api_translation]
-backend = "openai"
+# LLM Translation (OpenAI-compatible backend)
+[openai_compatible]
+current_preset = "openai"
 
-[openai]
-api_key = "YOUR_API_KEY"
+[openai_compatible.openai]
+api_key = "your-api-key"
+base_url = "https://api.openai.com/v1"
 model = "gpt-4o-mini"
 
 [llm_translation]
@@ -196,7 +198,7 @@ enable_batch = true
 batch_size = 100
 ```
 
-Supported LLM backends: OpenAI, GLM (智谱AI).
+Supported LLM backends: OpenAI, DeepSeek, GLM (智谱AI), Qwen (通义千问), Moonshot.
 
 ---
 
@@ -210,10 +212,16 @@ Create standalone executables with all dependencies:
 
 ```bash
 # Build for current platform
-python scripts/pyinstaller/build_installer.py
+# macOS:
+python scripts/build/build_darwin.py
+# Windows:
+python scripts/build/build_win.py
 
 # Clean build artifacts
-python scripts/pyinstaller/build_installer.py --clean
+# macOS:
+python scripts/build/build_darwin.py --clean
+# Windows:
+python scripts/build/build_win.py --clean
 ```
 
 **Output**: `dist/MediaFactory.exe` (Windows) or `dist/MediaFactory.app` (macOS)
@@ -226,7 +234,7 @@ python scripts/pyinstaller/build_installer.py --clean
 ```bash
 python scripts/build/macos/create_dmg.py
 ```
-**Output**: `dist/MediaFactory-3.2.0.dmg`
+**Output**: `dist/MediaFactory-3.2.1.dmg`
 
 **Windows (.exe installer):**
 - Requires: [Inno Setup](https://jrsoftware.org/isdl.php) 6.0+
@@ -235,7 +243,7 @@ python scripts/build/windows/package_windows.py
 # Or use Inno Setup directly
 iscc scripts/build/windows/installer_windows.iss
 ```
-**Output**: `dist/MediaFactory-Setup-3.2.0.exe`
+**Output**: `dist/MediaFactory-Setup-3.2.1.exe`
 
 ### Setup Wizard
 
@@ -264,14 +272,14 @@ Edit build scripts to customize:
 **`scripts/pyinstaller/build_installer.py`**:
 ```python
 PRODUCT_NAME = "MediaFactory"
-PRODUCT_VERSION = "3.2.0"
+PRODUCT_VERSION = "3.2.1"
 ENCRYPT_BYTECODE = True
 COMPRESS_OUTPUT = True
 ```
 
 **`scripts/build/windows/installer_windows.iss`**:
 ```iss
-#define AppVersion "3.2.0"
+#define AppVersion "3.2.1"
 #define AppPublisher "Your Name"
 ```
 
@@ -306,7 +314,7 @@ Before release, ensure:
 
 ### Log Files
 
-All logs are written to: `mediafactory_YYYYMMDD_HHMMSS.log` (in application root directory)
+All logs are written to: `logs/LOG-YYYY-MM-DD-HHMM.log` (in application directory)
 
 ---
 

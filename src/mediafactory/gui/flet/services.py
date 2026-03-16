@@ -366,7 +366,7 @@ class SubtitleService:
                 )
                 return ProcessingResult(
                     success=False,
-                    error="字幕生成超时（超过5分钟限制）。可能是视频文件过大或 GPU 不兼容。"
+                    error="Subtitle generation timeout (exceeded 5-minute limit). The video file may be too large or GPU incompatible."
                 )
 
             # 里程碑进度：完成
@@ -944,12 +944,12 @@ class VideoEnhancementService:
         video_path: str,
         page: ft.Page,
         output_path: Optional[str] = None,
-        preset: str = "fast",
         scale: int = 4,
         model_type: str = "general",
         denoise: bool = False,
-        face_fix: bool = False,
+        denoise_strength: float = 1.0,
         temporal: bool = False,
+        temporal_strength: float = 0.5,
         progress_callback: Optional[Callable[[ProcessingProgress], None]] = None,
     ) -> ProcessingResult:
         """
@@ -958,12 +958,12 @@ class VideoEnhancementService:
         Args:
             video_path: 输入视频路径
             output_path: 输出视频路径（可选）
-            preset: 预设模式 (fast/balanced/quality)
             scale: 放大倍数 (2/4)
             model_type: 模型类型 (general/anime)
             denoise: 是否启用去噪
-            face_fix: 是否启用人脸修复
+            denoise_strength: 去噪强度 (0.0-1.0)
             temporal: 是否启用时序平滑
+            temporal_strength: 时序平滑强度 (0.0-1.0)
             progress_callback: 进度回调
 
         Returns:
@@ -976,7 +976,6 @@ class VideoEnhancementService:
             from mediafactory.engine.video_enhancement import (
                 VideoEnhancementEngine,
                 EnhancementConfig,
-                get_preset_config,
             )
 
             # 创建进度适配器
@@ -993,12 +992,12 @@ class VideoEnhancementService:
 
             # 创建配置
             config = EnhancementConfig(
-                preset=preset,
                 scale=scale,
                 model_type=model_type,
                 denoise=denoise,
-                face_fix=face_fix,
+                denoise_strength=denoise_strength,
                 temporal=temporal,
+                temporal_strength=temporal_strength,
             )
 
             # 创建引擎
@@ -1026,11 +1025,9 @@ class VideoEnhancementService:
                 success=True,
                 output_path=output,
                 metadata={
-                    "preset": preset,
                     "scale": scale,
                     "model_type": model_type,
                     "denoise": denoise,
-                    "face_fix": face_fix,
                     "temporal": temporal,
                 },
             )

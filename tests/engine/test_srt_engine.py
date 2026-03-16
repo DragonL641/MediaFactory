@@ -74,7 +74,7 @@ class TestSRTFormatConstants:
     @pytest.mark.unit
     def test_srt_format_constants(self):
         """测试 SRT 格式常量。"""
-        from mediafactory.constants import SubtitleFormatConstants
+        from mediafactory.engine.srt import SubtitleFormatConstants
 
         assert SubtitleFormatConstants.MILLISECONDS_PER_SECOND == 1000
         assert SubtitleFormatConstants.SECONDS_PER_MINUTE == 60

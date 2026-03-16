@@ -39,4 +39,4 @@ class TestBasicFlow:
         """Test ProcessingContext default values."""
         ctx = ProcessingContext()
         assert ctx.tgt_lang == "zh"
-        assert ctx.whisper_model == "small"
+        assert ctx.whisper_model == "auto"  # 默认使用 auto（固定 Large V3）

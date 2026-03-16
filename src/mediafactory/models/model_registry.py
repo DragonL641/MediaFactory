@@ -44,7 +44,6 @@ class ModelType(Enum):
     TRANSLATION = "translation"
     SUPER_RESOLUTION = "super_resolution"  # Real-ESRGAN
     DENOISE = "denoise"  # NAFNet
-    FACE_RESTORE = "face_restore"  # CodeFormer, RetinaFace
 
 
 class DownloadMode(Enum):
@@ -172,7 +171,7 @@ MODEL_REGISTRY: dict[str, ModelInfo] = {
     # M2M100 (Apache 2.0 许可证，轻量级)
     "facebook/m2m100_418M": ModelInfo(
         huggingface_id="facebook/m2m100_418M",
-        display_name="M2M100-418M (轻量级)",
+        display_name="M2M100-418M",
         model_type=ModelType.TRANSLATION,
         model_size_mb=3700,
         runtime_memory_mb=2790,  # 官方FP32数据2.79GB
@@ -270,35 +269,6 @@ MODEL_REGISTRY: dict[str, ModelInfo] = {
         huggingface_filename="NAFNet-GoPro-width64.pth",
         description="Denoise for old/compressed videos",
         metadata={"type": "denoise"},
-    ),
-    # ========== Enhancement Models: Face Restore (CodeFormer) ==========
-    "CodeFormer": ModelInfo(
-        huggingface_id="CodeFormer",
-        display_name="CodeFormer",
-        model_type=ModelType.FACE_RESTORE,
-        model_size_mb=360,  # 实际大小
-        runtime_memory_mb=1024,
-        license=LicenseType.MIT,
-        download_mode=DownloadMode.FILE,
-        huggingface_repo="alexgenovese/facerestore",
-        huggingface_filename="codeformer-v0.1.0.pth",
-        local_filename="codeformer.pth",
-        description="Restore blurry faces",
-        metadata={"type": "face_restore"},
-    ),
-    "RetinaFace-R50": ModelInfo(
-        huggingface_id="RetinaFace-R50",
-        display_name="RetinaFace R50",
-        model_type=ModelType.FACE_RESTORE,
-        model_size_mb=105,
-        runtime_memory_mb=512,
-        license=LicenseType.MIT,
-        download_mode=DownloadMode.FILE,
-        huggingface_repo="licyk/sd-upscaler-models",
-        huggingface_filename="GFPGAN/detection_Resnet50_Final.pth",
-        local_filename="Resnet50_Final.pth",
-        description="Detect face positions",
-        metadata={"type": "face_detection"},
     ),
 }
 
@@ -599,7 +569,7 @@ def get_all_enhancement_models() -> List[ModelInfo]:
     Returns:
         List of enhancement ModelInfo objects
     """
-    enhancement_types = {ModelType.SUPER_RESOLUTION, ModelType.DENOISE, ModelType.FACE_RESTORE}
+    enhancement_types = {ModelType.SUPER_RESOLUTION, ModelType.DENOISE}
     return [
         info for info in MODEL_REGISTRY.values()
         if info.model_type in enhancement_types
@@ -610,7 +580,7 @@ def get_enhancement_models_by_type(model_type: ModelType) -> List[ModelInfo]:
     """按类型获取增强模型。
 
     Args:
-        model_type: 模型类型 (SUPER_RESOLUTION, DENOISE, FACE_RESTORE)
+        model_type: 模型类型 (SUPER_RESOLUTION, DENOISE)
 
     Returns:
         List of ModelInfo objects of the specified type
@@ -654,7 +624,7 @@ def is_enhancement_model(model_id: str) -> bool:
     info = MODEL_REGISTRY.get(model_id)
     if info is None:
         return False
-    return info.model_type in {ModelType.SUPER_RESOLUTION, ModelType.DENOISE, ModelType.FACE_RESTORE}
+    return info.model_type in {ModelType.SUPER_RESOLUTION, ModelType.DENOISE}
 
 
 # ==================== Model Storage Paths ====================

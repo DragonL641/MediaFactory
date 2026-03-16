@@ -15,8 +15,8 @@ from .model_registry import (
     MODEL_REGISTRY,
     ModelType,
     get_model_info,
+    get_models_base_dir,  # 使用 model_registry 中的统一路径函数
 )
-from ..config import get_app_root_dir
 from ..logging import log_error, log_exception, log_info
 
 # 重试配置
@@ -25,8 +25,12 @@ RETRY_DELAY = 5  # 重试间隔（秒）
 
 
 def get_models_dir() -> Path:
-    """获取 models 目录路径。"""
-    return get_app_root_dir() / "models"
+    """获取 models 目录路径。
+
+    注意：此函数是对 model_registry.get_models_base_dir() 的兼容性封装。
+    新代码应直接使用 model_registry.get_models_base_dir()。
+    """
+    return get_models_base_dir()
 
 
 def get_model_total_size(
@@ -234,7 +238,6 @@ def download_model(
                 repo_id=huggingface_id,
                 local_dir=str(local_path),
                 endpoint=endpoint,
-                local_dir_use_symlinks=False,  # 直接下载到目标目录，不使用缓存，便于进度追踪
                 allow_patterns=allow_patterns,
                 ignore_patterns=ignore_patterns,
             )

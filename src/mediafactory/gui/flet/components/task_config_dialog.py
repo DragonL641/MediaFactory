@@ -77,9 +77,9 @@ BILINGUAL_LAYOUT_OPTIONS = [
 # ASS字幕样式预设选项
 ASS_STYLE_PRESETS = [
     {"value": "default", "label": "Default"},
-    {"value": "科普风", "label": "Science (科普风)"},
-    {"value": "番剧风", "label": "Anime (番剧风)"},
-    {"value": "新闻风", "label": "News (新闻风)"},
+    {"value": "science", "label": "Science"},
+    {"value": "anime", "label": "Anime"},
+    {"value": "news", "label": "News"},
 ]
 
 # 任务类型定义
@@ -150,13 +150,6 @@ FILE_FILTERS = {
         "dialog_title": "Select SRT Subtitle File",
     },
 }
-
-# 视频增强预设选项
-ENHANCEMENT_PRESET_OPTIONS = [
-    {"value": "fast", "label": "Fast (Upscaling Only)"},
-    {"value": "balanced", "label": "Balanced (+ Denoise + Face)"},
-    {"value": "quality", "label": "Quality (Full Enhancement)"},
-]
 
 # 视频增强模型类型选项
 ENHANCEMENT_MODEL_OPTIONS = [
@@ -822,19 +815,6 @@ class TaskConfigDialog:
             expand=True,
         )
 
-        # 预设模式选择
-        self._preset_dropdown = ft.Dropdown(
-            label="Preset Mode",
-            options=[
-                ft.dropdown.Option(opt["value"], opt["label"])
-                for opt in ENHANCEMENT_PRESET_OPTIONS
-            ],
-            value="fast",
-            width=280,
-            border_color=self.theme.color_scheme.outline,
-            on_select=self._on_enhancement_preset_change,
-        )
-
         # 放大倍数
         self._scale_dropdown = ft.Dropdown(
             label="Scale",
@@ -862,13 +842,6 @@ class TaskConfigDialog:
         # 高级选项 - 去噪开关
         self._denoise_switch = ft.Switch(
             label="Enable Denoising",
-            value=False,
-            active_color=self.theme.color_scheme.primary,
-        )
-
-        # 高级选项 - 人脸修复开关
-        self._face_fix_switch = ft.Switch(
-            label="Enable Face Restoration",
             value=False,
             active_color=self.theme.color_scheme.primary,
         )
@@ -907,8 +880,6 @@ class TaskConfigDialog:
                 weight=ft.FontWeight.W_500,
                 color=self.theme.color_scheme.on_surface,
             ),
-            self._preset_dropdown,
-            ft.Container(height=8),
             ft.Row(
                 controls=[
                     self._scale_dropdown,
@@ -924,35 +895,8 @@ class TaskConfigDialog:
                 color=self.theme.color_scheme.on_surface,
             ),
             self._denoise_switch,
-            self._face_fix_switch,
             self._temporal_switch,
         ]
-
-    def _on_enhancement_preset_change(self, e) -> None:
-        """预设模式变更 - 自动更新高级选项"""
-        preset = e.control.value
-
-        # 根据预设自动设置高级选项
-        if preset == "fast":
-            self._denoise_switch.value = False
-            self._face_fix_switch.value = False
-            self._temporal_switch.value = False
-        elif preset == "balanced":
-            self._denoise_switch.value = True
-            self._face_fix_switch.value = True
-            self._temporal_switch.value = False
-        elif preset == "quality":
-            self._denoise_switch.value = True
-            self._face_fix_switch.value = True
-            self._temporal_switch.value = True
-
-        # 更新UI
-        try:
-            self._denoise_switch.update()
-            self._face_fix_switch.update()
-            self._temporal_switch.update()
-        except Exception:
-            pass
 
     def _build_actions(self) -> List[ft.Control]:
         """构建操作按钮"""
@@ -1230,15 +1174,10 @@ class TaskConfigDialog:
             style_preset = self._style_preset_dropdown.value or "default"
 
         # 收集视频增强配置
-        enhancement_preset = "fast"
         enhancement_scale = 4
         enhancement_model = "general"
         enhancement_denoise = False
-        enhancement_face_fix = False
         enhancement_temporal = False
-
-        if hasattr(self, "_preset_dropdown") and self._preset_dropdown:
-            enhancement_preset = self._preset_dropdown.value or "fast"
 
         if hasattr(self, "_scale_dropdown") and self._scale_dropdown:
             try:
@@ -1252,8 +1191,6 @@ class TaskConfigDialog:
         if hasattr(self, "_denoise_switch") and self._denoise_switch:
             enhancement_denoise = self._denoise_switch.value
 
-        if hasattr(self, "_face_fix_switch") and self._face_fix_switch:
-            enhancement_face_fix = self._face_fix_switch.value
 
         if hasattr(self, "_temporal_switch") and self._temporal_switch:
             enhancement_temporal = self._temporal_switch.value
@@ -1280,10 +1217,8 @@ class TaskConfigDialog:
             bilingual=bilingual,
             bilingual_layout=bilingual_layout,
             style_preset=style_preset,
-            enhancement_preset=enhancement_preset,
             enhancement_scale=enhancement_scale,
             enhancement_model=enhancement_model,
             enhancement_denoise=enhancement_denoise,
-            enhancement_face_fix=enhancement_face_fix,
             enhancement_temporal=enhancement_temporal,
         )

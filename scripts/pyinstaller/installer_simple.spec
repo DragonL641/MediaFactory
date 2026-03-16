@@ -32,7 +32,18 @@ IS_WINDOWS = platform.system() == 'Windows'
 IS_LINUX = platform.system() == 'Linux'
 
 # Version (from environment or pyproject.toml)
-APP_VERSION = os.environ.get("APP_VERSION", "3.1.0")
+# 从环境变量读取版本号，默认从 pyproject.toml 解析
+def _get_version_from_pyproject() -> str:
+    """从 pyproject.toml 读取版本号"""
+    pyproject_path = BASE_DIR / "pyproject.toml"
+    if pyproject_path.exists():
+        content = pyproject_path.read_text(encoding="utf-8")
+        for line in content.splitlines():
+            if line.startswith("version = "):
+                return line.split('"')[1]
+    return "3.2.1"  # 回退版本
+
+APP_VERSION = os.environ.get("APP_VERSION", _get_version_from_pyproject())
 PROJECT_NAME = "MediaFactory"
 
 # Icon paths

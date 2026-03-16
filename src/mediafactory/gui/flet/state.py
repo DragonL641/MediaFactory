@@ -51,14 +51,12 @@ class TaskConfig:
     bilingual: bool = False  # 是否生成双语字幕
     bilingual_layout: str = "translate_on_top"  # 双语布局
     # ASS字幕样式预设
-    style_preset: str = "default"  # default, 科普风, 番剧风, 新闻风
+    style_preset: str = "default"  # default, science, anime, news
 
     # 视频增强参数
-    enhancement_preset: str = "fast"  # fast, balanced, quality
     enhancement_scale: int = 4  # 2 或 4
     enhancement_model: str = "general"  # general 或 anime
     enhancement_denoise: bool = False
-    enhancement_face_fix: bool = False
     enhancement_temporal: bool = False
 
 
