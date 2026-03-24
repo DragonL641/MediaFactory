@@ -24,9 +24,13 @@ from typing import Dict, Any
 
 
 def _log(message: str) -> None:
-    """Log message to stderr (captured by parent process)."""
-    timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
-    print(f"[{timestamp}] [DownloadWorker] {message}", file=sys.stderr, flush=True)
+    """Safe log message - falls back to stderr if logging fails."""
+    try:
+        from mediafactory.logging import log_info
+        log_info(f"[DownloadWorker] {message}")
+    except Exception as e:
+        print(f"[DownloadWorker] {message}", file=sys.stderr, flush=True)
+        print(f"[DownloadWorker] Logging error: {e}", file=sys.stderr, flush=True)
 
 
 def download_repo_worker(params: Dict[str, Any]) -> Dict[str, Any]:
@@ -59,6 +63,9 @@ def download_repo_worker(params: Dict[str, Any]) -> Dict[str, Any]:
         # 设置 huggingface_hub 超时环境变量
         os.environ["HF_HUB_DOWNLOAD_TIMEOUT"] = str(timeout)
         os.environ["HF_HUB_ETAG_TIMEOUT"] = str(timeout)
+        # 禁用进度条（GUI 模式下 stdout/stderr 不可用）
+        os.environ["HF_HUB_DISABLE_PROGRESS_BARS"] = "1"
+        os.environ["HF_HUB_DISABLE_SYMLINKS_WARNING"] = "1"
 
         # 记录下载源
         download_source = endpoint if endpoint else "https://huggingface.co"
@@ -130,6 +137,9 @@ def download_file_worker(params: Dict[str, Any]) -> Dict[str, Any]:
         # 设置 huggingface_hub 超时环境变量
         os.environ["HF_HUB_DOWNLOAD_TIMEOUT"] = str(timeout)
         os.environ["HF_HUB_ETAG_TIMEOUT"] = str(timeout)
+        # 禁用进度条（GUI 模式下 stdout/stderr 不可用）
+        os.environ["HF_HUB_DISABLE_PROGRESS_BARS"] = "1"
+        os.environ["HF_HUB_DISABLE_SYMLINKS_WARNING"] = "1"
 
         # 记录下载源
         download_source = endpoint if endpoint else "https://huggingface.co"
@@ -183,6 +193,13 @@ def download_file_worker(params: Dict[str, Any]) -> Dict[str, Any]:
 
 def main():
     """Subprocess entry point."""
+    # Initialize logging first (with error handling)
+    try:
+        from mediafactory.logging import setup_app_logging
+        setup_app_logging()
+    except Exception as e:
+        print(f"[DownloadWorker] Failed to initialize logging: {e}", file=sys.stderr, flush=True)
+
     if len(sys.argv) < 2:
         print(json.dumps({"success": False, "error": "No parameters provided"}))
         sys.exit(1)
