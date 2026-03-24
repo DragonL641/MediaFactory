@@ -7,6 +7,8 @@ Models 页面
 """
 
 from typing import Dict, Any, List, Optional
+import threading
+import time
 import flet as ft
 
 from mediafactory.gui.flet.theme import get_theme, SEMANTIC_COLORS
@@ -34,8 +36,9 @@ def _get_models_by_type():
         "super_resolution": [],
         "denoise": [],
     }
-    
-    for model_id, info in MODEL_REGISTRY.items():
+
+    # Use list() to create a snapshot to avoid "dictionary changed size during iteration"
+    for model_id, info in list(MODEL_REGISTRY.items()):
         model_data = {
             "id": model_id,
             "name": info.display_name,
@@ -84,6 +87,11 @@ class ModelsPage:
 
         # 删除状态管理（用于显示删除中状态）
         self._deleting_models: Dict[str, bool] = {}
+
+        # Refresh management to prevent race conditions
+        self._refresh_lock = threading.Lock()
+        self._last_refresh_time = 0.0
+        self._refresh_pending = False
 
     def build(self) -> ft.Control:
         """构建页面"""
@@ -448,13 +456,36 @@ class ModelsPage:
         self, model_id: str, status: DownloadStatus, progress: float, message: str
     ) -> None:
         """DownloadManager 状态变化回调（在后台线程中调用）"""
-        # 使用 page.run_thread() 在主线程中更新 UI
-        # 注意：这里不能直接调用 UI 更新，需要通过 Flet 的线程安全机制
         try:
-            # 使用 page 的线程安全机制
-            self.page.run_thread(self._safe_refresh_page)
+            self._schedule_refresh()
         except Exception as e:
-            log_error(f"Failed to trigger UI refresh: {e}")
+            log_error(f"Failed to schedule UI refresh: {e}")
+
+    def _schedule_refresh(self) -> None:
+        """Schedule a page refresh with debouncing to prevent race conditions"""
+        current_time = time.time()
+
+        with self._refresh_lock:
+            # Debounce: only allow refresh every 200ms
+            if current_time - self._last_refresh_time < 0.2:
+                if not self._refresh_pending:
+                    self._refresh_pending = True
+                    threading.Timer(0.2, self._delayed_refresh).start()
+                return
+
+            self._last_refresh_time = current_time
+            self._refresh_pending = False
+
+        self.page.run_thread(self._safe_refresh_page)
+
+    def _delayed_refresh(self) -> None:
+        """Execute delayed refresh after debounce period"""
+        with self._refresh_lock:
+            if self._refresh_pending:
+                self._refresh_pending = False
+                self._last_refresh_time = time.time()
+
+        self.page.run_thread(self._safe_refresh_page)
 
     def _safe_refresh_page(self) -> None:
         """安全刷新页面（在主线程中调用）"""
@@ -540,9 +571,8 @@ class ModelsPage:
         # This allows retry after cancellation or failure
         self._download_manager.clear_status(model_id)
 
-        # 加入下载队列
+        # 加入下载队列 (callback handles refresh)
         self._download_manager.enqueue(model_id)
-        self._refresh_page()
 
     def _delete_model(self, model_id: str, model_name: str, is_enhancement: bool) -> None:
         """删除模型"""

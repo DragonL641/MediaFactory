@@ -20,7 +20,31 @@ from .config import (
     AppConfig,
 )
 
-from .models.local_models import LocalModelManager, local_model_manager
+# Model management - lazy import to avoid requiring ML dependencies at startup
+# These will be available after ML dependencies are installed via Setup Wizard
+LocalModelManager = None
+local_model_manager = None
+
+
+def __getattr__(name):
+    """Lazy import for model-related names that require ML dependencies."""
+    global LocalModelManager, local_model_manager
+
+    if name in ("LocalModelManager", "local_model_manager"):
+        from .models.local_models import LocalModelManager as _LocalModelManager
+        from .models.local_models import local_model_manager as _local_model_manager
+
+        LocalModelManager = _LocalModelManager
+        local_model_manager = _local_model_manager
+
+        if name == "LocalModelManager":
+            return LocalModelManager
+        elif name == "local_model_manager":
+            return local_model_manager
+
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+
 from .batch import (
     BatchProcessor,
     BatchProcessingReport,

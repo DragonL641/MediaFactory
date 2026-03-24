@@ -9,7 +9,8 @@ import time
 from pathlib import Path
 from typing import Optional, Callable, Tuple
 
-from huggingface_hub import snapshot_download, HfApi
+# Lazy import for huggingface_hub - only needed for download operations
+# This allows the module to be imported without ML dependencies
 
 from .model_registry import (
     MODEL_REGISTRY,
@@ -46,6 +47,8 @@ def get_model_total_size(
         模型总大小（字节），如果获取失败则返回 None
     """
     try:
+        from huggingface_hub import HfApi
+
         api = HfApi(endpoint=endpoint)
         files = list(
             api.list_repo_tree(
@@ -234,6 +237,8 @@ def download_model(
             # 使用 snapshot_download 直接下载整个仓库
             # 这是 HuggingFace 官方推荐的方式，会自动处理所有文件
             # huggingface_hub 默认支持断点续传
+            from huggingface_hub import snapshot_download
+
             snapshot_download(
                 repo_id=huggingface_id,
                 local_dir=str(local_path),

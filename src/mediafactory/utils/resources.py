@@ -1,26 +1,36 @@
 """MediaFactory 的系统资源管理和检查工具。"""
 
-import psutil
-import torch
 import os
 import configparser
 from typing import Tuple, Dict, Any
+
+import psutil
 
 from ..logging import log_info, log_warning, log_step, log_success
 
 
 def get_system_resources() -> Dict[str, Any]:
     """获取当前系统 RAM 和 VRAM 的可用情况。"""
+    # Lazy import torch - only needed when checking GPU resources
+    try:
+        import torch
+
+        gpu_available = torch.cuda.is_available()
+    except ImportError:
+        gpu_available = False
+
     resources = {
         "ram_total_gb": psutil.virtual_memory().total / (1024**3),
         "ram_available_gb": psutil.virtual_memory().available / (1024**3),
-        "gpu_available": torch.cuda.is_available(),
+        "gpu_available": gpu_available,
         "gpu_vram_total_gb": 0.0,
         "gpu_vram_available_gb": 0.0,
         "gpu_name": "None",
     }
     if resources["gpu_available"]:
         try:
+            import torch
+
             resources["gpu_name"] = torch.cuda.get_device_name(0)
             resources["gpu_vram_total_gb"] = torch.cuda.get_device_properties(
                 0

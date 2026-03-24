@@ -42,34 +42,15 @@ def mark_first_run_completed(project_root: Optional[Path] = None) -> None:
 def check_dependencies_installed() -> bool:
     """检查 ML 依赖是否已安装
 
-    在冻结环境中，ML 依赖安装到系统 Python 而非打包的解释器中，
-    因此需要检查 pip 列表而非直接导入。
+    使用 importlib 检查包是否可用，避免在冻结环境中启动新进程。
     """
-    if getattr(sys, "frozen", False):
-        # 冻结环境：检查 pip 列表
-        import subprocess
+    try:
+        import importlib.util
 
-        try:
-            result = subprocess.run(
-                [sys.executable, "-m", "pip", "list"],
-                capture_output=True,
-                text=True,
-                timeout=10,
-            )
-            installed = result.stdout.lower()
-            return all(pkg in installed for pkg in ["torch", "transformers", "faster-whisper"])
-        except Exception:
-            return False
-    else:
-        # 开发环境：直接导入
-        try:
-            import torch
-            import transformers
-            import faster_whisper
-
-            return True
-        except ImportError:
-            return False
+        packages = ["torch", "transformers", "faster_whisper"]
+        return all(importlib.util.find_spec(pkg) is not None for pkg in packages)
+    except Exception:
+        return False
 
 
 def check_models_downloaded(project_root: Optional[Path] = None) -> bool:

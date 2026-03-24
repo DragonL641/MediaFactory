@@ -26,6 +26,46 @@ class LoguruAppLogger:
         self.log_file: Optional[Path] = None
         self._initialized = False
 
+    def _get_writable_log_dir(self) -> Path:
+        """Get a writable log directory with fallbacks.
+
+        In Windows builds, the app root directory may be protected (e.g., Program Files).
+        This method tries multiple locations to find a writable directory.
+        """
+        import tempfile
+
+        candidates = []
+
+        # Primary: app root
+        try:
+            from ..config import get_app_root_dir
+            app_root = get_app_root_dir()
+            candidates.append(app_root / "logs")
+        except (ImportError, AttributeError):
+            pass
+
+        # Fallback 1: user home
+        candidates.append(Path.home() / ".mediafactory" / "logs")
+
+        # Fallback 2: temp directory
+        candidates.append(Path(tempfile.gettempdir()) / "mediafactory" / "logs")
+
+        # Fallback 3: current working directory
+        candidates.append(Path.cwd() / "logs")
+
+        for candidate in candidates:
+            try:
+                candidate.mkdir(parents=True, exist_ok=True)
+                test_file = candidate / ".write_test"
+                test_file.touch()
+                test_file.unlink()
+                return candidate
+            except (OSError, PermissionError):
+                continue
+
+        # Last resort: return first candidate even if not writable
+        return candidates[0] if candidates else Path.cwd() / "logs"
+
     def setup(
         self,
         name: str = "mediafactory",
@@ -46,37 +86,37 @@ class LoguruAppLogger:
             return
 
         if log_file is None:
-            # Auto-generate log file name with timestamp
-            try:
-                from ..config import get_app_root_dir
-
-                app_root = get_app_root_dir()
-            except (ImportError, AttributeError):
-                # Import failed (e.g., during early initialization)
-                # Fall back to current working directory
-                app_root = Path.cwd()
-
-            # Use dedicated logs/ directory
-            log_dir = app_root / "logs"
-            log_dir.mkdir(exist_ok=True)
-
+            # Use fallback log directory finder
+            log_dir = self._get_writable_log_dir()
             log_filename = datetime.now().strftime("LOG-%Y-%m-%d-%H%M.log")
             log_file = log_dir / log_filename
 
         self.log_file = log_file
 
-        # Configure loguru with file handler (no rotation/retention/compression)
-        _loguru_logger.add(
-            log_file,
-            level="DEBUG",
-            format="{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {message}",
-            enqueue=True,  # Thread-safe logging
-        )
+        file_handler_added = False
+        try:
+            _loguru_logger.add(
+                log_file,
+                level="DEBUG",
+                format="{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {message}",
+                enqueue=True,  # Thread-safe logging
+            )
+            file_handler_added = True
+        except Exception as e:
+            import sys
+            # Fallback to stderr if file logging fails
+            _loguru_logger.add(
+                sys.stderr,
+                level="DEBUG",
+                format="{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {message}",
+            )
+            _loguru_logger.warning(f"Failed to setup file logging at {log_file}: {e}")
 
         # Log startup info
         _loguru_logger.info("=" * 60)
         _loguru_logger.info("MediaFactory Application Logger Initialized (Loguru)")
         _loguru_logger.info(f"Log file: {log_file}")
+        _loguru_logger.info(f"File logging: {'enabled' if file_handler_added else 'disabled (using stderr)'}")
         _loguru_logger.info("=" * 60)
 
         self._initialized = True

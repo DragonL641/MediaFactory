@@ -276,7 +276,7 @@ def get_file_size(path: Path) -> int:
 # 构建目录管理
 # ============================================================================
 
-BUILD_DIRS = ["build", "dist", "release"]
+BUILD_DIRS = ["dist", "release"]
 
 
 def clean_build_artifacts(root: Optional[Path] = None) -> bool:
@@ -310,13 +310,12 @@ def get_build_dirs(root: Optional[Path] = None) -> dict:
     """获取构建目录字典
 
     Returns:
-        {"build": Path, "dist": Path, "release": Path}
+        {"dist": Path, "release": Path}
     """
     if root is None:
         root = get_project_root()
 
     return {
-        "build": root / "build",
         "dist": root / "dist",
         "release": root / "release",
     }

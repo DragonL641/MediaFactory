@@ -3,19 +3,15 @@ Download Queue Manager
 
 Provides serial download queue, thread-safe state management, and cleanup on download failure.
 Supports both HuggingFace models and enhancement model downloads (all via HuggingFace Hub).
-Uses subprocess for downloads to enable true forced cancellation.
+Uses threads for downloads with cooperative cancellation.
 """
 
-import gc
-import json
 import shutil
-import subprocess
-import sys
 import threading
 import time
 from enum import Enum
 from pathlib import Path
-from typing import Callable, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 from mediafactory.logging import log_error, log_info
 
@@ -41,6 +37,7 @@ class DownloadStatus(Enum):
     IDLE = "idle"  # Idle, not downloading
     WAITING = "waiting"  # Queued
     DOWNLOADING = "downloading"  # Downloading
+    CANCELLING = "cancelling"  # Cancelling (waiting for current file to complete)
     COMPLETED = "completed"  # Completed
     FAILED = "failed"  # Failed
     CANCELLED = "cancelled"  # Cancelled
@@ -52,7 +49,7 @@ class DownloadManager:
     Serial Download Queue Manager (Singleton)
 
     Manages model download queue, provides thread-safe state access.
-    Uses subprocess for downloads to enable true forced cancellation.
+    Uses threads for downloads with cooperative cancellation.
     """
 
     _instance = None
@@ -84,9 +81,9 @@ class DownloadManager:
         self._poll_threads: Dict[str, threading.Thread] = {}
         self._poll_stop_events: Dict[str, threading.Event] = {}
 
-        # Subprocess management
-        self._download_process: Optional[subprocess.Popen] = None
-        self._process_lock = threading.Lock()
+        # Download thread management (replaces subprocess)
+        self._download_thread: Optional[threading.Thread] = None
+        self._download_result: Dict[str, Any] = {}  # Store download result
 
     def enqueue(self, model_id: str) -> bool:
         """
@@ -162,18 +159,11 @@ class DownloadManager:
             # Check if currently downloading
             elif self._current == model_id:
                 self._cancel_requested[model_id] = True
-                self._messages[model_id] = "Cancelling..."
-                log_info(f"Model {model_id} cancel requested")
+                self._statuses[model_id] = DownloadStatus.CANCELLING
+                self._messages[model_id] = "Cancelling, please wait for current file to complete..."
+                log_info(f"Model {model_id} cancel requested, waiting for download to stop")
                 callback_data = self._get_callback_data(model_id)
                 success = True
-
-        # Terminate subprocess (outside lock to avoid deadlock)
-        if success and self._current == model_id:
-            self._terminate_download_process()
-
-        # Stop progress polling
-        if success:
-            self._stop_progress_polling(model_id)
 
         # Notify UI outside lock
         if callback_data:
@@ -393,28 +383,6 @@ class DownloadManager:
             except Exception as e:
                 log_error(f"Callback error: {e}")
 
-    def _terminate_download_process(self) -> None:
-        """Force terminate download subprocess"""
-        with self._process_lock:
-            if self._download_process is not None:
-                try:
-                    log_info("Terminating download subprocess...")
-                    self._download_process.terminate()  # Send SIGTERM
-                    # Wait up to 3 seconds for graceful termination
-                    try:
-                        self._download_process.wait(timeout=3)
-                        log_info("Download subprocess terminated gracefully")
-                    except subprocess.TimeoutExpired:
-                        # Force kill if process doesn't terminate
-                        log_info("Download subprocess did not terminate, force killing...")
-                        self._download_process.kill()
-                        self._download_process.wait(timeout=1)
-                        log_info("Download subprocess killed")
-                except Exception as e:
-                    log_error(f"Failed to terminate download process: {e}")
-                finally:
-                    self._download_process = None
-
     def _start_worker(self) -> None:
         """Start worker thread"""
         if self._worker_thread is not None and self._worker_thread.is_alive():
@@ -478,7 +446,7 @@ class DownloadManager:
 
     def _download_repo(self, model_id: str, model_info) -> None:
         """
-        Download entire HuggingFace repository using subprocess (with retry mechanism)
+        Download entire HuggingFace repository using thread (with retry mechanism)
 
         Args:
             model_id: Model ID
@@ -521,7 +489,7 @@ class DownloadManager:
                     self._update_status(model_id, f"Retrying ({attempt + 1}/{MAX_RETRIES})...")
                     log_info(f"Download retry {attempt + 1}/{MAX_RETRIES} for {model_id}")
 
-                # Prepare subprocess parameters
+                # Prepare download parameters
                 params = {
                     "mode": "repo",
                     "repo_id": model_info.huggingface_repo,
@@ -532,13 +500,13 @@ class DownloadManager:
                     "timeout": config.model.download_timeout,
                 }
 
-                # Execute download in subprocess
-                success = self._run_download_subprocess(model_id, params)
+                # Execute download in thread
+                success = self._run_download_thread(model_id, params)
 
                 # Stop progress polling
                 self._stop_progress_polling(model_id)
 
-                # If cancelled during subprocess execution
+                # If cancelled during download execution
                 if self._cancel_requested.get(model_id, False):
                     self._handle_cancel(model_id)
                     return
@@ -550,8 +518,8 @@ class DownloadManager:
                     else:
                         self._handle_failure(model_id, "Download completed but verification failed")
                 else:
-                    # Subprocess failed, will retry
-                    raise Exception("Subprocess download failed")
+                    # Download failed, will retry
+                    raise Exception("Download failed")
                 return
 
             except Exception as ex:
@@ -624,7 +592,7 @@ class DownloadManager:
                     self._update_status(model_id, f"Retrying ({attempt + 1}/{MAX_RETRIES})...")
                     log_info(f"Download retry {attempt + 1}/{MAX_RETRIES} for {model_id}")
 
-                # Prepare subprocess parameters
+                # Prepare download parameters
                 params = {
                     "mode": "file",
                     "repo_id": model_info.huggingface_repo,
@@ -635,13 +603,13 @@ class DownloadManager:
                     "timeout": config.model.download_timeout,
                 }
 
-                # Execute download in subprocess
-                success = self._run_download_subprocess(model_id, params)
+                # Execute download in thread
+                success = self._run_download_thread(model_id, params)
 
                 # Stop progress polling
                 self._stop_progress_polling(model_id)
 
-                # If cancelled during subprocess execution
+                # If cancelled during download
                 if self._cancel_requested.get(model_id, False):
                     self._handle_cancel(model_id)
                     return
@@ -653,8 +621,8 @@ class DownloadManager:
                     else:
                         self._handle_failure(model_id, "Download completed but verification failed", clean_files=True)
                 else:
-                    # Subprocess failed, will retry
-                    raise Exception("Subprocess download failed")
+                    # Download failed, will retry
+                    raise Exception("Download failed")
                 return
 
             except Exception as ex:
@@ -677,9 +645,9 @@ class DownloadManager:
                     self._stop_progress_polling(model_id)
                     self._handle_failure(model_id, f"{error_msg} (after {MAX_RETRIES} retries)", clean_files=True)
 
-    def _run_download_subprocess(self, model_id: str, params: Dict) -> bool:
+    def _run_download_thread(self, model_id: str, params: Dict) -> bool:
         """
-        Run download in subprocess
+        Run download in a thread (cooperative cancellation)
 
         Args:
             model_id: Model ID
@@ -688,109 +656,61 @@ class DownloadManager:
         Returns:
             True if download succeeded
         """
-        # Get worker script path
-        worker_path = Path(__file__).parent / "download_worker.py"
+        from mediafactory.gui.flet.download_worker import download_repo_worker, download_file_worker
 
-        # 记录下载源信息
+        # Record download source info
         endpoint = params.get("endpoint")
         download_source = endpoint if endpoint else "https://huggingface.co"
         log_info(f"[Download] Starting {model_id} from {download_source}")
 
-        with self._process_lock:
+        # Container for download result
+        result_container = {"success": False, "error": None}
+
+        def download_task():
+            """Execute download in thread"""
             try:
-                # Start subprocess
-                self._download_process = subprocess.Popen(
-                    [sys.executable, str(worker_path), json.dumps(params)],
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.PIPE,
-                    # Create new process group for clean termination
-                    creationflags=subprocess.CREATE_NEW_PROCESS_GROUP if sys.platform == "win32" else 0,
-                )
+                if params["mode"] == "repo":
+                    result_container.update(download_repo_worker(params))
+                else:
+                    result_container.update(download_file_worker(params))
             except Exception as e:
-                log_error(f"Failed to start download subprocess: {e}")
-                return False
+                result_container["success"] = False
+                result_container["error"] = str(e)
 
-        # Thread to read stderr in real-time
-        stderr_lines: List[str] = []
+        # Start download thread
+        self._download_thread = threading.Thread(target=download_task, daemon=True)
+        self._download_thread.start()
 
-        def read_stderr():
-            """Read stderr lines and log them in real-time."""
-            if self._download_process is None:
-                return
-            try:
-                for line in self._download_process.stderr:
-                    line_str = line.decode().strip()
-                    if line_str:
-                        stderr_lines.append(line_str)
-                        log_info(f"[DownloadWorker] {line_str}")
-            except Exception:
-                pass
-
-        stderr_thread = threading.Thread(target=read_stderr, daemon=True)
-        stderr_thread.start()
-
-        # Monitor subprocess with timeout
+        # Non-blocking polling loop
         start_time = time.time()
 
-        while True:
+        while self._download_thread.is_alive():
             # Check if cancelled
             if self._cancel_requested.get(model_id, False):
-                self._terminate_download_process()
-                stderr_thread.join(timeout=1.0)
+                log_info(f"[Download] Cancel requested for {model_id}, waiting for thread to finish...")
+                # Wait for thread to finish (cooperative cancellation)
+                self._download_thread.join(timeout=30.0)  # Wait up to 30 seconds
+                if self._download_thread.is_alive():
+                    log_info(f"[Download] Thread still running for {model_id}, will continue in background")
                 return False
 
             # Check if timeout
             if time.time() - start_time > DOWNLOAD_TIMEOUT:
                 log_error(f"Download timeout for {model_id}")
-                self._terminate_download_process()
-                stderr_thread.join(timeout=1.0)
+                # Thread will continue in background but we return False
                 return False
 
-            # Check if process finished (non-blocking)
-            with self._process_lock:
-                if self._download_process is None:
-                    return False
-                return_code = self._download_process.poll()
+            # Short interval wait to not block main loop
+            self._download_thread.join(timeout=0.5)
 
-            if return_code is not None:
-                # Process finished
-                break
-
-            # Wait a bit before checking again
-            time.sleep(0.5)
-
-        # Wait for stderr thread to finish
-        stderr_thread.join(timeout=2.0)
-
-        # Get stdout (只读取 stdout，stderr 已由 stderr_thread 处理，避免死锁)
-        with self._process_lock:
-            if self._download_process is None:
-                return False
-            try:
-                stdout = self._download_process.stdout.read()
-                self._download_process.stdout.close()
-            except Exception:
-                stdout = b""
-            finally:
-                self._download_process = None
-
-        # Parse result
-        if return_code == 0:
-            try:
-                result = json.loads(stdout.decode())
-                if result.get("success"):
-                    log_info(f"[Download] Completed: {model_id}")
-                    return True
-                else:
-                    error = result.get("error", "Unknown error")
-                    log_error(f"Download subprocess failed: {error}")
-                    return False
-            except json.JSONDecodeError:
-                log_error(f"Invalid subprocess output: {stdout.decode()[:200]}")
-                return False
+        # Download thread finished
+        if result_container.get("success"):
+            log_info(f"[Download] Completed: {model_id}")
+            return True
         else:
-            error_msg = "\n".join(stderr_lines) if stderr_lines else "Process terminated abnormally"
-            log_error(f"Download subprocess failed with code {return_code}: {error_msg[:500]}")
+            error = result_container.get("error", "Unknown error")
+            if error:
+                log_error(f"Download failed: {error}")
             return False
 
     def _update_status(self, model_id: str, message: str, progress: float = None) -> None:
@@ -830,11 +750,14 @@ class DownloadManager:
         Args:
             model_id: Cancelled model ID
         """
-        # Ensure subprocess is terminated
-        self._terminate_download_process()
+        # Stop progress polling
+        self._stop_progress_polling(model_id)
+
+        # Wait for download thread to finish
+        if self._download_thread is not None and self._download_thread.is_alive():
+            self._download_thread.join(timeout=5.0)
 
         # Wait for file handles to be released
-        gc.collect()
         time.sleep(0.5)
 
         # Clean up incomplete files
@@ -860,9 +783,14 @@ class DownloadManager:
         """
         # Only clean files on final failure
         if clean_files:
-            # Ensure subprocess is terminated before cleanup
-            self._terminate_download_process()
-            gc.collect()
+            # Stop progress polling
+            self._stop_progress_polling(model_id)
+
+            # Wait for download thread to finish
+            if self._download_thread is not None and self._download_thread.is_alive():
+                self._download_thread.join(timeout=5.0)
+
+            # Wait for file handles to be released
             time.sleep(0.5)
             self._cleanup_incomplete_files(model_id)
 

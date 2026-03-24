@@ -11,7 +11,8 @@ import threading
 import weakref
 from typing import Any, Optional, Tuple
 
-import torch
+# NOTE: torch is imported lazily inside functions to allow the application
+# to start without ML dependencies (they are installed via Setup Wizard)
 
 from .model_download import get_models_dir, is_model_complete, is_model_downloaded
 from .model_registry import (
@@ -154,6 +155,9 @@ class LocalModelManager:
         Returns:
             Tuple of (translation_callable, is_local_flag), or (None, False) if not found
         """
+        # Lazy import ML dependencies (not bundled in PyInstaller)
+        import torch
+
         log_info(f"[LocalModelManager] Starting model loading for: {huggingface_id}")
         log_info(f"[LocalModelManager] Device: {device}, src_lang: {src_lang}, tgt_lang: {tgt_lang}")
 
@@ -515,6 +519,9 @@ class LocalModelManager:
         Returns:
             True 如果模型成功卸载，False 如果模型未加载
         """
+        # Lazy import ML dependencies
+        import torch
+
         with self._models_lock:
             if huggingface_id not in self._loaded_models:
                 log_debug(f"[LocalModelManager] Model not loaded, nothing to unload: {huggingface_id}")

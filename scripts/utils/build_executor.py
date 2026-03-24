@@ -30,9 +30,6 @@ from build_common import (
 
 PROJECT_NAME = "MediaFactory"
 
-# Inno Setup AppId（固定 GUID，用于升级安装识别）
-MEDIAFACTORY_APP_ID = "A7B3C8D2-E4F1-4A9E-8B5C-2D1F3E9A6C7B"
-
 
 def run_pyinstaller(version: str, extra_args: Optional[List[str]] = None) -> bool:
     """运行 PyInstaller 构建。
@@ -101,8 +98,8 @@ def create_zip_archive(version: str) -> bool:
         return False
 
 
-def run_inno_setup(version: str) -> bool:
-    """运行 Inno Setup 创建安装程序（Windows）。
+def create_windows_zip(version: str) -> bool:
+    """创建 Windows ZIP 分发包。
 
     Args:
         version: 版本号
@@ -112,63 +109,28 @@ def run_inno_setup(version: str) -> bool:
     """
     root = get_project_root()
     dist_dir = root / "dist"
+    folder_path = dist_dir / PROJECT_NAME
+    zip_path = dist_dir / f"{PROJECT_NAME}-{version}-win64.zip"
 
-    # 检查构建产物：onefile 模式输出单个 exe，onedir 模式输出目录
-    onefile_exe = dist_dir / f"{PROJECT_NAME}.exe"
-    onedir_path = dist_dir / PROJECT_NAME
-
-    if onefile_exe.exists():
-        # onefile 模式：单个 exe 文件
-        source_pattern = str(onefile_exe)
-        exe_path = f"{{app}}\\{PROJECT_NAME}.exe"
-        log_info("检测到 onefile 模式")
-    elif onedir_path.exists():
-        # onedir 模式：目录
-        source_pattern = f"{onedir_path}\\*"
-        exe_path = f"{{app}}\\{PROJECT_NAME}\\{PROJECT_NAME}.exe"
-        log_info("检测到 onedir 模式")
-    else:
-        log_error(f"未找到构建产物: {onefile_exe} 或 {onedir_path}")
+    if not folder_path.exists():
+        log_error(f"构建目录不存在: {folder_path}")
         return False
 
-    # 检查 iscc 命令是否存在
-    if shutil.which("iscc") is None:
-        log_warn("Inno Setup 未安装，跳过安装程序创建")
-        log_info("可执行文件已生成，可手动分发")
+    if zip_path.exists():
+        zip_path.unlink()
+
+    log_info("创建 ZIP 分发包...")
+    try:
+        with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zf:
+            for file in folder_path.rglob('*'):
+                if file.is_file() and '__pycache__' not in str(file):
+                    zf.write(file, file.relative_to(folder_path))
+        size = zip_path.stat().st_size
+        log_info(f"ZIP: {zip_path.name} ({format_file_size(size)})")
         return True
-
-    # 生成 .iss 配置
-    iss_content = f"""[Setup]
-AppId={MEDIAFACTORY_APP_ID}
-AppName={PROJECT_NAME}
-AppVersion={version}
-DefaultDirName={{autopf}}\\{PROJECT_NAME}
-DefaultGroupName={PROJECT_NAME}
-OutputDir={dist_dir}
-OutputBaseFilename={PROJECT_NAME}-Setup-{version}
-Compression=lzma2/max
-SolidCompression=yes
-ArchitecturesAllowed=x64
-ArchitecturesInstallIn64BitMode=x64
-
-[Files]
-Source: "{source_pattern}"; DestDir: "{{app}}"; Flags: recursesubdirs ignoreversion
-
-[Icons]
-Name: "{{group}}\\{PROJECT_NAME}"; Filename: "{exe_path}"
-Name: "{{autodesktop}}\\{PROJECT_NAME}"; Filename: "{exe_path}"
-
-[Run]
-Filename: "{exe_path}"; Description: "启动 {PROJECT_NAME}"; Flags: nowait postinstall
-"""
-
-    iss_path = root / "build" / "setup.iss"
-    iss_path.parent.mkdir(parents=True, exist_ok=True)
-    iss_path.write_text(iss_content, encoding="utf-8")
-
-    log_info("运行 Inno Setup...")
-    result = subprocess.run(["iscc", str(iss_path)], cwd=root)
-    return result.returncode == 0
+    except Exception as e:
+        log_error(f"ZIP 创建失败: {e}")
+        return False
 
 
 def clean_build_artifacts(platform_name: str) -> None:
@@ -179,7 +141,6 @@ def clean_build_artifacts(platform_name: str) -> None:
     """
     root = get_project_root()
     dirs_to_clean = [
-        root / "build",
         root / "dist" / PROJECT_NAME,
     ]
 
@@ -252,13 +213,13 @@ def build_windows(version: Optional[str] = None) -> int:
         log_error("PyInstaller 失败")
         return 1
 
-    if not run_inno_setup(version):
-        log_error("Inno Setup 失败")
+    if not create_windows_zip(version):
+        log_error("ZIP 创建失败")
         return 1
 
     elapsed = (datetime.now() - start).total_seconds()
     log_success(f"构建完成! 耗时: {elapsed:.1f}秒")
-    log_info(f"输出: dist/{PROJECT_NAME}-Setup-{version}.exe")
+    log_info(f"输出: dist/{PROJECT_NAME}-{version}-win64.zip")
 
     return 0
 

@@ -257,7 +257,7 @@ MODEL_REGISTRY: dict[str, ModelInfo] = {
         metadata={"scale": 4, "type": "anime"},
     ),
     # ========== Enhancement Models: Denoise (NAFNet) ==========
-    "NAFNet-GoPro-width64": ModelInfo(
+"NAFNet-GoPro-width64": ModelInfo(
         huggingface_id="NAFNet-GoPro-width64",
         display_name="NAFNet Denoiser (GoPro)",
         model_type=ModelType.DENOISE,

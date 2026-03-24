@@ -1,15 +1,12 @@
 # -*- mode: python ; coding: utf-8 -*-
 """
-MediaFactory 简化 PyInstaller 配置
+MediaFactory PyInstaller 配置
 
-核心设计原则:
-1. 仅打包启动依赖（GUI、配置、日志等）
-2. 不打包 ML 依赖（torch, transformers, faster-whisper）
-3. 首次启动时通过 Setup Wizard 下载模型和依赖
+完整打包所有依赖（包括 ML 依赖）。
 
 输出:
-- Windows: --onefile 单文件模式
-- macOS: app bundle (默认)
+- Windows: onedir 目录模式
+- macOS: app bundle
 """
 
 import os
@@ -17,6 +14,62 @@ import platform
 import subprocess
 import sys
 from pathlib import Path
+
+from PyInstaller.utils.hooks import (
+    collect_all,
+    collect_data_files,
+    collect_dynamic_libs,
+    collect_submodules,
+)
+
+# =============================================================================
+# 收集 ML 依赖
+# =============================================================================
+
+# 需要完整收集的 ML 包
+ML_PACKAGES = [
+    'torch',
+    'transformers',
+    'tokenizers',
+    'huggingface_hub',
+    'faster_whisper',
+    'accelerate',
+    'safetensors',
+]
+
+# 收集所有 ML 包的文件
+ml_datas = []
+ml_binaries = []
+ml_hiddenimports = []
+
+for pkg in ML_PACKAGES:
+    collected = False
+    try:
+        pkg_datas, pkg_binaries, pkg_hiddenimports = collect_all(pkg)
+        if pkg_datas or pkg_binaries or pkg_hiddenimports:
+            ml_datas.extend(pkg_datas)
+            ml_binaries.extend(pkg_binaries)
+            ml_hiddenimports.extend(pkg_hiddenimports)
+            print(f"[INFO] collect_all({pkg}): {len(pkg_datas)} datas, {len(pkg_binaries)} binaries, {len(pkg_hiddenimports)} hiddenimports")
+            collected = True
+    except Exception as e:
+        print(f"[WARN] collect_all({pkg}) failed: {e}")
+
+    # 如果 collect_all 返回空结果，尝试备用方案
+    if not collected:
+        try:
+            pkg_datas = collect_data_files(pkg)
+            pkg_binaries = collect_dynamic_libs(pkg)
+            pkg_hiddenimports = collect_submodules(pkg)
+            if pkg_datas:
+                ml_datas.extend(pkg_datas)
+            if pkg_binaries:
+                ml_binaries.extend(pkg_binaries)
+            if pkg_hiddenimports:
+                ml_hiddenimports.extend(pkg_hiddenimports)
+            print(f"[INFO] Fallback collected {pkg}: {len(pkg_datas)} datas, {len(pkg_binaries)} binaries, {len(pkg_hiddenimports)} hiddenimports")
+        except Exception as e:
+            print(f"[ERROR] Failed to collect {pkg}: {e}")
 
 # =============================================================================
 # 配置
@@ -33,7 +86,6 @@ IS_WINDOWS = platform.system() == 'Windows'
 IS_LINUX = platform.system() == 'Linux'
 
 # Version (from environment or _version.py)
-# 从环境变量读取版本号，默认调用 _version.py 获取
 def _get_version_from_pyproject() -> str:
     """从 _version.py 获取版本号（统一版本源）"""
     version_script = BASE_DIR / "src" / "mediafactory" / "_version.py"
@@ -87,6 +139,17 @@ datas = [
 ]
 
 # =============================================================================
+# 收集 mypyc 编译的模块
+# =============================================================================
+
+import glob
+
+binaries = []
+site_packages = Path(sys.prefix) / "Lib" / "site-packages"
+for mypyc_file in glob.glob(str(site_packages / "*__mypyc*.pyd")):
+    binaries.append((mypyc_file, "."))
+
+# =============================================================================
 # 隐藏导入
 # =============================================================================
 
@@ -111,8 +174,24 @@ hiddenimports = [
     'tqdm',
     # 语言检测
     'langdetect',
-    # LLM API SDKs（远程翻译，无需本地模型）
+    # LLM API SDKs
     'openai',
+    # HuggingFace 生态（模型下载和运行）
+    'huggingface_hub',
+    'huggingface_hub.utils',
+    'huggingface_hub.file_download',
+    'transformers',
+    'transformers.utils',
+    'transformers.models',
+    'tokenizers',
+    'safetensors',
+    'accelerate',
+    # Whisper 生态
+    'faster_whisper',
+    'faster_whisper.transcribe',
+    'faster_whisper.download_model',
+    # PyTorch（faster-whisper 依赖）
+    'torch',
     # pkg_resources（修复 pyi_rth_pkgres 错误）
     'importlib_metadata',
     'importlib_resources',
@@ -126,34 +205,15 @@ hiddenimports = [
 ]
 
 # =============================================================================
-# 排除的模块（ML 依赖 + 开发工具）
+# 排除的模块（仅开发工具）
 # =============================================================================
 
-# ML 依赖将在首次启动时通过 Setup Wizard 下载
-ML_EXCLUDES = [
-    # PyTorch 生态
-    'torch', 'torchvision', 'torchaudio',
-    # Transformers 生态
-    'transformers', 'tokenizers', 'huggingface_hub',
-    # Whisper 生态
-    'faster_whisper', 'whisper', 'openai_whisper',
-    # NLP 工具
-    'sentencepiece', 'accelerate', 'safetensors', 'protobuf',
-    # 编译优化
-    'numba', 'torchao',
-    # 可选 ML 后端
-    'onnxruntime', 'ctranslate2',
-    # 其他 ML 库
-    'scipy', 'sklearn', 'pandas', 'matplotlib',
-]
-
-# 开发工具
 DEV_EXCLUDES = [
     'pytest', 'black', 'mypy', 'pylint', 'flake8', 'pre_commit',
     'pip', 'setuptools', 'wheel', 'build', 'twine',
 ]
 
-EXCLUDES = ML_EXCLUDES + DEV_EXCLUDES
+EXCLUDES = DEV_EXCLUDES
 
 # =============================================================================
 # 分析配置
@@ -162,9 +222,9 @@ EXCLUDES = ML_EXCLUDES + DEV_EXCLUDES
 a = Analysis(
     [str(BASE_DIR / "src" / "mediafactory" / "__main__.py")],
     pathex=[str(DIST_DIR), str(BASE_DIR / "src")],
-    binaries=[],
-    datas=datas,
-    hiddenimports=hiddenimports,
+    binaries=binaries + ml_binaries,
+    datas=datas + ml_datas,
+    hiddenimports=hiddenimports + ml_hiddenimports,
     hookspath=[str(BASE_DIR / "scripts" / "pyinstaller" / "hooks")],
     hooksconfig={},
     runtime_hooks=[],
@@ -179,56 +239,27 @@ a = Analysis(
 a.binaries = [x for x in a.binaries if '.DS_Store' not in str(x[0])]
 a.datas = [x for x in a.datas if '.DS_Store' not in str(x[0])]
 
-# Strip 符号（macOS 除外）
-strip = not IS_MACOS
-
-# UPX 压缩（禁用以避免兼容性问题）
-UPX_AVAILABLE = False
+# Strip 符号（禁用 - Windows 上没有 strip 工具）
+strip = False
 
 # PYZ 加密
 pyz = PYZ(a.pure, a.zipped_data)
-
-# =============================================================================
-# 可执行文件配置
-# =============================================================================
-
-exe_kwargs = {
-    'pyz': pyz,
-    'a.scripts': a.scripts,
-    'exclude_binaries': False,
-    'name': PROJECT_NAME,
-    'debug': False,
-    'bootloader_ignore_signals': False,
-    'strip': strip,
-    'upx': False,
-    'console': False,  # 无控制台窗口
-    'disable_windowed_traceback': False,
-    'argv_emulation': False,
-    'target_arch': None,
-    'codesign_identity': None,
-    'entitlements_file': None,
-}
-
-if ICON_PATH:
-    exe_kwargs['icon'] = ICON_PATH
 
 # =============================================================================
 # 平台特定配置
 # =============================================================================
 
 if IS_WINDOWS:
-    # Windows: onefile 单文件模式（只需要单个 EXE）
-    EXE(
+    # Windows: onedir 目录模式
+    exe = EXE(
         pyz,
         a.scripts,
-        a.binaries,
-        a.datas,
-        [],
+        exclude_binaries=True,
         name=PROJECT_NAME,
         debug=False,
         bootloader_ignore_signals=False,
         strip=strip,
-        upx=UPX_AVAILABLE,
+        upx=False,
         console=False,
         disable_windowed_traceback=False,
         argv_emulation=False,
@@ -238,11 +269,6 @@ if IS_WINDOWS:
         icon=ICON_PATH,
     )
 
-elif IS_MACOS:
-    # macOS: app bundle
-    exe_kwargs['exclude_binaries'] = True
-    exe = EXE(**exe_kwargs)
-    
     coll = COLLECT(
         exe,
         a.binaries,
@@ -252,7 +278,37 @@ elif IS_MACOS:
         upx_exclude=[],
         name=PROJECT_NAME,
     )
-    
+
+elif IS_MACOS:
+    # macOS: app bundle
+    exe = EXE(
+        pyz,
+        a.scripts,
+        exclude_binaries=True,
+        name=PROJECT_NAME,
+        debug=False,
+        bootloader_ignore_signals=False,
+        strip=strip,
+        upx=False,
+        console=False,
+        disable_windowed_traceback=False,
+        argv_emulation=False,
+        target_arch=None,
+        codesign_identity=None,
+        entitlements_file=None,
+        icon=ICON_PATH,
+    )
+
+    coll = COLLECT(
+        exe,
+        a.binaries,
+        a.datas,
+        strip=strip,
+        upx=False,
+        upx_exclude=[],
+        name=PROJECT_NAME,
+    )
+
     # 创建 app bundle
     app = BUNDLE(
         coll,
@@ -270,9 +326,25 @@ elif IS_MACOS:
     )
 
 else:
-    # Linux: 标准目录输出
-    exe = EXE(**exe_kwargs)
-    
+    # Linux: 目录输出
+    exe = EXE(
+        pyz,
+        a.scripts,
+        exclude_binaries=True,
+        name=PROJECT_NAME,
+        debug=False,
+        bootloader_ignore_signals=False,
+        strip=strip,
+        upx=False,
+        console=False,
+        disable_windowed_traceback=False,
+        argv_emulation=False,
+        target_arch=None,
+        codesign_identity=None,
+        entitlements_file=None,
+        icon=ICON_PATH,
+    )
+
     coll = COLLECT(
         exe,
         a.binaries,
