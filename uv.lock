@@ -1093,7 +1093,7 @@ bundle = [
 ]
 core = [
     { name = "accelerate", specifier = ">=1.0.0" },
-    { name = "faster-whisper", specifier = ">=1.0.0" },
+    { name = "faster-whisper", specifier = ">=1.0.0,<2.0.0" },
     { name = "flet", specifier = "==0.82.2" },
     { name = "gguf", specifier = ">=0.10.0" },
     { name = "huggingface-hub", specifier = ">=0.30.0,<1.0.0" },

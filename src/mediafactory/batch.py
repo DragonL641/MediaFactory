@@ -7,7 +7,6 @@ Provides batch processing functionality for video files with:
 - Pipeline-based architecture
 """
 
-import logging
 import os
 import time
 import threading
@@ -16,8 +15,6 @@ from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
 from typing import Dict, Any, Optional, List, Callable
-
-logger = logging.getLogger(__name__)
 
 from .config import get_config_manager
 from .engine import AudioEngine, RecognitionEngine, TranslationEngine, SRTEngine
@@ -288,7 +285,7 @@ class SharedModelContext:
             try:
                 self._model_context.__exit__(None, None, None)
             except Exception as e:
-                logger.warning(f"Error releasing model context: {e}")
+                log_warning(f"Error releasing model context: {e}")
             self._model_context = None
 
         with self._lock:
@@ -312,7 +309,7 @@ class SharedModelContext:
             if torch.cuda.is_available():
                 torch.cuda.empty_cache()
         except Exception as e:
-            logger.debug(f"Error clearing CUDA cache: {e}")
+            log_warning(f"Error clearing CUDA cache: {e}")
 
         log_success("Model resources released")
 

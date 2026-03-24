@@ -15,6 +15,8 @@ The json_params should contain:
     - endpoint: (optional) Custom HuggingFace endpoint
 """
 
+import io
+import os
 import sys
 import json
 import time
@@ -23,14 +25,74 @@ from pathlib import Path
 from typing import Dict, Any
 
 
+class LogRedirector(io.TextIOBase):
+    """Redirect stdout/stderr writes to application logger.
+    
+    In Windows GUI applications (built without console), sys.stdout and sys.stderr
+    may be None. This class provides a valid file-like object that captures output
+    and forwards it to the application logger for debugging purposes.
+    """
+    
+    def __init__(self, prefix: str = ""):
+        self.prefix = prefix
+        self._buffer = ""
+    
+    def write(self, text: str) -> int:
+        if not text:
+            return 0
+        if text.isspace():
+            return len(text)
+        
+        self._buffer += text
+        if '\n' in self._buffer:
+            lines = self._buffer.split('\n')
+            for line in lines[:-1]:
+                if line.strip():
+                    self._do_log(line.strip())
+            self._buffer = lines[-1]
+        return len(text)
+    
+    def _do_log(self, message: str) -> None:
+        try:
+            from mediafactory.logging import log_info
+            log_info(f"{self.prefix}{message}")
+        except Exception:
+            pass  # Silently ignore if logging fails
+    
+    def flush(self) -> None:
+        if self._buffer.strip():
+            self._do_log(self._buffer.strip())
+            self._buffer = ""
+    
+    def isatty(self) -> bool:
+        return False
+
+
+def _ensure_stdio() -> None:
+    """Ensure sys.stdout and sys.stderr are valid file objects.
+    
+    In Windows GUI applications (built without console), sys.stdout and sys.stderr
+    may be None. This causes crashes when libraries try to write to them.
+    We redirect them to our logger to capture useful information.
+    """
+    if sys.stdout is None:
+        sys.stdout = LogRedirector(prefix="[stdout] ")
+    if sys.stderr is None:
+        sys.stderr = LogRedirector(prefix="[stderr] ")
+
+
 def _log(message: str) -> None:
     """Safe log message - falls back to stderr if logging fails."""
     try:
         from mediafactory.logging import log_info
         log_info(f"[DownloadWorker] {message}")
-    except Exception as e:
-        print(f"[DownloadWorker] {message}", file=sys.stderr, flush=True)
-        print(f"[DownloadWorker] Logging error: {e}", file=sys.stderr, flush=True)
+    except Exception:
+        # Ensure stderr is valid before printing
+        _ensure_stdio()
+        try:
+            print(f"[DownloadWorker] {message}", file=sys.stderr, flush=True)
+        except Exception:
+            pass  # Silently ignore if all logging fails
 
 
 def download_repo_worker(params: Dict[str, Any]) -> Dict[str, Any]:
@@ -49,7 +111,9 @@ def download_repo_worker(params: Dict[str, Any]) -> Dict[str, Any]:
     Returns:
         Dict with 'success' boolean and optional 'error' message
     """
-    import os
+    # Ensure stdio is valid before any huggingface_hub operations
+    _ensure_stdio()
+    
     from huggingface_hub import snapshot_download
 
     try:
@@ -122,7 +186,9 @@ def download_file_worker(params: Dict[str, Any]) -> Dict[str, Any]:
     Returns:
         Dict with 'success' boolean and optional 'error' message
     """
-    import os
+    # Ensure stdio is valid before any huggingface_hub operations
+    _ensure_stdio()
+    
     import shutil
     from huggingface_hub import hf_hub_download
 
@@ -193,7 +259,10 @@ def download_file_worker(params: Dict[str, Any]) -> Dict[str, Any]:
 
 def main():
     """Subprocess entry point."""
-    # Initialize logging first (with error handling)
+    # Ensure stdio is valid FIRST - critical for Windows GUI apps without console
+    _ensure_stdio()
+    
+    # Initialize logging (with error handling)
     try:
         from mediafactory.logging import setup_app_logging
         setup_app_logging()

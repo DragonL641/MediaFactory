@@ -4,10 +4,7 @@ This module provides time estimation for FFmpeg audio extraction
 and Whisper transcription operations.
 """
 
-import logging
 from typing import Optional
-
-logger = logging.getLogger(__name__)
 
 
 # =============================================================================
@@ -110,5 +107,6 @@ class TimeEstimator:
             if "format" in probe and "duration" in probe["format"]:
                 return float(probe["format"]["duration"])
         except Exception as e:
-            logger.debug(f"Failed to get video duration: {e}")
+            # 静默忽略获取视频时长失败的情况
+            pass
         return None
