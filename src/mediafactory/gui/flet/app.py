@@ -373,7 +373,7 @@ def launch_gui() -> None:
 
     ft.run(
         main=create_app(),
-        view=ft.AppView.FLET_APP,
+        view=ft.AppView.FLET_APP,  # 使用原生桌面窗口
     )
 
 

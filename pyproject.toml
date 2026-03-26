@@ -31,6 +31,7 @@ keywords = ["media", "video", "audio", "subtitle", "whisper", "speech-recognitio
 dependencies = [
     # GUI 框架 (固定到 0.82.2 稳定版)
     "flet==0.82.2",
+    "flet-desktop==0.82.2",  # 桌面客户端（原生窗口支持）
     # 配置和日志
     "loguru>=0.7.2",
     "pydantic>=2.9.0,<3.0.0",
@@ -83,6 +84,7 @@ mediafactory = "mediafactory.gui.flet.app:launch_gui"
 # 用于验证打包依赖的完整性，与 [project.dependencies] 一致
 bundle = [
     "flet==0.82.2",
+    "flet-desktop==0.82.2",  # 桌面客户端
     "loguru>=0.7.2",
     "pydantic>=2.9.0,<3.0.0",
     "tomli>=2.0.1",
@@ -106,6 +108,7 @@ bundle = [
 core = [
     # 包含所有打包依赖
     "flet==0.82.2",
+    "flet-desktop==0.82.2",  # 桌面客户端
     "loguru>=0.7.2",
     "pydantic>=2.9.0,<3.0.0",
     "tomli>=2.0.1",

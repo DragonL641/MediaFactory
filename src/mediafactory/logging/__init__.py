@@ -15,10 +15,9 @@ Usage:
     # GUI does not display logs - only writes to backend file
 """
 
-# Auto-initialize logging on module import
+# Auto-initialization removed - _ensure_logger() handles lazy init
+# This prevents multiple log initializations in Flet multiprocessing environment
 from .loguru_logger import setup_app_logging
-
-setup_app_logging()
 
 # Core setup functions
 from .loguru_logger import (

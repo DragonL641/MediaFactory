@@ -17,7 +17,7 @@ from typing import Any, Dict, Optional, Tuple
 import tomli
 import tomli_w
 
-from .defaults import get_default_config_path, CONFIG_FILE_BACKUP_SUFFIX
+from .defaults import get_config_path, CONFIG_FILE_BACKUP_SUFFIX
 from .models import AppConfig
 from ..constants import BackendConfigMapping
 
@@ -44,7 +44,7 @@ class AppConfigManager:
     _default_instance: Optional["AppConfigManager"] = None
 
     def __init__(self, config_path: Optional[Path] = None):
-        self._config_path = config_path or get_default_config_path()
+        self._config_path = config_path or get_config_path()
         self._config: Optional[AppConfig] = None
         self._config = self._load_or_create()
 
