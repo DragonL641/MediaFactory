@@ -145,9 +145,20 @@ datas = [
 import glob
 
 binaries = []
-site_packages = Path(sys.prefix) / "Lib" / "site-packages"
-for mypyc_file in glob.glob(str(site_packages / "*__mypyc*.pyd")):
+
+# 跨平台获取 site-packages 路径
+if IS_WINDOWS:
+    site_packages = Path(sys.prefix) / "Lib" / "site-packages"
+    mypyc_pattern = "*__mypyc*.pyd"
+else:
+    # macOS/Linux: lib/pythonX.Y/site-packages
+    python_version = f"python{sys.version_info.major}.{sys.version_info.minor}"
+    site_packages = Path(sys.prefix) / "lib" / python_version / "site-packages"
+    mypyc_pattern = "*__mypyc*.so"
+
+for mypyc_file in glob.glob(str(site_packages / mypyc_pattern)):
     binaries.append((mypyc_file, "."))
+    print(f"[INFO] Collected mypyc module: {Path(mypyc_file).name}")
 
 # =============================================================================
 # 隐藏导入
@@ -192,6 +203,8 @@ hiddenimports = [
     'faster_whisper.download_model',
     # PyTorch（faster-whisper 依赖）
     'torch',
+    # Flet Desktop（GUI 框架桌面支持）
+    'flet_desktop',
     # pkg_resources（修复 pyi_rth_pkgres 错误）
     'importlib_metadata',
     'importlib_resources',

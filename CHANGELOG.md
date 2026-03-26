@@ -9,7 +9,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- 首次启动 Setup Wizard，自动检测硬件环境并引导初始化设置
 - 自动硬件检测（GPU/CPU）功能
 - 添加版本管理架构文档说明
 
