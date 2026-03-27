@@ -15,6 +15,7 @@ A professional multimedia processing platform for subtitle generation and video-
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python](https://img.shields.io/badge/python-3.11%20%7C%203.12%20%7C%203.13-blue.svg)](https://www.python.org/downloads/)
+[![Node](https://img.shields.io/badge/node-%3E%3D18.0.0-green.svg)](https://nodejs.org/)
 
 ---
 
@@ -123,6 +124,7 @@ AI video tools often force you to choose between quality and speed, or between c
 
 - **Python**: 3.11, 3.12, or 3.13 (3.12 recommended)
 - **uv**: Modern Python package manager ([install uv](https://docs.astral.sh/uv/))
+- **Node.js**: ≥18.0.0 (for Electron GUI, optional)
 - **FFmpeg**: Included via imageio-ffmpeg (no manual installation needed)
 
 ---

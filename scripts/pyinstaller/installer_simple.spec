@@ -112,7 +112,7 @@ def _get_version_from_pyproject() -> str:
         for line in content.splitlines():
             if line.startswith("version = "):
                 return line.split('"')[1]
-    return "0.2.0"  # 回退版本
+    return "0.2.1"  # 回退版本
 
 APP_VERSION = os.environ.get("APP_VERSION", _get_version_from_pyproject())
 PROJECT_NAME = "MediaFactory"
@@ -166,11 +166,32 @@ for mypyc_file in glob.glob(str(site_packages / mypyc_pattern)):
 
 hiddenimports = [
     # 主应用程序
-    'mediafactory.gui',
-    'mediafactory.gui.main_window',
+    'mediafactory.api',
+    'mediafactory.api.main',
+    'mediafactory.api.routes',
+    'mediafactory.api.routes.config',
+    'mediafactory.api.routes.models',
+    'mediafactory.api.routes.processing',
+    'mediafactory.api.schemas',
+    'mediafactory.api.websocket',
+    'mediafactory.api.task_manager',
+    'mediafactory.api.task_executor',
+    'mediafactory.services',
     'mediafactory.core',
     'mediafactory.config',
     'mediafactory.pipeline',
+    # Uvicorn（ASGI 服务器）
+    'uvicorn',
+    'uvicorn.logging',
+    'uvicorn.loops',
+    'uvicorn.loops.auto',
+    'uvicorn.protocols',
+    'uvicorn.protocols.http',
+    'uvicorn.protocols.http.auto',
+    'uvicorn.protocols.websockets',
+    'uvicorn.protocols.websockets.auto',
+    'uvicorn.lifespan',
+    'uvicorn.lifespan.on',
     # 配置和日志
     'loguru',
     'pydantic',
@@ -203,8 +224,6 @@ hiddenimports = [
     'faster_whisper.download_model',
     # PyTorch（faster-whisper 依赖）
     'torch',
-    # Flet Desktop（GUI 框架桌面支持）
-    'flet_desktop',
     # pkg_resources（修复 pyi_rth_pkgres 错误）
     'importlib_metadata',
     'importlib_resources',

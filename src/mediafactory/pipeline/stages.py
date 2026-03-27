@@ -32,7 +32,21 @@ class AudioExtractionStage(SkipableStage):
         progress = ctx.progress_callback or NO_OP_PROGRESS
         progress.update(0.0, "Starting audio extraction...")
 
-        ctx.audio_path = self.audio_engine.extract(ctx.video_path, progress=progress)
+        # 从 ctx.config 读取额外参数（兼容 Pipeline 和直接调用）
+        config = ctx.config or {}
+        kwargs = {
+            "progress": progress,
+            "output_path": config.get("output_path"),
+            "filter_enabled": config.get("filter_enabled", True),
+            "volume": config.get("volume", 1.0),
+            "output_format": config.get("output_format", "wav"),
+        }
+        # 仅在 config 中有值时传递，避免 None 覆盖 AudioEngine 默认值
+        for key in ("sample_rate", "channels", "highpass_freq", "lowpass_freq"):
+            if config.get(key) is not None:
+                kwargs[key] = config[key]
+        ctx.audio_path = self.audio_engine.extract(ctx.video_path, **kwargs)
+        ctx.output_path = ctx.audio_path
 
         log_success("Audio extraction completed")
         return ctx
@@ -192,7 +206,7 @@ class TranslationStage(SkipableStage):
                 "translation_mode": getattr(ctx, "translation_mode", "unknown"),
             },
         )
-        raise error
+        return error
 
 
 class SRTGenerationStage(SkipableStage):
@@ -386,3 +400,48 @@ class ModelCleanupStage(SkipableStage):
             finally:
                 ctx._model_context = None
         return ctx
+
+
+class VideoEnhancementStage(SkipableStage):
+    """视频增强阶段（超分辨率、降噪、时序平滑）"""
+
+    name = "video_enhancement"
+
+    def execute(self, ctx: ProcessingContext) -> ProcessingContext:
+        """执行视频增强"""
+        log_step("Video Enhancement")
+        ctx.set_stage("video_enhancement")
+        progress = ctx.progress_callback or NO_OP_PROGRESS
+        progress.update(0.0, "Starting video enhancement...")
+
+        # 延迟导入以避免启动时加载 ML 依赖
+        from ..engine.video_enhancement import VideoEnhancementEngine, EnhancementConfig
+
+        config = ctx.config or {}
+        enhancement_config = EnhancementConfig(
+            scale=config.get("scale", 2),
+            model_type=config.get("model_type", "general"),
+            denoise=config.get("denoise", False),
+            temporal=config.get("temporal", False),
+        )
+
+        engine = VideoEnhancementEngine(enhancement_config)
+        output_path = config.get("output_path") or ctx.output_path
+        result = engine.enhance(ctx.video_path, output_path, progress=progress)
+
+        ctx.output_path = result
+
+        log_success(f"Video enhanced: {ctx.output_path}")
+        progress.update(100.0, "Video enhancement completed")
+        return ctx
+
+    def validate(self, ctx: ProcessingContext) -> bool:
+        """验证输出文件"""
+        import os
+        if not ctx.output_path:
+            self._log("Output path not set", "error")
+            return False
+        if not os.path.exists(ctx.output_path):
+            self._log(f"Output file does not exist: {ctx.output_path}", "error")
+            return False
+        return True

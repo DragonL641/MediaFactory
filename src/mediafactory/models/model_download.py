@@ -193,6 +193,7 @@ def download_model(
     huggingface_id: str,
     custom_path: Optional[str] = None,
     download_source: Optional[str] = None,
+    progress_callback: Optional[Callable] = None,
 ) -> Path:
     """从注册表下载模型（带重试机制）。
 
@@ -200,6 +201,7 @@ def download_model(
         huggingface_id: HuggingFace 模型 ID（如 "Systran/faster-whisper-large-v3"）
         custom_path: 自定义保存目录
         download_source: 下载源 URL
+        progress_callback: 可选的进度回调函数 (progress: float, message: str)
 
     Returns:
         下载后的模型路径
@@ -245,6 +247,7 @@ def download_model(
                 endpoint=endpoint,
                 allow_patterns=allow_patterns,
                 ignore_patterns=ignore_patterns,
+                max_workers=4,
             )
 
             # 下载成功后更新配置文件

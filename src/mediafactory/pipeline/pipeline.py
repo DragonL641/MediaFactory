@@ -78,7 +78,7 @@ class Pipeline:
             wrapped = ProcessingError(
                 message=f"Pipeline execution failed: {str(e)}",
                 context={
-                    "stage": getattr(context, "_current_stage", "unknown"),
+                    "stage": getattr(context, "_current_stage_name", "unknown"),
                     "video_path": context.video_path,
                     "original_exception": type(e).__name__,
                 },
@@ -132,59 +132,6 @@ class Pipeline:
         return cls([AudioExtractionStage(audio_engine)])
 
     @classmethod
-    def create_with_model(
-        cls,
-        audio_engine,
-        recognition_engine,
-        translation_engine,
-        srt_engine,
-        whisper_model: str = "small",
-        whisper_device: str = "cpu",
-    ) -> "Pipeline":
-        """创建带预加载模型的流水线（用于批处理）"""
-        from .stages import (
-            AudioExtractionStage,
-            TranscriptionStage,
-            TranslationStage,
-            SRTGenerationStage,
-        )
-
-        return cls(
-            [
-                AudioExtractionStage(audio_engine),
-                TranscriptionStage(recognition_engine),
-                TranslationStage(translation_engine),
-                SRTGenerationStage(srt_engine),
-            ]
-        )
-
-    @classmethod
-    def create_transcription_only(
-        cls,
-        audio_engine,
-        recognition_engine,
-        srt_engine,
-    ) -> "Pipeline":
-        """创建仅转录的流水线（不翻译）"""
-        from .stages import (
-            ModelLoadingStage,
-            AudioExtractionStage,
-            TranscriptionStage,
-            SRTGenerationStage,
-            ModelCleanupStage,
-        )
-
-        return cls(
-            [
-                ModelLoadingStage(),
-                AudioExtractionStage(audio_engine),
-                TranscriptionStage(recognition_engine),
-                SRTGenerationStage(srt_engine),
-                ModelCleanupStage(),
-            ]
-        )
-
-    @classmethod
     def create_translation_only(
         cls,
         translation_engine,
@@ -199,6 +146,36 @@ class Pipeline:
                 SRTGenerationStage(srt_engine),
             ]
         )
+
+    @classmethod
+    def create_transcribe_standalone(
+        cls,
+        recognition_engine,
+        srt_engine,
+    ) -> "Pipeline":
+        """创建独立转录流水线（音频已存在，仅转录+生成字幕）"""
+        from .stages import (
+            ModelLoadingStage,
+            TranscriptionStage,
+            SRTGenerationStage,
+            ModelCleanupStage,
+        )
+
+        return cls(
+            [
+                ModelLoadingStage(),
+                TranscriptionStage(recognition_engine),
+                SRTGenerationStage(srt_engine),
+                ModelCleanupStage(),
+            ]
+        )
+
+    @classmethod
+    def create_enhance_only(cls) -> "Pipeline":
+        """创建仅视频增强的流水线"""
+        from .stages import VideoEnhancementStage
+
+        return cls([VideoEnhancementStage()])
 
     def add_stage(self, stage: ProcessingStage) -> "Pipeline":
         """添加阶段到末尾"""

@@ -1,0 +1,14 @@
+{
+  "compilerOptions": {
+    "outDir": "../../../dist/electron/preload",
+    "moduleResolution": "node",
+    "target": "ESNext",
+    "module": "ESNext",
+    "lib": ["ESNext"],
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "noEmit": false
+  },
+  "include": ["./**/*.ts"]
+}

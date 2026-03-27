@@ -37,6 +37,7 @@ from .stages import (
     TranscriptionStage,
     TranslationStage,
     SRTGenerationStage,
+    VideoEnhancementStage,
 )
 
 __all__ = [
@@ -51,4 +52,5 @@ __all__ = [
     "TranscriptionStage",
     "TranslationStage",
     "SRTGenerationStage",
+    "VideoEnhancementStage",
 ]

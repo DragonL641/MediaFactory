@@ -64,11 +64,26 @@ class AppConfigManager:
 
     def reload(self) -> None:
         """从磁盘重新加载配置"""
-        self._config = self._load()
+        from ..logging import log_info, log_error
+
+        log_info(f"配置重新加载: {self._config_path}")
+        try:
+            self._config = self._load()
+            log_info("配置重新加载完成")
+        except Exception as e:
+            log_error(f"配置重新加载失败: {e}")
+            raise
 
     def save(self) -> None:
         """保存当前配置到磁盘"""
-        self._save(self._config)
+        from ..logging import log_info, log_error
+
+        log_info(f"配置保存: {self._config_path}")
+        try:
+            self._save(self._config)
+        except Exception as e:
+            log_error(f"配置保存失败: {e}")
+            raise
 
     def update(self, **changes) -> None:
         """更新配置值并保存
@@ -85,9 +100,13 @@ class AppConfigManager:
                 openai_compatible__api_key="sk-...",
             )
         """
-        self._apply_updates(self._config, changes)
+        field_changes = self._apply_updates(self._config, changes)
         self._config.model_validate(self._config.model_dump())
         self._save(self._config)
+
+        # 审计日志：记录配置变更
+        if field_changes:
+            _log_config_changes(field_changes)
 
     # ==================== 便捷方法 ====================
 
@@ -226,19 +245,8 @@ class AppConfigManager:
         """将 TOML 数据转换为 AppConfig"""
         config_data: Dict[str, Any] = {}
 
-        # 跳过的旧配置节（已迁移或已删除）
-        old_sections = {
-            "openai",  # 已迁移到 openai_compatible.openai
-            "glm",  # 已迁移到 openai_compatible.glm
-            "api_translation",  # 已删除
-            "audio",  # 已删除
-        }
-
         for section_name, section_data in toml_data.items():
             if not isinstance(section_data, dict):
-                continue
-
-            if section_name in old_sections:
                 continue
 
             if section_name == "model":
@@ -299,10 +307,6 @@ class AppConfigManager:
             else:
                 section_dict = section
 
-            # 排除 current_preset（UI 状态，不持久化）
-            if section_name == "openai_compatible":
-                section_dict.pop("current_preset", None)
-
             for key, value in section_dict.items():
                 if isinstance(value, Path):
                     section_dict[key] = str(value)
@@ -326,3 +330,46 @@ def get_config_manager(config_path: Optional[Path] = None) -> AppConfigManager:
 def reset_config_manager() -> None:
     """重置全局配置管理器实例（主要用于测试）"""
     AppConfigManager._default_instance = None
+
+
+# ==================== 审计日志辅助 ====================
+
+# 敏感字段名（日志中需要脱敏）
+_SENSITIVE_FIELD_NAMES = {"api_key", "password", "secret", "token"}
+
+
+def _mask_value(value: Any, field_path: str) -> str:
+    """对敏感字段的值进行脱敏
+
+    Args:
+        value: 字段值
+        field_path: 字段路径（如 openai_compatible.openai.api_key）
+
+    Returns:
+        脱敏后的字符串表示
+    """
+    field_lower = field_path.lower()
+    if any(sensitive in field_lower for sensitive in _SENSITIVE_FIELD_NAMES):
+        str_val = str(value)
+        if len(str_val) > 4:
+            return f"****{str_val[-4:]}"
+        return "****" if str_val else "(empty)"
+    return str(value)
+
+
+def _log_config_changes(field_changes: Dict[str, Tuple[Any, Any]]) -> None:
+    """记录配置变更审计日志
+
+    Args:
+        field_changes: 字段变更字典 {field_path: (old_value, new_value)}
+    """
+    from ..logging import log_info
+
+    if not field_changes:
+        return
+
+    log_info(f"配置变更 ({len(field_changes)} 项):")
+    for field_path, (old_value, new_value) in field_changes.items():
+        old_display = _mask_value(old_value, field_path)
+        new_display = _mask_value(new_value, field_path)
+        log_info(f"  {field_path}: {old_display} -> {new_display}")

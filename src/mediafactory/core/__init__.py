@@ -5,14 +5,11 @@
 
 from .tool import CancellationToken
 from .progress_protocol import ProgressCallback, NO_OP_PROGRESS
-from .progress_bridge import GUIProgressBridge, create_gui_progress_bridge
 from .resource_protocol import ResourceCleanupProtocol
 
 __all__ = [
     "CancellationToken",
     "ProgressCallback",
     "NO_OP_PROGRESS",
-    "GUIProgressBridge",
-    "create_gui_progress_bridge",
     "ResourceCleanupProtocol",
 ]

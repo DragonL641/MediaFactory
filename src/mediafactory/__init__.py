@@ -45,14 +45,6 @@ def __getattr__(name):
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
-from .batch import (
-    BatchProcessor,
-    BatchProcessingReport,
-    FileProcessingResult,
-    ProcessingStatus,
-    process_batch,
-)
-
 # Core framework
 from .core import (
     CancellationToken,
@@ -82,12 +74,6 @@ __all__ = [
     # Model management
     "LocalModelManager",
     "local_model_manager",
-    # Batch processing
-    "BatchProcessor",
-    "BatchProcessingReport",
-    "FileProcessingResult",
-    "ProcessingStatus",
-    "process_batch",
     # Core framework
     "CancellationToken",
     # Pipeline and Engine (simplified architecture)
@@ -104,13 +90,16 @@ __all__ = [
 
 
 def launch_gui():
-    """启动 MediaFactory GUI 应用程序
+    """启动 MediaFactory API 服务器
 
     这是推荐的应用启动方式，支持：
     - from mediafactory import launch_gui; launch_gui()
     - python -m mediafactory
     - mediafactory (命令行)
-    """
-    from mediafactory.gui.flet import launch_gui as _launch
 
-    _launch()
+    注意：GUI 功能已迁移到 Electron 前端。
+    此函数现在启动 FastAPI 后端服务。
+    """
+    from mediafactory.api.main import start_server
+
+    start_server()

@@ -7,12 +7,19 @@ Key features:
 - Better exception handling with traceback
 - Thread-safe logging
 - Single log file per application run
+- Automatic cleanup of old log files (30 days / max 20 files)
 """
 
+import time
 from datetime import datetime
 from pathlib import Path
 from typing import Optional, Any
 from loguru import logger as _loguru_logger
+
+# 日志清理配置
+_LOG_RETENTION_DAYS = 30
+_LOG_MAX_FILES = 20
+_LOG_FILE_PATTERN = "LOG-*.log"
 
 # Remove default handler
 _loguru_logger.remove()
@@ -119,6 +126,9 @@ class LoguruAppLogger:
         _loguru_logger.info(f"File logging: {'enabled' if file_handler_added else 'disabled (using stderr)'}")
         _loguru_logger.info("=" * 60)
 
+        # 清理过期日志文件
+        self._cleanup_old_logs(log_file.parent)
+
         self._initialized = True
 
     def get_logger(self):
@@ -132,6 +142,59 @@ class LoguruAppLogger:
     def is_initialized(self) -> bool:
         """Check if logger has been initialized."""
         return self._initialized
+
+    def _cleanup_old_logs(self, log_dir: Path) -> None:
+        """清理过期日志文件
+
+        清理规则（取更严格的）：
+        - 保留最近 30 天内的日志文件
+        - 最多保留 20 个日志文件（按修改时间排序）
+        - 当前会话的日志文件不会被清理
+        """
+        if not log_dir.exists():
+            return
+
+        # 收集所有日志文件，按修改时间倒序（最新的在前）
+        log_files = sorted(
+            [f for f in log_dir.glob(_LOG_FILE_PATTERN) if f.is_file()],
+            key=lambda f: f.stat().st_mtime,
+            reverse=True,
+        )
+
+        # 排除当前会话的日志文件
+        if self.log_file:
+            log_files = [f for f in log_files if f.resolve() != self.log_file.resolve()]
+
+        if not log_files:
+            return
+
+        to_delete: set[Path] = set()
+
+        # 规则 1：删除超过 30 天的文件
+        cutoff_time = time.time() - (_LOG_RETENTION_DAYS * 86400)
+        for f in log_files:
+            try:
+                if f.stat().st_mtime < cutoff_time:
+                    to_delete.add(f)
+            except OSError:
+                pass
+
+        # 规则 2：超过 20 个文件时，删除最旧的
+        if len(log_files) > _LOG_MAX_FILES:
+            for f in log_files[_LOG_MAX_FILES:]:
+                to_delete.add(f)
+
+        # 执行删除
+        deleted = 0
+        for f in to_delete:
+            try:
+                f.unlink()
+                deleted += 1
+            except OSError:
+                pass
+
+        if deleted > 0:
+            _loguru_logger.info(f"Cleaned up {deleted} old log file(s)")
 
 
 # Global singleton
@@ -171,6 +234,51 @@ def _ensure_logger():
     if not is_initialized():
         setup_app_logging()
     return get_app_logger()
+
+
+# ===== Standard logging 桥接 =====
+
+
+import logging
+
+
+class InterceptHandler(logging.Handler):
+    """将标准 logging 重定向到 loguru
+
+    用于 API 层（FastAPI + uvicorn）的日志统一。
+    只拦截 mediafactory.* 命名空间的日志，不影响 uvicorn 自身日志。
+    """
+
+    def emit(self, record: logging.LogRecord) -> None:
+        # 获取对应的 loguru 级别
+        try:
+            level = _loguru_logger.level(record.levelname).name
+        except ValueError:
+            level = record.levelno
+
+        # 找到调用者（跳过 logging 内部帧）
+        frame, depth = logging.currentframe(), 2
+        while frame and frame.f_code.co_filename == logging.__file__:
+            frame = frame.f_back
+            depth += 1
+
+        _loguru_logger.opt(depth=depth, exception=record.exc_info).log(
+            level, record.getMessage()
+        )
+
+
+def setup_logging_intercept() -> None:
+    """注册 InterceptHandler 到 mediafactory.* 命名空间
+
+    将 API 层的 standard logging 重定向到 loguru。
+    不影响 uvicorn/starlette 的日志（它们使用自己的命名空间）。
+    """
+    _ensure_logger()
+
+    mediafactory_logger = logging.getLogger("mediafactory")
+    mediafactory_logger.handlers = [InterceptHandler()]
+    mediafactory_logger.setLevel(logging.DEBUG)
+    mediafactory_logger.propagate = False
 
 
 # ===== Simple logging functions =====

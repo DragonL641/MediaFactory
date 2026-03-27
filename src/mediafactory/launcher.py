@@ -64,11 +64,11 @@ def check_models_downloaded(project_root: Optional[Path] = None) -> bool:
 
 
 def launch_main_application() -> int:
-    """启动主应用"""
+    """启动主应用（API 服务器）"""
     try:
-        from mediafactory.gui.flet import launch_gui
+        from mediafactory.api.main import start_server
 
-        launch_gui()
+        start_server()
         return 0
     except Exception as e:
         print(f"启动应用失败: {e}")

@@ -82,32 +82,33 @@ class ProcessingContext:
         return self._current_stage_name
 
     def get_video_name(self) -> str:
-        """获取视频文件名（不含扩展名）"""
-        if self.video_path:
-            return Path(self.video_path).stem
+        """获取源文件名（不含扩展名），优先 video_path，fallback 到 audio_path"""
+        source_path = self.video_path or self.audio_path
+        if source_path:
+            return Path(source_path).stem
         return "output"
 
     def get_video_dir(self) -> str:
-        """获取视频文件目录"""
-        if self.video_path:
-            return str(Path(self.video_path).parent)
+        """获取源文件目录，优先 video_path，fallback 到 audio_path"""
+        source_path = self.video_path or self.audio_path
+        if source_path:
+            return str(Path(source_path).parent)
         return "."
 
     def cleanup(self) -> None:
         """清理上下文中的大对象以释放内存。
 
-        实现 ResourceCleanupProtocol 接口。
-        应该在任务完成后调用，特别是在批处理场景下。
+        释放 Whisper 模型资源（通过上下文管理器），保留结果数据
+        （transcription_result 等）供调用方在 pipeline 返回后读取。
         """
-        # 清空模型实例引用
+        # 通过上下文管理器释放 Whisper 模型
+        if hasattr(self, "_model_context") and self._model_context is not None:
+            try:
+                self._model_context.__exit__(None, None, None)
+            except Exception:
+                pass
+            self._model_context = None
         self.whisper_model_instance = None
-
-        # 清空结果数据
-        self.transcription_result = None
-        self.translation_result = None
-
-        # 可选：清空音频文件引用
-        self.audio_path = None
 
 
 @dataclass
@@ -121,6 +122,7 @@ class ProcessingResult:
     error_context: Optional[dict[str, Any]] = None
     error_severity: Optional[str] = None
     context: Optional[ProcessingContext] = None
+    metadata: dict[str, Any] = field(default_factory=dict)
 
     @classmethod
     def from_exception(

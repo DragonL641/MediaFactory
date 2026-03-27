@@ -2,10 +2,10 @@
 
 Provides a unified logging system for all application components using loguru.
 
-All logging (CLI, batch, LLM, GUI) now goes through a single loguru-based system:
+All logging (CLI, batch, LLM, GUI, API) now goes through a single loguru-based system:
 - Log files stored in: logs/LOG-YYYY-MM-DD-HHMM.log (dedicated logs directory)
 - Thread-safe with enqueue
-- No rotation, retention, or compression (single session log)
+- Auto-cleanup: retains logs for 30 days or max 20 files (whichever is stricter)
 - Auto-initialization on first import
 
 Usage:
@@ -24,6 +24,7 @@ from .loguru_logger import (
     get_app_logger,
     get_log_file_path,
     is_initialized,
+    setup_logging_intercept,
 )
 
 # Simple logging functions (unified for both app and GUI)
@@ -72,6 +73,7 @@ __all__ = [
     "get_app_logger",
     "get_log_file_path",
     "is_initialized",
+    "setup_logging_intercept",
     # Simple logging functions
     "log_debug",
     "log_info",

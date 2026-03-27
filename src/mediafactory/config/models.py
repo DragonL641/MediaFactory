@@ -198,9 +198,13 @@ class OpenAICompatibleConfig(BaseModel):
         description="自定义服务配置",
     )
 
+    _VALID_PRESETS = {"openai", "deepseek", "glm", "qwen", "moonshot", "custom"}
+
     def get_preset_config(self, preset: str) -> PresetServiceConfig:
         """获取指定预设的配置"""
-        return getattr(self, preset, PresetServiceConfig())
+        if preset not in self._VALID_PRESETS:
+            raise ValueError(f"Unknown preset: {preset}")
+        return getattr(self, preset)
 
 
 class LLMApiConfig(BaseModel):

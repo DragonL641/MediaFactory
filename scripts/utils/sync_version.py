@@ -24,6 +24,10 @@ VERSION_FILES = {
         r'^version = "(\d+\.\d+\.\d+)"',
         'version = "{version}"',
     ),
+    "src/electron/package.json": (
+        r'"version":\s*"(\d+\.\d+\.\d+)"',
+        '"version": "{version}"',
+    ),
     "README.md": [
         (r'dist/MediaFactory-(\d+\.\d+\.\d+)\.dmg', 'dist/MediaFactory-{version}.dmg'),
         (r'dist/MediaFactory-Setup-(\d+\.\d+\.\d+)\.exe', 'dist/MediaFactory-Setup-{version}.exe'),

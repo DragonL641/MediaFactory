@@ -9,6 +9,13 @@ from typing import Protocol
 class ProgressCallback(Protocol):
     """进度回调协议"""
 
+    def set_stage(self, stage: str) -> None:
+        """设置当前处理阶段
+
+        Args:
+            stage: 阶段名称（如 model_loading, transcription 等）
+        """
+
     def update(self, progress: float, message: str = "") -> None:
         """更新进度
 
@@ -24,6 +31,9 @@ class ProgressCallback(Protocol):
 
 class NoOpProgressCallback:
     """空操作进度回调（用于不需要进度报告的场景）"""
+
+    def set_stage(self, stage: str) -> None:
+        pass
 
     def update(self, progress: float, message: str = "") -> None:
         pass

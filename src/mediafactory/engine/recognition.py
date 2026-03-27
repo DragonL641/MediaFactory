@@ -124,7 +124,7 @@ class RecognitionEngine:
                     )
                 return super().update(n)
 
-        whisper_lang = src_lang if src_lang else None
+        whisper_lang = None if (not src_lang or src_lang == "auto") else src_lang
         if whisper_lang:
             log_info(f"Using detected language: {whisper_lang}")
         else:

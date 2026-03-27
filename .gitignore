@@ -186,3 +186,4 @@ dist/
 .serena/
 .qoder/
 openspec/
+node_modules

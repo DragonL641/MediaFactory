@@ -8,7 +8,7 @@ import sys
 import time
 import threading
 import subprocess
-from typing import Optional, TYPE_CHECKING
+from typing import Optional
 from pathlib import Path
 from ..constants import THREAD_JOIN_TIMEOUT
 from ..utils.time_estimator import TimeEstimator
@@ -16,9 +16,6 @@ from ..core.progress_protocol import ProgressCallback, NO_OP_PROGRESS
 from ..logging import log_debug, log_error, log_step
 from ..exceptions import ProcessingError
 from ..core.exception_wrapper import wrap_exceptions, convert_exception
-
-if TYPE_CHECKING:
-    from ..core.progress_bridge import GUIProgressBridge
 
 # 音频参数
 DEFAULT_HIGHPASS_FREQ = 200
@@ -115,6 +112,7 @@ class AudioEngine:
         self,
         video_path: str,
         progress: Optional[ProgressCallback] = None,
+        output_path: Optional[str] = None,
         sample_rate: int = DEFAULT_AUDIO_SAMPLE_RATE,
         channels: int = DEFAULT_AUDIO_CHANNELS,
         filter_enabled: bool = True,
@@ -128,6 +126,7 @@ class AudioEngine:
         Args:
             video_path: 输入视频文件路径
             progress: 进度回调
+            output_path: 输出音频文件路径（可选，不指定则自动生成）
             sample_rate: 采样率 (Hz)
             channels: 声道数 (1=单声道, 2=立体声)
             filter_enabled: 是否启用音频滤波器
@@ -150,11 +149,14 @@ class AudioEngine:
             output_format, OUTPUT_FORMAT_CONFIG["wav"]
         )
 
-        # 生成音频文件路径
-        video_dir, video_filename = os.path.split(video_path)
-        video_basename = os.path.splitext(video_filename)[0]
-        audio_filename = f"{video_basename}{format_config['ext']}"
-        audio_path = os.path.abspath(os.path.join(video_dir, audio_filename))
+        # 生成音频文件路径（支持自定义输出路径）
+        if output_path:
+            audio_path = os.path.abspath(output_path)
+        else:
+            video_dir, video_filename = os.path.split(video_path)
+            video_basename = os.path.splitext(video_filename)[0]
+            audio_filename = f"{video_basename}{format_config['ext']}"
+            audio_path = os.path.abspath(os.path.join(video_dir, audio_filename))
         self._temp_audio_path = audio_path
 
         # 估算处理时间

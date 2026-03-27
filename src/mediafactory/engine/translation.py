@@ -110,13 +110,24 @@ class TranslationEngine:
 
                 # 选择翻译方式
                 if self._use_llm:
-                    return self._translate_with_llm(
-                        result, actual_src_lang, tgt_lang, progress
-                    )
-                else:
-                    return self._translate_with_local(
-                        result, actual_src_lang, tgt_lang, progress
-                    )
+                    try:
+                        return self._translate_with_llm(
+                            result, actual_src_lang, tgt_lang, progress
+                        )
+                    except ProcessingError as e:
+                        log_warning(
+                            f"LLM translation failed ({e.message}), "
+                            f"falling back to local model"
+                        )
+                    except Exception as e:
+                        log_warning(
+                            f"LLM translation failed ({e}), "
+                            f"falling back to local model"
+                        )
+
+                return self._translate_with_local(
+                    result, actual_src_lang, tgt_lang, progress
+                )
 
         except ProcessingError:
             raise

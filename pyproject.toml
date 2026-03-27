@@ -18,6 +18,7 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Topic :: Multimedia :: Video",
     "Topic :: Multimedia :: Sound/Audio",
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
@@ -29,9 +30,6 @@ keywords = ["media", "video", "audio", "subtitle", "whisper", "speech-recognitio
 # Core dependencies (启动必需 - ~200MB)
 # ==============================================================================
 dependencies = [
-    # GUI 框架 (固定到 0.82.2 稳定版)
-    "flet==0.82.2",
-    "flet-desktop==0.82.2",  # 桌面客户端（原生窗口支持）
     # 配置和日志
     "loguru>=0.7.2",
     "pydantic>=2.9.0,<3.0.0",
@@ -53,6 +51,10 @@ dependencies = [
     # LLM API SDKs (远程翻译，无需本地模型)
     "openai>=1.50.0",     # OpenAI SDK 支持 (统一后端)
     "tenacity>=8.2.0",   # 重试机制
+    # API Server (Electron 前端后端)
+    "fastapi>=0.109.0",
+    "uvicorn[standard]>=0.27.0",
+    "websockets>=12.0",
 ]
 requires-python = ">=3.11,<3.14"
 
@@ -60,7 +62,7 @@ requires-python = ">=3.11,<3.14"
 # Console scripts (命令行入口点)
 # ==============================================================================
 [project.scripts]
-mediafactory = "mediafactory.gui.flet.app:launch_gui"
+mediafactory = "mediafactory.api.main:start_server"
 
 # ==============================================================================
 # Dependency Groups (依赖分组)
@@ -83,8 +85,6 @@ mediafactory = "mediafactory.gui.flet.app:launch_gui"
 # 打包依赖（PyInstaller 要打包的依赖，不含 ML）
 # 用于验证打包依赖的完整性，与 [project.dependencies] 一致
 bundle = [
-    "flet==0.82.2",
-    "flet-desktop==0.82.2",  # 桌面客户端
     "loguru>=0.7.2",
     "pydantic>=2.9.0,<3.0.0",
     "tomli>=2.0.1",
@@ -98,6 +98,10 @@ bundle = [
     "huggingface-hub>=0.30.0,<1.0.0",
     "openai>=1.50.0",
     "tenacity>=8.2.0",
+    # API Server
+    "fastapi>=0.109.0",
+    "uvicorn[standard]>=0.27.0",
+    "websockets>=12.0",
 ]
 
 # 核心依赖（所有功能依赖，包含 ML）
@@ -107,8 +111,6 @@ bundle = [
 # PyTorch 从官方源下载以获取 CUDA 支持
 core = [
     # 包含所有打包依赖
-    "flet==0.82.2",
-    "flet-desktop==0.82.2",  # 桌面客户端
     "loguru>=0.7.2",
     "pydantic>=2.9.0,<3.0.0",
     "tomli>=2.0.1",
@@ -132,6 +134,10 @@ core = [
     "sentencepiece>=0.1.99",        # 支持库
     "accelerate>=1.0.0",            # 支持库
     "spandrel>=0.4.0",              # 统一模型加载库（视频增强）
+    # API Server
+    "fastapi>=0.109.0",
+    "uvicorn[standard]>=0.27.0",
+    "websockets>=12.0",
 ]
 
 # 开发依赖（开发工具、代码质量检查）
@@ -197,7 +203,7 @@ where = ["src"]
 ##### Black Check Settings #####
 [tool.black]
 line-length = 88
-target-version = ['py313']
+target-version = ['py311']
 include = '\\.pyi?$'
 extend-exclude = '''
 ^/
@@ -225,18 +231,27 @@ exclude_dirs = ["tests/"]
 
 ##### Flake8 Style Check Settings #####
 [tool.flake8]
-# Minimal flake8 settings for basic syntax checks
-max-line-length = 120
+# 与 Black 保持一致的行长度
+max-line-length = 88
 extend-ignore = [
     "F401",  # Ignore 'module imported but unused' warnings
-    "E203",  # Ignore 'whitespace before ':' which is not PEP 8 compliant'
+    "E203",  # Ignore 'whitespace before ':' which is not PEP 8 compliant
     "W503",  # Ignore 'line break before binary operator'
+    "E501",  # Ignore line too long (Black handles this)
 ]
 per-file-ignores = [
     # Allow unused imports in __init__.py files
     "__init__.py:F401",
 ]
 max-complexity = 15  # Allow higher complexity for business logic
+
+##### isort Import Sorting Settings #####
+[tool.isort]
+profile = "black"
+line_length = 88
+known_first_party = ["mediafactory"]
+sections = ["FUTURE", "STDLIB", "THIRDPARTY", "FIRSTPARTY", "LOCALFOLDER"]
+skip = [".venv", "venv", ".git", "__pycache__", ".eggs", "*.egg", "build", "dist"]
 
 ##### Type & Annotation Check Settings #####
 [tool.mypy]
