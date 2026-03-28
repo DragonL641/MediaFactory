@@ -16,6 +16,7 @@ from ..core.progress_protocol import ProgressCallback, NO_OP_PROGRESS
 from ..logging import log_debug, log_error, log_step
 from ..exceptions import ProcessingError
 from ..core.exception_wrapper import wrap_exceptions, convert_exception
+from ..i18n import t
 
 # 音频参数
 DEFAULT_HIGHPASS_FREQ = 200
@@ -40,7 +41,7 @@ def validate_video_path(video_path: str) -> None:
     """验证视频路径安全性"""
     if not video_path:
         raise ProcessingError(
-            message="Video path cannot be empty", context={"video_path": video_path}
+            message=t("error.videoPathEmpty"), context={"video_path": video_path}
         )
 
     path_chars = set(video_path)
@@ -61,7 +62,7 @@ def validate_video_path(video_path: str) -> None:
 
     if not resolved.exists():
         raise ProcessingError(
-            message=f"Video file not found: {video_path}",
+            message=t("error.videoFileNotFound", path=video_path),
             context={"video_path": video_path, "resolved_path": str(resolved)},
         )
 
@@ -252,7 +253,7 @@ class AudioEngine:
             completion_event.set()
             if monitor_thread:
                 monitor_thread.join(timeout=THREAD_JOIN_TIMEOUT)
-            progress.update(100.0, "已完成")
+            progress.update(100.0, t("progress.completed"))
 
         return audio_path
 
@@ -287,10 +288,10 @@ class AudioEngine:
             elapsed = time.time() - start_time
             if estimated_time > 0:
                 progress_value = min((elapsed / estimated_time) * 100, 99.0)
-                progress.update(progress_value, "正在提取音频...")
+                progress.update(progress_value, t("progress.extractingAudio"))
             else:
-                progress.update(50.0, "正在提取音频...")
+                progress.update(50.0, t("progress.extractingAudio"))
 
             if completion_event.wait(0.5):
                 break
-        progress.update(100.0, "已完成")
+        progress.update(100.0, t("progress.completed"))

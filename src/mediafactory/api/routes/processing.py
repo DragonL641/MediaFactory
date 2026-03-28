@@ -20,6 +20,7 @@ from mediafactory.api.schemas import (
     TranscribeRequest,
     TranslateRequest,
 )
+from mediafactory.i18n import t
 
 logger = logging.getLogger(__name__)
 
@@ -59,7 +60,7 @@ async def create_subtitle_task(request: SubtitleRequest):
     return TaskResponse(
         task_id=task_id,
         status=TaskStatus.PENDING,
-        message="Task created, waiting to start",
+        message=t("task.createdWaiting"),
     )
 
 
@@ -89,7 +90,7 @@ async def create_audio_task(request: AudioRequest):
     return TaskResponse(
         task_id=task_id,
         status=TaskStatus.PENDING,
-        message="Task created, waiting to start",
+        message=t("task.createdWaiting"),
     )
 
 
@@ -115,7 +116,7 @@ async def create_transcribe_task(request: TranscribeRequest):
     return TaskResponse(
         task_id=task_id,
         status=TaskStatus.PENDING,
-        message="Task created, waiting to start",
+        message=t("task.createdWaiting"),
     )
 
 
@@ -125,7 +126,7 @@ async def create_translate_task(request: TranslateRequest):
     from mediafactory.api.schemas import TaskConfig, TaskType
 
     if not request.srt_path and not request.text:
-        raise HTTPException(status_code=400, detail="Either srt_path or text is required")
+        raise HTTPException(status_code=400, detail=t("error.eitherSrtOrTextRequired"))
 
     config = TaskConfig(
         task_type=TaskType.TRANSLATE,
@@ -145,7 +146,7 @@ async def create_translate_task(request: TranslateRequest):
     return TaskResponse(
         task_id=task_id,
         status=TaskStatus.PENDING,
-        message="Task created, waiting to start",
+        message=t("task.createdWaiting"),
     )
 
 
@@ -172,7 +173,7 @@ async def create_enhance_task(request: EnhanceRequest):
     return TaskResponse(
         task_id=task_id,
         status=TaskStatus.PENDING,
-        message="Task created, waiting to start",
+        message=t("task.createdWaiting"),
     )
 
 
@@ -188,10 +189,10 @@ async def start_task(task_id: str):
     if not success:
         raise HTTPException(
             status_code=400,
-            detail="Cannot start task: task not found, not PENDING, or another task is running",
+            detail=t("error.cannotStartTask"),
         )
 
-    return {"task_id": task_id, "status": TaskStatus.RUNNING.value, "message": "Task started"}
+    return {"task_id": task_id, "status": TaskStatus.RUNNING.value, "message": t("task.started")}
 
 
 @router.post("/cancel/{task_id}")
@@ -207,13 +208,13 @@ async def cancel_task(task_id: str):
         return {
             "task_id": task_id,
             "status": current_status,
-            "message": f"Task already {current_status}",
+            "message": t("task.alreadyInStatus", status=current_status),
         }
 
     return CancelResponse(
         task_id=task_id,
         status="cancelling",
-        message="Cancellation requested",
+        message=t("task.cancellationRequested"),
     )
 
 
@@ -224,7 +225,7 @@ async def get_task_status(task_id: str):
     status = await task_manager.get_task_status(task_id)
 
     if not status:
-        raise HTTPException(status_code=404, detail="Task not found")
+        raise HTTPException(status_code=404, detail=t("error.taskNotFound"))
 
     return status
 
@@ -243,7 +244,7 @@ async def remove_task(task_id: str):
     success = await task_manager.remove_task(task_id)
 
     if not success:
-        raise HTTPException(status_code=400, detail="Cannot remove a running task")
+        raise HTTPException(status_code=400, detail=t("error.cannotRemoveRunningTask"))
 
     return {"success": True}
 
@@ -255,7 +256,7 @@ async def get_task_config(task_id: str):
     config = await task_manager.get_task_config(task_id)
 
     if not config:
-        raise HTTPException(status_code=404, detail="Task not found")
+        raise HTTPException(status_code=404, detail=t("error.taskNotFound"))
 
     return config
 
@@ -268,21 +269,21 @@ async def update_task_config(task_id: str, update: TaskConfigUpdateRequest):
     # 检查任务状态
     status_info = await task_manager.get_task_status(task_id)
     if not status_info:
-        raise HTTPException(status_code=404, detail="Task not found")
+        raise HTTPException(status_code=404, detail=t("error.taskNotFound"))
 
     if status_info["status"] != TaskStatus.PENDING.value:
         raise HTTPException(
             status_code=400,
-            detail=f"Can only edit PENDING tasks, current status: {status_info['status']}",
+            detail=t("error.canOnlyEditPending", status=status_info['status']),
         )
 
     update_data = update.model_dump(exclude_unset=True)
     success = await task_manager.update_task_config(task_id, update_data)
 
     if not success:
-        raise HTTPException(status_code=500, detail="Update failed")
+        raise HTTPException(status_code=500, detail=t("error.updateFailed"))
 
-    return {"success": True, "message": "Config updated"}
+    return {"success": True, "message": t("task.configUpdated")}
 
 
 # ============ 批量操作 ============
@@ -293,7 +294,7 @@ async def batch_start_tasks():
     """启动所有 PENDING 任务（串行执行）"""
     task_manager = _get_task_manager()
     count = await task_manager.start_all_pending()
-    return {"success": True, "started": count, "message": f"Queued {count} tasks for execution"}
+    return {"success": True, "started": count, "message": t("task.queuedForExecution", count=count)}
 
 
 @router.post("/batch/cancel")

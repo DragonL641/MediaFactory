@@ -1,0 +1,48 @@
+{
+  "pageHeader": {
+    "title": "本地模型",
+    "description": "管理用于离线处理的 AI 模型"
+  },
+  "category": {
+    "whisper": {
+      "title": "音频处理 (Whisper)",
+      "description": "用于语音识别和转录的 Whisper 模型。"
+    },
+    "translation": {
+      "title": "翻译 (MADLAD400)",
+      "description": "用于本地文本翻译的 MADLAD400 模型。"
+    },
+    "enhancement": {
+      "title": "超分辨率 (Real-ESRGAN)",
+      "description": "AI 视频超分辨率模型。"
+    },
+    "denoise": {
+      "title": "降噪 (NAFNet)",
+      "description": "用于老旧或嘈杂画面的视频降噪模型。"
+    }
+  },
+  "card": {
+    "size": "大小: {{size}}",
+    "memory": "内存: {{memory}}",
+    "downloading": "下载中...",
+    "ready": "就绪",
+    "incomplete": "不完整",
+    "download": "下载",
+    "incompleteTooltip": "模型文件不完整或已损坏",
+    "retry": "重试"
+  },
+  "confirm": {
+    "deleteTitle": "删除模型",
+    "deleteDescription": "删除 {{name}}？此操作不可撤销。"
+  },
+  "messages": {
+    "downloadCompleted": "下载完成",
+    "downloadFailed": "下载失败",
+    "downloadStarted": "开始下载: {{modelId}}",
+    "modelDeleted": "模型已删除: {{modelId}}",
+    "deleteFailed": "删除失败"
+  },
+  "error": {
+    "loadFailed": "加载模型失败"
+  }
+}

@@ -1,0 +1,80 @@
+{
+  "pageHeader": {
+    "title": "Task Queue",
+    "description": "Manage and execute your media processing tasks"
+  },
+  "actions": {
+    "addTask": "Add Task",
+    "startAll": "Start All",
+    "cancelAll": "Cancel All",
+    "clearAll": "Clear All"
+  },
+  "confirm": {
+    "cancelRunning": {
+      "title": "Cancel running tasks?",
+      "description": "This will stop all currently running tasks.",
+      "okText": "Cancel Tasks"
+    },
+    "clearFinished": {
+      "title": "Clear finished tasks?",
+      "description": "Remove all completed, failed, and cancelled tasks.",
+      "okText": "Clear"
+    }
+  },
+  "messages": {
+    "queued": "Queued {{count}} task(s)",
+    "cancelled": "Cancelled {{count}} task(s)",
+    "cleared": "Cleared {{count}} task(s)"
+  },
+  "empty": {
+    "title": "No tasks yet",
+    "description": "Create a task to start processing your media files",
+    "actionText": "Add Task"
+  },
+  "error": {
+    "loadFailed": "Failed to load tasks"
+  },
+  "card": {
+    "status": {
+      "pending": "Pending",
+      "running": "Running",
+      "completed": "Completed",
+      "failed": "Failed",
+      "cancelled": "Cancelled"
+    },
+    "cancel": "Cancel",
+    "start": "Start",
+    "edit": "Edit",
+    "started": "Task started",
+    "startFailed": "Failed to start task"
+  },
+  "typeLabels": {
+    "subtitle": "Subtitle Generation",
+    "audio": "Audio Extraction",
+    "transcribe": "Transcription",
+    "translate": "Translation",
+    "enhance": "Video Enhancement"
+  },
+  "typeOptions": {
+    "subtitle": { "title": "Subtitle Generator", "description": "Generate subtitles from video files" },
+    "audio": { "title": "Audio Extractor", "description": "Extract audio from video files" },
+    "transcribe": { "title": "Speech to Text", "description": "Convert speech to text (SRT format)" },
+    "translate": { "title": "Subtitle Translator", "description": "Translate SRT subtitle files" },
+    "enhance": { "title": "Video Enhancement", "description": "Enhance video quality with AI upscaling" }
+  },
+  "createDialog": {
+    "title": "Create Task",
+    "steps": {
+      "selectType": "Select Type",
+      "configure": "Configure"
+    },
+    "create": "Create",
+    "created": "Task created"
+  },
+  "editDialog": {
+    "title": "Edit Task",
+    "taskType": "Task Type",
+    "inputFile": "Input File",
+    "saved": "Task config updated"
+  }
+}

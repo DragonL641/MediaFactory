@@ -5,7 +5,8 @@
 import React, { useState } from "react";
 import { Form, Select, Switch } from "antd";
 import type { FormInstance } from "antd";
-import { LANGUAGE_OPTIONS, TARGET_LANGUAGE_OPTIONS } from "./shared";
+import { useTranslation } from "react-i18next";
+import { useLanguageOptions, useTargetLanguageOptions, useFileFilters } from "./shared";
 import FileDialogInput from "../../../components/Form/FileDialogInput";
 import LLMProviderSelect from "../../../components/Form/LLMProviderSelect";
 
@@ -14,7 +15,12 @@ interface TranslateFormProps {
 }
 
 const TranslateForm: React.FC<TranslateFormProps> = ({ form }) => {
+  const { t } = useTranslation("forms");
   const [useLlm, setUseLlm] = useState(false);
+
+  const languageOptions = useLanguageOptions();
+  const targetLanguageOptions = useTargetLanguageOptions();
+  const fileFilters = useFileFilters();
 
   return (
     <Form form={form} layout="vertical" initialValues={{
@@ -25,20 +31,20 @@ const TranslateForm: React.FC<TranslateFormProps> = ({ form }) => {
       <FileDialogInput
         form={form}
         name="srt_path"
-        label="SRT File"
-        placeholder="Click to select SRT file..."
-        filters={[{ name: "SRT Files", extensions: ["srt"] }]}
+        label={t("forms:label.srtFile")}
+        placeholder={t("forms:placeholder.selectSrt")}
+        filters={fileFilters.srt}
       />
 
-      <Form.Item name="source_lang" label="Source Language">
-        <Select options={LANGUAGE_OPTIONS} />
+      <Form.Item name="source_lang" label={t("forms:label.sourceLanguage")}>
+        <Select options={languageOptions} />
       </Form.Item>
 
-      <Form.Item name="target_lang" label="Target Language">
-        <Select options={TARGET_LANGUAGE_OPTIONS} />
+      <Form.Item name="target_lang" label={t("forms:label.targetLanguage")}>
+        <Select options={targetLanguageOptions} />
       </Form.Item>
 
-      <Form.Item name="use_llm" label="Use Remote LLM" valuePropName="checked">
+      <Form.Item name="use_llm" label={t("forms:label.useRemoteLlmShort")} valuePropName="checked">
         <Switch onChange={(checked) => setUseLlm(checked)} />
       </Form.Item>
 

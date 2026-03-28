@@ -15,6 +15,7 @@ import {
   PlayCircleOutlined,
   EditOutlined,
 } from "@ant-design/icons";
+import { useTranslation } from "react-i18next";
 import { Task } from "../../types";
 import { useStartTaskMutation } from "../../api/queries";
 import { isAxiosError } from "axios";
@@ -32,13 +33,14 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, onCancel, onDelete, onEdit })
   const status = task.status as string;
   const startMutation = useStartTaskMutation();
   const { message } = App.useApp();
+  const { t } = useTranslation("tasks");
 
   const statusConfig: Record<string, { color: string; icon: React.ReactNode; text: string }> = {
-    pending: { color: "blue", icon: <ClockCircleOutlined />, text: "Pending" },
-    running: { color: "processing", icon: <LoadingOutlined spin />, text: "Running" },
-    completed: { color: "success", icon: <CheckCircleOutlined />, text: "Completed" },
-    failed: { color: "error", icon: <CloseCircleOutlined />, text: "Failed" },
-    cancelled: { color: "warning", icon: <PauseCircleOutlined />, text: "Cancelled" },
+    pending: { color: "blue", icon: <ClockCircleOutlined />, text: t("tasks:card.status.pending") },
+    running: { color: "processing", icon: <LoadingOutlined spin />, text: t("tasks:card.status.running") },
+    completed: { color: "success", icon: <CheckCircleOutlined />, text: t("tasks:card.status.completed") },
+    failed: { color: "error", icon: <CloseCircleOutlined />, text: t("tasks:card.status.failed") },
+    cancelled: { color: "warning", icon: <PauseCircleOutlined />, text: t("tasks:card.status.cancelled") },
   };
 
   const config = statusConfig[status] || statusConfig.pending;
@@ -53,11 +55,11 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, onCancel, onDelete, onEdit })
   const handleStart = () => {
     startMutation.mutate(task.id, {
       onSuccess: () => {
-        message.success("Task started");
+        message.success(t("tasks:card.started"));
       },
       onError: (error: unknown) => {
         const detail = isAxiosError(error) ? error.response?.data?.detail : undefined;
-        message.error(detail || "Failed to start task");
+        message.error(detail || t("tasks:card.startFailed"));
       },
     });
   };
@@ -93,17 +95,17 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, onCancel, onDelete, onEdit })
               onClick={handleStart}
               loading={startMutation.isPending}
             >
-              Start
+              {t("tasks:card.start")}
             </Button>
           )}
           {canEdit && onEdit && (
             <Button size="small" icon={<EditOutlined />} onClick={onEdit}>
-              Edit
+              {t("tasks:card.edit")}
             </Button>
           )}
           {canCancel && (
             <Button size="small" danger onClick={onCancel}>
-              Cancel
+              {t("tasks:card.cancel")}
             </Button>
           )}
           {isCompleted && outputPath && (

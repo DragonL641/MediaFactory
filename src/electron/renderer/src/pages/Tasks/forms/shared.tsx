@@ -1,57 +1,73 @@
 /**
- * 任务表单共享常量
+ * 任务表单共享常量与 hooks
  */
 
-// 语言选项
-export const LANGUAGE_OPTIONS = [
-  { value: "auto", label: "Auto Detect" },
-  { value: "en", label: "English" },
-  { value: "zh", label: "Chinese" },
-  { value: "ja", label: "Japanese" },
-  { value: "ko", label: "Korean" },
-  { value: "fr", label: "French" },
-  { value: "de", label: "German" },
-  { value: "es", label: "Spanish" },
-  { value: "ru", label: "Russian" },
-];
+import { useTranslation } from "react-i18next";
 
-// 目标语言选项（不含 auto）
-export const TARGET_LANGUAGE_OPTIONS = LANGUAGE_OPTIONS.filter(
-  (opt) => opt.value !== "auto"
-);
+// i18n 版本的选项 hooks
+export const useLanguageOptions = () => {
+  const { t } = useTranslation("forms");
+  return [
+    { value: "auto", label: t("forms:language.autoDetect") },
+    { value: "en", label: t("forms:language.english") },
+    { value: "zh", label: t("forms:language.chinese") },
+    { value: "ja", label: t("forms:language.japanese") },
+    { value: "ko", label: t("forms:language.korean") },
+    { value: "fr", label: t("forms:language.french") },
+    { value: "de", label: t("forms:language.german") },
+    { value: "es", label: t("forms:language.spanish") },
+    { value: "ru", label: t("forms:language.russian") },
+  ];
+};
 
-// 输出格式选项
-export const OUTPUT_FORMAT_OPTIONS = [
-  { value: "srt", label: "SRT Subtitles" },
-  { value: "ass", label: "ASS Subtitles (Styled)" },
-  { value: "txt", label: "Plain Text (.txt)" },
-];
+export const useTargetLanguageOptions = () => {
+  const { t } = useTranslation("forms");
+  return [
+    { value: "en", label: t("forms:language.english") },
+    { value: "zh", label: t("forms:language.chinese") },
+    { value: "ja", label: t("forms:language.japanese") },
+    { value: "ko", label: t("forms:language.korean") },
+    { value: "fr", label: t("forms:language.french") },
+    { value: "de", label: t("forms:language.german") },
+    { value: "es", label: t("forms:language.spanish") },
+    { value: "ru", label: t("forms:language.russian") },
+  ];
+};
 
-// ASS 样式预设选项
-export const STYLE_PRESET_OPTIONS = [
-  { value: "default", label: "Default" },
-  { value: "science", label: "Science" },
-  { value: "anime", label: "Anime" },
-  { value: "news", label: "News" },
-];
+export const useOutputFormatOptions = () => {
+  const { t } = useTranslation("forms");
+  return [
+    { value: "srt", label: t("forms:outputFormat.srt") },
+    { value: "ass", label: t("forms:outputFormat.ass") },
+    { value: "txt", label: t("forms:outputFormat.txt") },
+  ];
+};
 
-// 双语布局选项
-export const BILINGUAL_LAYOUT_OPTIONS = [
-  { value: "translate_on_top", label: "Translation on Top" },
-  { value: "original_on_top", label: "Original on Top" },
-  { value: "translate_only", label: "Only Translation" },
-  { value: "original_only", label: "Only Original" },
-];
+export const useStylePresetOptions = () => {
+  const { t } = useTranslation("forms");
+  return [
+    { value: "default", label: t("forms:stylePreset.default") },
+    { value: "science", label: t("forms:stylePreset.science") },
+    { value: "anime", label: t("forms:stylePreset.anime") },
+    { value: "news", label: t("forms:stylePreset.news") },
+  ];
+};
 
-// 文件类型过滤器
-export const FILE_FILTERS = {
-  video: [
-    { name: "Video Files", extensions: ["mp4", "avi", "mov", "mkv", "wmv", "flv", "webm"] },
-  ],
-  audio_video: [
-    { name: "Audio/Video Files", extensions: ["mp4", "avi", "mov", "mkv", "wav", "mp3", "m4a", "flac", "webm", "ogg"] },
-  ],
-  srt: [
-    { name: "SRT Files", extensions: ["srt"] },
-  ],
+export const useBilingualLayoutOptions = () => {
+  const { t } = useTranslation("forms");
+  return [
+    { value: "translate_on_top", label: t("forms:bilingualLayout.translateOnTop") },
+    { value: "original_on_top", label: t("forms:bilingualLayout.originalOnTop") },
+    { value: "translate_only", label: t("forms:bilingualLayout.translateOnly") },
+    { value: "original_only", label: t("forms:bilingualLayout.originalOnly") },
+  ];
+};
+
+export const useFileFilters = () => {
+  const { t } = useTranslation("forms");
+  return {
+    video: [{ name: t("forms:fileFilter.video"), extensions: ["mp4", "avi", "mov", "mkv", "wmv", "flv", "webm"] }],
+    audio_video: [{ name: t("forms:fileFilter.audioVideo"), extensions: ["mp4", "avi", "mov", "mkv", "wav", "mp3", "m4a", "flac", "webm", "ogg"] }],
+    srt: [{ name: t("forms:fileFilter.srt"), extensions: ["srt"] }],
+  };
 };

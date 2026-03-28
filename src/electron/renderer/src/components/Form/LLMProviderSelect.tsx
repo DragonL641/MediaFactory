@@ -7,6 +7,7 @@
 import React from "react";
 import { Form, Select, theme } from "antd";
 import type { FormInstance } from "antd";
+import { useTranslation } from "react-i18next";
 import type { LLMPresetInfo } from "../../types";
 import { useLLMPresetsQuery } from "../../api/queries";
 
@@ -21,11 +22,14 @@ export interface LLMProviderSelectProps {
 const LLMProviderSelect: React.FC<LLMProviderSelectProps> = ({
   form,
   name = "llm_preset",
-  label = "LLM Provider",
+  label,
   required = true,
-  placeholder = "Select provider",
+  placeholder,
 }) => {
+  const { t } = useTranslation("forms");
   const { token } = theme.useToken();
+  const resolvedLabel = label ?? t("forms:label.llmProvider");
+  const resolvedPlaceholder = placeholder ?? t("forms:placeholder.selectProvider");
   const { data: presetsData } = useLLMPresetsQuery();
 
   const presetOptions = presetsData
@@ -37,9 +41,9 @@ const LLMProviderSelect: React.FC<LLMProviderSelectProps> = ({
     : [];
 
   return (
-    <Form.Item name={name} label={label} rules={required ? [{ required }] : undefined}>
+    <Form.Item name={name} label={resolvedLabel} rules={required ? [{ required }] : undefined}>
       <Select
-        placeholder={placeholder}
+        placeholder={resolvedPlaceholder}
         options={presetOptions.map((p) => ({
           value: p.value,
           label: (
@@ -52,7 +56,7 @@ const LLMProviderSelect: React.FC<LLMProviderSelectProps> = ({
                     fontSize: token.fontSizeSM,
                   }}
                 >
-                  {p.connected ? "(Connected)" : ""}
+                  {p.connected ? t("llmConfig:card.connected") : ""}
                 </span>
               )}
             </span>

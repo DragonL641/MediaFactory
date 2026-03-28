@@ -5,7 +5,8 @@
 import React from "react";
 import { Form, Select } from "antd";
 import type { FormInstance } from "antd";
-import { LANGUAGE_OPTIONS, OUTPUT_FORMAT_OPTIONS, STYLE_PRESET_OPTIONS } from "./shared";
+import { useTranslation } from "react-i18next";
+import { useLanguageOptions, useOutputFormatOptions, useStylePresetOptions, useFileFilters } from "./shared";
 import FileDialogInput from "../../../components/Form/FileDialogInput";
 
 interface TranscribeFormProps {
@@ -13,7 +14,13 @@ interface TranscribeFormProps {
 }
 
 const TranscribeForm: React.FC<TranscribeFormProps> = ({ form }) => {
+  const { t } = useTranslation("forms");
   const outputFormat = Form.useWatch(["output_format"], form);
+
+  const languageOptions = useLanguageOptions();
+  const outputFormatOptions = useOutputFormatOptions();
+  const stylePresetOptions = useStylePresetOptions();
+  const fileFilters = useFileFilters();
 
   return (
     <Form form={form} layout="vertical" initialValues={{
@@ -24,22 +31,22 @@ const TranscribeForm: React.FC<TranscribeFormProps> = ({ form }) => {
       <FileDialogInput
         form={form}
         name="audio_path"
-        label="Audio/Video File"
-        placeholder="Click to select audio or video file..."
-        filters={[{ name: "Audio/Video Files", extensions: ["mp4", "avi", "mov", "mkv", "wav", "mp3", "m4a", "flac", "webm", "ogg"] }]}
+        label={t("forms:label.audioVideoFile")}
+        placeholder={t("forms:placeholder.selectAudioVideo")}
+        filters={fileFilters.audio_video}
       />
 
-      <Form.Item name="source_lang" label="Source Language">
-        <Select options={LANGUAGE_OPTIONS} />
+      <Form.Item name="source_lang" label={t("forms:label.sourceLanguage")}>
+        <Select options={languageOptions} />
       </Form.Item>
 
-      <Form.Item name="output_format" label="Output Format">
-        <Select options={OUTPUT_FORMAT_OPTIONS} />
+      <Form.Item name="output_format" label={t("forms:label.outputFormat")}>
+        <Select options={outputFormatOptions} />
       </Form.Item>
 
       {outputFormat === "ass" && (
-        <Form.Item name="style_preset" label="Style Preset">
-          <Select options={STYLE_PRESET_OPTIONS} />
+        <Form.Item name="style_preset" label={t("forms:label.stylePreset")}>
+          <Select options={stylePresetOptions} />
         </Form.Item>
       )}
     </Form>

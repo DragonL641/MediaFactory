@@ -13,6 +13,7 @@ from typing import Optional, List, Literal
 from ..logging import log_info, log_error, log_debug
 from ..exceptions import ProcessingError
 from ..core.exception_wrapper import wrap_exceptions, convert_exception
+from ..i18n import t
 
 
 class VideoComposer:
@@ -53,7 +54,7 @@ class VideoComposer:
             return ffmpeg_path
 
         raise ProcessingError(
-            message="FFmpeg 未找到。请安装 imageio-ffmpeg 或系统 FFmpeg。",
+            message=t("error.ffmpegNotFound"),
             context={"missing_dependency": "ffmpeg"},
         )
 
@@ -88,7 +89,7 @@ class VideoComposer:
         # 检查格式是否支持软字幕
         if ext in self.HARD_SUBTITLE_ONLY_FORMATS:
             raise ProcessingError(
-                message=f"{ext} 格式不支持软字幕，请使用硬字幕（burn_subtitle）",
+                message=t("error.softSubtitleNotSupported", format=ext),
                 context={"video_path": video_path, "format": ext},
             )
 
@@ -150,7 +151,7 @@ class VideoComposer:
                     )
                     log_error(f"[VideoComposer] FFmpeg 错误: {error_msg}")
                     raise ProcessingError(
-                        message=f"软字幕嵌入失败: {error_msg[:200]}",
+                        message=t("error.softSubtitleEmbedFailed", error=error_msg[:200]),
                         context={
                             "video_path": video_path,
                             "subtitle_path": subtitle_path,
@@ -163,7 +164,7 @@ class VideoComposer:
 
         except subprocess.TimeoutExpired:
             raise ProcessingError(
-                message="软字幕嵌入超时（超过5分钟）",
+                message=t("error.softSubtitleTimeout"),
                 context={"video_path": video_path, "timeout": 300},
             )
         except ProcessingError:
@@ -247,7 +248,7 @@ class VideoComposer:
                     )
                     log_error(f"[VideoComposer] FFmpeg 错误: {error_msg}")
                     raise ProcessingError(
-                        message=f"硬字幕烧录失败: {error_msg[:200]}",
+                        message=t("error.hardSubtitleBurnFailed", error=error_msg[:200]),
                         context={
                             "video_path": video_path,
                             "subtitle_path": subtitle_path,
@@ -260,7 +261,7 @@ class VideoComposer:
 
         except subprocess.TimeoutExpired:
             raise ProcessingError(
-                message="硬字幕烧录超时（超过30分钟）",
+                message=t("error.hardSubtitleTimeout"),
                 context={"video_path": video_path, "timeout": 1800},
             )
         except ProcessingError:
@@ -295,7 +296,7 @@ class VideoComposer:
         """
         if not subtitle_tracks:
             raise ProcessingError(
-                message="至少需要一个字幕轨道",
+                message=t("error.atLeastOneSubtitleRequired"),
                 context={"video_path": video_path},
             )
 
@@ -303,7 +304,7 @@ class VideoComposer:
 
         if ext in self.HARD_SUBTITLE_ONLY_FORMATS:
             raise ProcessingError(
-                message=f"{ext} 格式不支持软字幕",
+                message=t("error.formatNotSupportSoftSubtitle", format=ext),
                 context={"video_path": video_path, "format": ext},
             )
 
@@ -363,7 +364,7 @@ class VideoComposer:
                     )
                     log_error(f"[VideoComposer] FFmpeg 错误: {error_msg}")
                     raise ProcessingError(
-                        message=f"多字幕嵌入失败: {error_msg[:200]}",
+                        message=t("error.multiSubtitleEmbedFailed", error=error_msg[:200]),
                         context={"ffmpeg_error": error_msg},
                     )
 
@@ -372,7 +373,7 @@ class VideoComposer:
 
         except subprocess.TimeoutExpired:
             raise ProcessingError(
-                message="多字幕嵌入超时",
+                message=t("error.multiSubtitleTimeout"),
                 context={"video_path": video_path},
             )
         except ProcessingError:

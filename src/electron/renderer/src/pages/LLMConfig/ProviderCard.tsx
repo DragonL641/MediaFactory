@@ -16,6 +16,7 @@ import {
   DeleteOutlined,
   WifiOutlined,
 } from "@ant-design/icons";
+import { useTranslation } from "react-i18next";
 import { useTestLLMMutation, useDeleteLLMPresetMutation } from "../../api/queries";
 import { isAxiosError } from "axios";
 import type { TestConnectionResponse } from "../../types";
@@ -44,6 +45,7 @@ const ProviderCard: React.FC<ProviderCardProps> = ({
   const testMutation = useTestLLMMutation();
   const deleteMutation = useDeleteLLMPresetMutation();
   const { message } = App.useApp();
+  const { t } = useTranslation("llmConfig");
 
   const handleTest = async () => {
     setTesting(true);
@@ -51,15 +53,15 @@ const ProviderCard: React.FC<ProviderCardProps> = ({
       onSuccess: (data: TestConnectionResponse) => {
         setTesting(false);
         if (data.success) {
-          message.success(`${displayName}: Connected (${data.latency_ms}ms)`);
+          message.success(t("llmConfig:card.connectedMsg", { name: displayName, latency: data.latency_ms }));
         } else {
-          message.error(`${displayName}: ${data.error || "Connection failed"}`);
+          message.error(`${displayName}: ${data.error || t("llmConfig:card.connectionFailed")}`);
         }
       },
       onError: (error: unknown) => {
         setTesting(false);
         const errorDetail = isAxiosError(error) ? error.response?.data?.error : undefined;
-        const errorMessage = error instanceof Error ? error.message : "Test failed";
+        const errorMessage = error instanceof Error ? error.message : t("llmConfig:card.testFailed");
         message.error(`${displayName}: ${errorDetail || errorMessage}`);
       },
     });
@@ -75,16 +77,16 @@ const ProviderCard: React.FC<ProviderCardProps> = ({
         <div className="provider-card-info">
           <div className="provider-card-name">{displayName}</div>
           <div className="provider-card-url">{baseUrl}</div>
-          {model && <div className="provider-card-model">Model: {model}</div>}
+          {model && <div className="provider-card-model">{t("llmConfig:card.model", { model })}</div>}
         </div>
         <div className="provider-card-actions">
           {connectionAvailable !== undefined && (
             <StatusTag
               status={connectionAvailable ? "success" : "default"}
-              text={connectionAvailable ? "Connected" : "Not Connected"}
+              text={connectionAvailable ? t("llmConfig:card.connected") : t("llmConfig:card.notConnected")}
             />
           )}
-          <Tooltip title="Test Connection">
+          <Tooltip title={t("llmConfig:card.testTooltip")}>
             <Button
               type="text"
               size="small"
@@ -93,18 +95,18 @@ const ProviderCard: React.FC<ProviderCardProps> = ({
               onClick={handleTest}
             />
           </Tooltip>
-          <Tooltip title="Edit">
+          <Tooltip title={t("llmConfig:card.editTooltip")}>
             <Button type="text" size="small" icon={<EditOutlined />} onClick={onEdit} />
           </Tooltip>
           <Popconfirm
-            title="Delete this provider?"
-            description="This will clear the API key and model configuration."
+            title={t("llmConfig:confirm.deleteTitle")}
+            description={t("llmConfig:confirm.deleteDescription")}
             onConfirm={handleDelete}
-            okText="Delete"
-            cancelText="Cancel"
+            okText={t("common:actions.delete")}
+            cancelText={t("common:actions.cancel")}
             okButtonProps={{ danger: true }}
           >
-            <Tooltip title="Delete">
+            <Tooltip title={t("llmConfig:card.deleteTooltip")}>
               <Button type="text" size="small" danger icon={<DeleteOutlined />} />
             </Tooltip>
           </Popconfirm>

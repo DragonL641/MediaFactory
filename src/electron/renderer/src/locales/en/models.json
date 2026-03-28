@@ -1,0 +1,48 @@
+{
+  "pageHeader": {
+    "title": "Local Models",
+    "description": "Manage AI models for offline processing"
+  },
+  "category": {
+    "whisper": {
+      "title": "Audio Processing (Whisper)",
+      "description": "Whisper models for speech recognition and transcription."
+    },
+    "translation": {
+      "title": "Translation (MADLAD400)",
+      "description": "MADLAD400 models for local text translation."
+    },
+    "enhancement": {
+      "title": "Super Resolution (Real-ESRGAN)",
+      "description": "AI-powered video upscaling models."
+    },
+    "denoise": {
+      "title": "Denoising (NAFNet)",
+      "description": "Video denoise models for old or noisy footage."
+    }
+  },
+  "card": {
+    "size": "Size: {{size}}",
+    "memory": "Memory: {{memory}}",
+    "downloading": "Downloading...",
+    "ready": "Ready",
+    "incomplete": "Incomplete",
+    "download": "Download",
+    "incompleteTooltip": "Model files are incomplete or corrupted",
+    "retry": "Retry"
+  },
+  "confirm": {
+    "deleteTitle": "Delete Model",
+    "deleteDescription": "Delete {{name}}? This cannot be undone."
+  },
+  "messages": {
+    "downloadCompleted": "Download completed",
+    "downloadFailed": "Download failed",
+    "downloadStarted": "Download started: {{modelId}}",
+    "modelDeleted": "Model deleted: {{modelId}}",
+    "deleteFailed": "Delete failed"
+  },
+  "error": {
+    "loadFailed": "Failed to load models"
+  }
+}

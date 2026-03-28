@@ -1,0 +1,92 @@
+{
+  "language": {
+    "autoDetect": "Auto Detect",
+    "english": "English",
+    "chinese": "Chinese",
+    "japanese": "Japanese",
+    "korean": "Korean",
+    "french": "French",
+    "german": "German",
+    "spanish": "Spanish",
+    "russian": "Russian"
+  },
+  "outputFormat": {
+    "srt": "SRT Subtitles",
+    "ass": "ASS Subtitles (Styled)",
+    "txt": "Plain Text (.txt)"
+  },
+  "stylePreset": {
+    "default": "Default",
+    "science": "Science",
+    "anime": "Anime",
+    "news": "News"
+  },
+  "bilingualLayout": {
+    "translateOnTop": "Translation on Top",
+    "originalOnTop": "Original on Top",
+    "translateOnly": "Only Translation",
+    "originalOnly": "Only Original"
+  },
+  "fileFilter": {
+    "video": "Video Files",
+    "audioVideo": "Audio/Video Files",
+    "srt": "SRT Files"
+  },
+  "label": {
+    "videoFile": "Video File",
+    "audioVideoFile": "Audio/Video File",
+    "srtFile": "SRT File",
+    "sourceLanguage": "Source Language",
+    "targetLanguage": "Target Language",
+    "outputFormat": "Output Format",
+    "stylePreset": "Style Preset",
+    "bilingualSubtitles": "Bilingual Subtitles",
+    "layout": "Layout",
+    "useRemoteLlm": "Use Remote LLM for Translation",
+    "useRemoteLlmShort": "Use Remote LLM",
+    "llmProvider": "LLM Provider"
+  },
+  "placeholder": {
+    "selectVideo": "Click to select video file...",
+    "selectAudioVideo": "Click to select audio or video file...",
+    "selectSrt": "Click to select SRT file...",
+    "selectProvider": "Select provider",
+    "selectFile": "Click to select file..."
+  },
+  "audioOptions": {
+    "wav": "WAV (Best Quality)",
+    "mp3": "MP3 (Smaller Size)",
+    "flac": "FLAC (Lossless)",
+    "aac": "AAC (Compressed)"
+  },
+  "sampleRate": {
+    "best": "48000 Hz (Best)",
+    "cd": "44100 Hz (CD Quality)",
+    "standard": "22050 Hz",
+    "speech": "16000 Hz (Speech)"
+  },
+  "channels": {
+    "stereo": "Stereo (2ch)",
+    "mono": "Mono (1ch)"
+  },
+  "audioLabels": {
+    "outputFormat": "Output Format",
+    "sampleRate": "Sample Rate",
+    "channels": "Channels",
+    "voiceEnhancementFilter": "Voice Enhancement Filter",
+    "highpass": "Highpass (Hz)",
+    "lowpass": "Lowpass (Hz)",
+    "volumeMultiplier": "Volume Multiplier"
+  },
+  "enhanceLabels": {
+    "scale": "Scale",
+    "modelType": "Model Type",
+    "general": "General (Recommended)",
+    "anime": "Anime",
+    "enableDenoising": "Enable Denoising",
+    "enableTemporalSmoothing": "Enable Temporal Smoothing"
+  },
+  "validation": {
+    "fileRequired": "Please select a file"
+  }
+}

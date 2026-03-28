@@ -11,6 +11,8 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 from mediafactory.config import get_config, reload_config, save_config, update_config
+from mediafactory.api.error_handler import sanitize_error
+from mediafactory.i18n import t
 
 logger = logging.getLogger(__name__)
 
@@ -30,6 +32,7 @@ class PartialConfigUpdate(BaseModel):
     model: Optional[Dict[str, Any]] = None
     openai_compatible: Optional[Dict[str, Any]] = None
     llm_api: Optional[Dict[str, Any]] = None
+    app: Optional[Dict[str, Any]] = None
 
 
 @router.get("/")
@@ -54,7 +57,7 @@ async def get_config_section(section: str):
     config_dict = config.to_toml_dict()
 
     if section not in config_dict:
-        raise HTTPException(status_code=404, detail=f"配置分区不存在: {section}")
+        raise HTTPException(status_code=404, detail=t("error.configSectionNotExist", section=section))
 
     return {section: config_dict[section]}
 
@@ -88,6 +91,18 @@ async def update_full_config(request: PartialConfigUpdate):
             for key, value in request.llm_api.items():
                 update_kwargs[f"llm_api__{key}"] = value
 
+        if request.app is not None:
+            for key, value in request.app.items():
+                update_kwargs[f"app__{key}"] = value
+
+        if update_kwargs:
+            update_config(**update_kwargs)
+
+        # 如果语言发生变化，同步 i18n
+        if request.app and "language" in request.app:
+            from mediafactory.i18n import set_language
+            set_language(request.app["language"])
+
         if update_kwargs:
             update_config(**update_kwargs)
 
@@ -96,10 +111,10 @@ async def update_full_config(request: PartialConfigUpdate):
         return config.to_toml_dict()
 
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=t("error.configUpdateFailed"))
     except Exception as e:
         logger.exception(f"更新配置失败: {e}")
-        raise HTTPException(status_code=500, detail=f"更新配置失败: {str(e)}")
+        raise HTTPException(status_code=500, detail=t("error.configUpdateFailed"))
 
 
 @router.post("/save")
@@ -111,10 +126,10 @@ async def save_config_to_disk():
     """
     try:
         save_config()
-        return {"success": True, "message": "配置已保存到 config.toml"}
+        return {"success": True, "message": t("task.configSaved")}
     except Exception as e:
         logger.exception(f"保存配置失败: {e}")
-        raise HTTPException(status_code=500, detail=f"保存配置失败: {str(e)}")
+        raise HTTPException(status_code=500, detail=t("error.configSaveFailed"))
 
 
 @router.post("/reload")
@@ -130,7 +145,7 @@ async def reload_config_from_disk():
         return {"success": True, "config": config.to_toml_dict()}
     except Exception as e:
         logger.exception(f"重新加载配置失败: {e}")
-        raise HTTPException(status_code=500, detail=f"重新加载配置失败: {str(e)}")
+        raise HTTPException(status_code=500, detail=t("error.configReloadFailed"))
 
 
 @router.get("/llm/presets")
@@ -186,7 +201,7 @@ async def update_llm_preset(preset_id: str, request: LLMPresetUpdateRequest):
     from mediafactory.constants import BackendConfigMapping
 
     if preset_id not in BackendConfigMapping.BASE_URL_PRESETS:
-        raise HTTPException(status_code=404, detail=f"Unknown preset: {preset_id}")
+        raise HTTPException(status_code=404, detail=t("error.unknownPreset", preset=preset_id))
 
     try:
         # 构建更新参数
@@ -200,11 +215,11 @@ async def update_llm_preset(preset_id: str, request: LLMPresetUpdateRequest):
 
         update_config(**update_kwargs)
 
-        return {"success": True, "message": f"Preset {preset_id} updated"}
+        return {"success": True, "message": t("task.presetUpdated", preset=preset_id)}
 
     except Exception as e:
         logger.exception(f"更新预设失败: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to update preset: {str(e)}")
+        raise HTTPException(status_code=500, detail=t("error.presetUpdateFailed", error=sanitize_error(e)))
 
 
 @router.delete("/llm/preset/{preset_id}")
@@ -217,7 +232,7 @@ async def delete_llm_preset(preset_id: str):
     from mediafactory.constants import BackendConfigMapping
 
     if preset_id not in BackendConfigMapping.BASE_URL_PRESETS:
-        raise HTTPException(status_code=404, detail=f"Unknown preset: {preset_id}")
+        raise HTTPException(status_code=404, detail=t("error.unknownPreset", preset=preset_id))
 
     try:
         update_kwargs = {
@@ -226,11 +241,11 @@ async def delete_llm_preset(preset_id: str):
         }
         update_config(**update_kwargs)
 
-        return {"success": True, "message": f"Preset {preset_id} deleted"}
+        return {"success": True, "message": t("task.presetDeleted", preset=preset_id)}
 
     except Exception as e:
         logger.exception(f"删除预设失败: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to delete preset: {str(e)}")
+        raise HTTPException(status_code=500, detail=t("error.presetDeleteFailed", error=sanitize_error(e)))
 
 
 @router.put("/llm/current-preset")
@@ -241,11 +256,11 @@ async def set_current_llm_preset(request: SetCurrentPresetRequest):
     from mediafactory.constants import BackendConfigMapping
 
     if request.preset not in BackendConfigMapping.BASE_URL_PRESETS:
-        raise HTTPException(status_code=404, detail=f"Unknown preset: {request.preset}")
+        raise HTTPException(status_code=404, detail=t("error.unknownPreset", preset=request.preset))
 
     try:
         update_config(openai_compatible__current_preset=request.preset)
         return {"success": True, "current_preset": request.preset}
     except Exception as e:
         logger.exception(f"设置当前预设失败: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to set current preset: {str(e)}")
+        raise HTTPException(status_code=500, detail=t("error.setCurrentPresetFailed", error=sanitize_error(e)))

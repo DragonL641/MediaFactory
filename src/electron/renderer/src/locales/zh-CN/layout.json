@@ -1,0 +1,17 @@
+{
+  "menu": {
+    "tasks": "任务队列",
+    "models": "本地模型",
+    "llmConfig": "LLM 配置",
+    "settings": "设置"
+  },
+  "brand": {
+    "full": "MediaFactory",
+    "short": "MF"
+  },
+  "language": {
+    "label": "语言",
+    "en": "English",
+    "zhCN": "简体中文"
+  }
+}

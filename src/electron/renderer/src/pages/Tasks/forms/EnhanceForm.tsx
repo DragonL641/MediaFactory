@@ -5,6 +5,8 @@
 import React from "react";
 import { Form, Select, Switch } from "antd";
 import type { FormInstance } from "antd";
+import { useTranslation } from "react-i18next";
+import { useFileFilters } from "./shared";
 import FileDialogInput from "../../../components/Form/FileDialogInput";
 
 interface EnhanceFormProps {
@@ -12,6 +14,9 @@ interface EnhanceFormProps {
 }
 
 const EnhanceForm: React.FC<EnhanceFormProps> = ({ form }) => {
+  const { t } = useTranslation("forms");
+  const fileFilters = useFileFilters();
+
   return (
     <Form form={form} layout="vertical" initialValues={{
       scale: 4,
@@ -22,12 +27,12 @@ const EnhanceForm: React.FC<EnhanceFormProps> = ({ form }) => {
       <FileDialogInput
         form={form}
         name="video_path"
-        label="Video File"
-        placeholder="Click to select video file..."
-        filters={[{ name: "Video Files", extensions: ["mp4", "avi", "mov", "mkv", "wmv", "flv", "webm"] }]}
+        label={t("forms:label.videoFile")}
+        placeholder={t("forms:placeholder.selectVideo")}
+        filters={fileFilters.video}
       />
 
-      <Form.Item name="scale" label="Scale">
+      <Form.Item name="scale" label={t("forms:enhanceLabels.scale")}>
         <Select
           options={[
             { value: 2, label: "2x" },
@@ -36,20 +41,20 @@ const EnhanceForm: React.FC<EnhanceFormProps> = ({ form }) => {
         />
       </Form.Item>
 
-      <Form.Item name="model_type" label="Model Type">
+      <Form.Item name="model_type" label={t("forms:enhanceLabels.modelType")}>
         <Select
           options={[
-            { value: "general", label: "General (Recommended)" },
-            { value: "anime", label: "Anime" },
+            { value: "general", label: t("forms:enhanceLabels.general") },
+            { value: "anime", label: t("forms:enhanceLabels.anime") },
           ]}
         />
       </Form.Item>
 
-      <Form.Item name="denoise" label="Enable Denoising" valuePropName="checked">
+      <Form.Item name="denoise" label={t("forms:enhanceLabels.enableDenoising")} valuePropName="checked">
         <Switch />
       </Form.Item>
 
-      <Form.Item name="temporal" label="Enable Temporal Smoothing" valuePropName="checked">
+      <Form.Item name="temporal" label={t("forms:enhanceLabels.enableTemporalSmoothing")} valuePropName="checked">
         <Switch />
       </Form.Item>
     </Form>

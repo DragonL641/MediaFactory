@@ -1,0 +1,34 @@
+{
+  "status": {
+    "ready": "就绪",
+    "warning": "警告",
+    "failed": "失败",
+    "processing": "处理中",
+    "pending": "等待中"
+  },
+  "error": {
+    "title": "出错了",
+    "subTitle": "发生了意外错误",
+    "tryAgain": "重试",
+    "retry": "重试",
+    "connectFailed": "无法连接到后端服务"
+  },
+  "loading": {
+    "connecting": "正在连接后端...",
+    "connectError": "无法连接到后端",
+    "connectHint": "请检查 Python 后端是否正在运行"
+  },
+  "actions": {
+    "save": "保存",
+    "cancel": "取消",
+    "delete": "删除",
+    "confirm": "确认",
+    "back": "返回",
+    "retry": "重试",
+    "refresh": "刷新",
+    "edit": "编辑",
+    "download": "下载",
+    "testAll": "全部测试",
+    "creating": "创建中..."
+  }
+}

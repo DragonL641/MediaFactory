@@ -5,3 +5,5 @@
 export { default as EmptyState } from "./EmptyState";
 export { default as StatusTag } from "./StatusTag";
 export type { StatusType } from "./StatusTag";
+export { default as PageSkeleton } from "./PageSkeleton";
+export type { PageSkeletonType } from "./PageSkeleton";

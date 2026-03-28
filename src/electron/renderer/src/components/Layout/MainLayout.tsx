@@ -1,20 +1,21 @@
 /**
  * 主布局组件
  *
- * 包含侧边栏导航和主内容区域，支持侧边栏折叠
+ * 包含侧边栏导航和主内容区域
  */
 
-import React, { useState } from "react";
-import { Layout, Menu, Typography, theme, Button, Tooltip } from "antd";
+import React from "react";
+import { Layout, Menu, Typography, theme, Select, Space } from "antd";
 import {
   FileTextOutlined,
   CloudServerOutlined,
   CloudOutlined,
   SettingOutlined,
-  LeftOutlined,
-  RightOutlined,
+  GlobalOutlined,
 } from "@ant-design/icons";
 import { useNavigate, useLocation } from "react-router-dom";
+import { useTranslation } from "react-i18next";
+import { useLanguage } from "../../hooks/useLanguage";
 
 const { Sider, Content } = Layout;
 const { Text } = Typography;
@@ -24,33 +25,34 @@ interface MainLayoutProps {
 }
 
 const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
-  const [collapsed, setCollapsed] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
   const {
-    token: { colorBgContainer, borderRadiusLG, colorPrimary, colorBgElevated },
+    token: { colorBgContainer, borderRadiusLG },
   } = theme.useToken();
+  const { t } = useTranslation(["layout", "common"]);
+  const { language, changeLanguage } = useLanguage();
 
   const menuItems = [
     {
       key: "/tasks",
       icon: <FileTextOutlined />,
-      label: "Tasks",
+      label: t("layout:menu.tasks"),
     },
     {
       key: "/models",
       icon: <CloudServerOutlined />,
-      label: "Models",
+      label: t("layout:menu.models"),
     },
     {
       key: "/llm-config",
       icon: <CloudOutlined />,
-      label: "LLM Config",
+      label: t("layout:menu.llmConfig"),
     },
     {
       key: "/settings",
       icon: <SettingOutlined />,
-      label: "Settings",
+      label: t("layout:menu.settings"),
     },
   ];
 
@@ -58,14 +60,10 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
     navigate(key);
   };
 
-  const siderWidth = collapsed ? 72 : 200;
-
   return (
     <Layout style={{ minHeight: "100vh" }}>
       <Sider
         width={200}
-        collapsedWidth={72}
-        collapsed={collapsed}
         trigger={null}
         style={{
           overflow: "auto",
@@ -76,30 +74,30 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
           bottom: 0,
           borderRight: "1px solid #F3F4F6",
           zIndex: 10,
-          transition: "width 0.2s ease",
+          display: "flex",
+          flexDirection: "column",
         }}
       >
-        {/* Logo区域 - 更简洁 */}
+        {/* Logo区域 */}
         <div
           style={{
             height: 56,
             margin: "12px 12px 8px",
             display: "flex",
             alignItems: "center",
-            justifyContent: collapsed ? "center" : "flex-start",
-            paddingLeft: collapsed ? 0 : 8,
+            paddingLeft: 8,
           }}
         >
           <Text
             strong
             style={{
-              fontSize: collapsed ? 18 : 16,
-              color: colorPrimary,
+              fontSize: 16,
+              color: "#2563EB",
               fontWeight: 600,
-              letterSpacing: collapsed ? 0 : "-0.3px",
+              letterSpacing: "-0.3px",
             }}
           >
-            {collapsed ? "MF" : "MediaFactory"}
+            {t("layout:brand.full")}
           </Text>
         </div>
 
@@ -112,46 +110,48 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
           }}
         />
 
-        <Menu
-          mode="inline"
-          selectedKeys={[location.pathname]}
-          items={menuItems}
-          onClick={handleMenuClick}
-          style={{ border: "none" }}
-        />
-
-        {/* 折叠按钮 - 更精致 */}
-        <Tooltip title={collapsed ? "展开" : "收起"} placement="right">
-          <Button
-            type="text"
-            size="small"
-            icon={collapsed ? <RightOutlined /> : <LeftOutlined />}
-            onClick={() => setCollapsed(!collapsed)}
-            style={{
-              position: "absolute",
-              right: -12,
-              top: "50%",
-              transform: "translateY(-50%)",
-              width: 24,
-              height: 24,
-              borderRadius: "50%",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              border: "1px solid #E5E7EB",
-              background: "#FFFFFF",
-              color: "#6B7280",
-              fontSize: 10,
-              boxShadow: "0 2px 4px rgba(0,0,0,0.06)",
-              zIndex: 20,
-            }}
+        {/* 导航菜单 */}
+        <div style={{ flex: 1 }}>
+          <Menu
+            mode="inline"
+            selectedKeys={[location.pathname]}
+            items={menuItems}
+            onClick={handleMenuClick}
+            style={{ border: "none" }}
           />
-        </Tooltip>
+        </div>
+
+        {/* 底部：语言切换器 */}
+        <div
+          style={{
+            padding: "12px 16px",
+            borderTop: "1px solid #F3F4F6",
+          }}
+        >
+          <Space style={{ width: "100%" }} direction="vertical" size={4}>
+            <Text
+              type="secondary"
+              style={{ fontSize: 12, display: "flex", alignItems: "center", gap: 4 }}
+            >
+              <GlobalOutlined style={{ fontSize: 13 }} />
+              {t("layout:language.label")}
+            </Text>
+            <Select
+              value={language}
+              onChange={(lang) => changeLanguage(lang)}
+              size="small"
+              style={{ width: "100%" }}
+              options={[
+                { value: "en", label: t("layout:language.en") },
+                { value: "zh-CN", label: t("layout:language.zhCN") },
+              ]}
+            />
+          </Space>
+        </div>
       </Sider>
       <Layout
         style={{
-          marginLeft: siderWidth,
-          transition: "margin-left 0.2s ease",
+          marginLeft: 200,
         }}
       >
         <Content

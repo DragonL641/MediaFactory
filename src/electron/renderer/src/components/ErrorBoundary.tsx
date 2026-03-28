@@ -6,6 +6,7 @@
 
 import React, { Component, ErrorInfo, ReactNode } from "react";
 import { Button, Result } from "antd";
+import { useTranslation } from "react-i18next";
 
 interface Props {
   children: ReactNode;
@@ -37,15 +38,9 @@ class ErrorBoundary extends Component<Props, State> {
   render() {
     if (this.state.hasError) {
       return (
-        <Result
-          status="error"
-          title="Something went wrong"
-          subTitle={this.state.error?.message || "An unexpected error occurred"}
-          extra={
-            <Button type="primary" onClick={this.handleReset}>
-              Try Again
-            </Button>
-          }
+        <ErrorBoundaryInner
+          subTitle={this.state.error?.message}
+          onReset={this.handleReset}
         />
       );
     }
@@ -53,5 +48,26 @@ class ErrorBoundary extends Component<Props, State> {
     return this.props.children;
   }
 }
+
+/** 抽离内容以便使用 hooks */
+const ErrorBoundaryInner: React.FC<{
+  subTitle?: string;
+  onReset: () => void;
+}> = ({ subTitle, onReset }) => {
+  const { t } = useTranslation("common");
+
+  return (
+    <Result
+      status="error"
+      title={t("error.title")}
+      subTitle={subTitle || t("error.subTitle")}
+      extra={
+        <Button type="primary" onClick={onReset}>
+          {t("error.tryAgain")}
+        </Button>
+      }
+    />
+  );
+};
 
 export default ErrorBoundary;

@@ -36,6 +36,10 @@ async def lifespan(app: FastAPI):
     """应用生命周期管理"""
     logger.info("FastAPI application starting...")
 
+    # 启动时：初始化 i18n
+    from mediafactory.i18n import init_i18n
+    init_i18n()
+
     # 启动时：同步本地模型列表到配置文件
     from mediafactory.config import get_config_manager
     config_manager = get_config_manager()
@@ -74,6 +78,16 @@ def create_app() -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+
+    # 全局异常处理器（避免内部异常信息泄漏到前端）
+    from fastapi.exceptions import RequestValidationError
+    from mediafactory.api.error_handler import (
+        global_exception_handler,
+        validation_exception_handler,
+    )
+
+    app.add_exception_handler(Exception, global_exception_handler)
+    app.add_exception_handler(RequestValidationError, validation_exception_handler)
 
     # 注册路由
     app.include_router(processing.router, prefix="/api/processing", tags=["processing"])

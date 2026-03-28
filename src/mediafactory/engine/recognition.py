@@ -7,6 +7,7 @@ from ..utils.time_estimator import TimeEstimator
 from ..core.progress_protocol import ProgressCallback, NO_OP_PROGRESS
 from ..exceptions import ProcessingError, OperationCancelledError
 from ..core.exception_wrapper import wrap_exceptions, convert_exception
+from ..i18n import t
 import time
 import tqdm
 
@@ -39,7 +40,7 @@ def _get_decode_audio():
         return decode_audio
     except ImportError as e:
         raise ProcessingError(
-            message="faster-whisper 未安装。请运行安装向导安装 ML 依赖。",
+            message=t("error.fasterWhisperNotInstalled"),
             context={"missing_dependency": "faster-whisper"},
         ) from e
 
@@ -57,7 +58,7 @@ class RecognitionEngine:
         if progress is None:
             progress = NO_OP_PROGRESS
 
-        progress.update(0, "Detecting language...")
+        progress.update(0, t("progress.detectingLanguage"))
         log_step("Running dedicated language detection...")
 
         decode_audio = _get_decode_audio()
@@ -72,7 +73,7 @@ class RecognitionEngine:
                     audio=audio_array
                 )
 
-                progress.update(100, "Language detection completed")
+                progress.update(100, t("progress.languageDetectionCompleted"))
                 log_info(
                     f"Language detected: {detected_lang} (confidence: {probability:.2%})"
                 )
@@ -119,7 +120,7 @@ class RecognitionEngine:
             def update(self, n=1):
                 if progress.is_cancelled():
                     raise OperationCancelledError(
-                        message="Transcription cancelled by user",
+                        message=t("error.transcriptionCancelled"),
                         context={"audio_path": audio_path, "model": model_name},
                     )
                 return super().update(n)
@@ -193,12 +194,12 @@ class RecognitionEngine:
 
                 # 在循环开始前立即报告初始进度
                 if total_duration > 0:
-                    progress.update(5, "开始分析音频...")
+                    progress.update(5, t("progress.analyzingAudio"))
 
                 for segment in segments_generator:
                     if progress.is_cancelled():
                         raise OperationCancelledError(
-                            message="Transcription cancelled by user",
+                            message=t("error.transcriptionCancelled"),
                             context={"audio_path": audio_path, "model": model_name},
                         )
 
@@ -232,10 +233,10 @@ class RecognitionEngine:
                             if processed_duration > 0:
                                 progress.update(
                                     progress_value,
-                                    f"处理中 {processed_duration:.1f}s/{total_duration:.1f}s",
+                                    t("progress.processingAudio", processed=f"{processed_duration:.1f}s", total=f"{total_duration:.1f}s"),
                                 )
                             else:
-                                progress.update(progress_value, "正在分析音频...")
+                                progress.update(progress_value, t("progress.analyzingAudio"))
                             last_progress_update_time = current_time
 
                         segment_count += 1
@@ -253,7 +254,7 @@ class RecognitionEngine:
 
                     segments_list.append(segment)
 
-                progress.update(ProgressConstants.MAX_PROGRESS, "已完成")
+                progress.update(ProgressConstants.MAX_PROGRESS, t("progress.completed"))
 
                 result = {
                     "segments": [],

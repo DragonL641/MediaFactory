@@ -1,0 +1,55 @@
+{
+  "pageHeader": {
+    "title": "LLM Providers",
+    "description": "Configure API credentials for your LLM providers"
+  },
+  "actions": {
+    "testAll": "Test All",
+    "addProvider": "Add Provider"
+  },
+  "empty": {
+    "title": "No providers configured",
+    "description": "Add a LLM provider to enable AI-powered translation",
+    "actionText": "Add Provider"
+  },
+  "card": {
+    "model": "Model: {{model}}",
+    "connected": "Connected",
+    "notConnected": "Not Connected",
+    "testTooltip": "Test Connection",
+    "editTooltip": "Edit",
+    "deleteTooltip": "Delete",
+    "connectedMsg": "{{name}}: Connected ({{latency}}ms)",
+    "connectionFailed": "Connection failed",
+    "testFailed": "Test failed"
+  },
+  "confirm": {
+    "deleteTitle": "Delete this provider?",
+    "deleteDescription": "This will clear the API key and model configuration."
+  },
+  "messages": {
+    "allTested": "All connections tested",
+    "providerUpdated": "Provider updated",
+    "providerAdded": "Provider added",
+    "saveFailed": "Failed to save"
+  },
+  "dialog": {
+    "editTitle": "Edit Provider",
+    "addTitle": "Add Provider",
+    "provider": "Provider",
+    "selectProvider": "Select provider",
+    "providerRequired": "Please select a provider",
+    "baseUrl": "Base URL",
+    "baseUrlRequired": "Base URL is required",
+    "baseUrlPlaceholder": "https://api.example.com/v1",
+    "apiKey": "API Key",
+    "apiKeyRequired": "API Key is required",
+    "apiKeyPlaceholder": "sk-...",
+    "model": "Model",
+    "modelRequired": "Model name is required",
+    "modelPlaceholder": "e.g., gpt-4o-mini, deepseek-chat"
+  },
+  "error": {
+    "loadFailed": "Failed to load LLM configuration"
+  }
+}

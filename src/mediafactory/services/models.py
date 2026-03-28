@@ -10,6 +10,7 @@ from typing import Any, Dict, List, Optional
 
 from mediafactory.config import get_config
 from mediafactory.logging import log_info, log_error
+from mediafactory.api.error_handler import sanitize_error
 
 
 @dataclass
@@ -210,7 +211,7 @@ class ModelStatusService:
         except Exception as e:
             return {
                 "success": False,
-                "error": str(e),
+                "error": sanitize_error(e),
             }
 
     async def test_all_llm_connections(self) -> Dict[str, Dict[str, Any]]:
@@ -228,6 +229,6 @@ class ModelStatusService:
 
         except Exception as e:
             log_error(f"Failed to test all LLM connections: {e}")
-            results["error"] = str(e)
+            results["error"] = sanitize_error(e)
 
         return results

@@ -1,0 +1,31 @@
+{
+  "pageHeader": {
+    "title": "设置",
+    "description": "配置 MediaFactory 的默认行为"
+  },
+  "whisper": {
+    "title": "Whisper 转录",
+    "beamSize": "Beam 大小",
+    "beamSizeTooltip": "值越大准确度越高，但转录速度越慢",
+    "vadThreshold": "VAD 阈值",
+    "vadThresholdTooltip": "语音检测阈值 (0-1)",
+    "vadFilter": "VAD 过滤",
+    "vadFilterTooltip": "语音活动检测 - 过滤静音段落",
+    "wordTimestamps": "词级时间戳",
+    "wordTimestampsTooltip": "为每个词生成时间戳"
+  },
+  "actions": {
+    "reload": "重新加载",
+    "saveToDisk": "保存到磁盘",
+    "apply": "应用"
+  },
+  "messages": {
+    "configUpdated": "配置已更新",
+    "configReloaded": "配置已重新加载",
+    "savedToDisk": "已保存到磁盘",
+    "updateFailed": "更新配置失败"
+  },
+  "error": {
+    "loadFailed": "加载设置失败"
+  }
+}

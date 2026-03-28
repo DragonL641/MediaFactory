@@ -7,7 +7,8 @@
 
 import React, { useState } from "react";
 import { Modal, Steps, App, Form, Button } from "antd";
-import TaskTypeSelector, { TASK_TYPES } from "./TaskTypeSelector";
+import { useTranslation } from "react-i18next";
+import TaskTypeSelector, { useTaskTypes } from "./TaskTypeSelector";
 import SubtitleForm from "./forms/SubtitleForm";
 import AudioForm from "./forms/AudioForm";
 import TranscribeForm from "./forms/TranscribeForm";
@@ -37,6 +38,8 @@ const TaskConfigStep: React.FC<{
 }> = ({ selectedType, onSuccess, onSubmitRef, onSubmittingChange }) => {
   const [form] = Form.useForm();
   const { message } = App.useApp();
+  const { t } = useTranslation("tasks");
+  const taskTypes = useTaskTypes();
 
   const subtitleMutation = useCreateSubtitleTaskMutation();
   const audioMutation = useCreateAudioTaskMutation();
@@ -70,7 +73,7 @@ const TaskConfigStep: React.FC<{
 
       mutations[selectedType]?.mutate(values, {
         onSuccess: () => {
-          message.success("Task created");
+          message.success(t("tasks:createDialog.created"));
           onSuccess();
         },
       });
@@ -83,7 +86,7 @@ const TaskConfigStep: React.FC<{
     onSubmitRef.current = handleSubmit;
   }, [selectedType, isSubmitting]);
 
-  const selectedTypeInfo = TASK_TYPES.find((t) => t.key === selectedType);
+  const selectedTypeInfo = taskTypes.find((t) => t.key === selectedType);
 
   const renderForm = () => {
     switch (selectedType) {
@@ -109,8 +112,8 @@ const TaskConfigStep: React.FC<{
         size="small"
         style={{ marginBottom: 24 }}
         items={[
-          { title: "Select Type" },
-          { title: selectedTypeInfo?.title || "Configure" },
+          { title: t("tasks:createDialog.steps.selectType") },
+          { title: selectedTypeInfo?.title || t("tasks:createDialog.steps.configure") },
         ]}
       />
       {renderForm()}
@@ -123,6 +126,7 @@ const CreateTaskDialog: React.FC<CreateTaskDialogProps> = ({ open, onClose }) =>
   const [selectedType, setSelectedType] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const handleSubmitRef = React.useRef<(() => Promise<void>) | undefined>();
+  const { t } = useTranslation("tasks");
 
   const handleClose = () => {
     setCurrentStep(0);
@@ -138,7 +142,7 @@ const CreateTaskDialog: React.FC<CreateTaskDialogProps> = ({ open, onClose }) =>
 
   return (
     <Modal
-      title="Create Task"
+      title={t("tasks:createDialog.title")}
       open={open}
       onCancel={handleClose}
       width={640}
@@ -150,7 +154,7 @@ const CreateTaskDialog: React.FC<CreateTaskDialogProps> = ({ open, onClose }) =>
                 key="back"
                 onClick={() => setCurrentStep(0)}
               >
-                Back
+                {t("common:actions.back")}
               </Button>,
               <Button
                 key="submit"
@@ -158,7 +162,7 @@ const CreateTaskDialog: React.FC<CreateTaskDialogProps> = ({ open, onClose }) =>
                 onClick={handleSubmit}
                 disabled={isSubmitting}
               >
-                {isSubmitting ? "Creating..." : "Create"}
+                {isSubmitting ? t("common:actions.creating") : t("tasks:createDialog.create")}
               </Button>,
             ]
       }

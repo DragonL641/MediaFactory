@@ -15,6 +15,8 @@ from typing import Any, Callable, Dict, List, Optional
 from mediafactory.api.schemas import TaskConfig, TaskProgress, TaskResult, TaskStatus
 from mediafactory.api.websocket import manager as ws_manager
 from mediafactory.core.tool import CancellationToken
+from mediafactory.api.error_handler import sanitize_error
+from mediafactory.i18n import t
 
 logger = logging.getLogger(__name__)
 
@@ -240,7 +242,7 @@ class TaskManager:
                     task.result = TaskResult(
                         task_id=task_id,
                         success=False,
-                        error=result.get("error", "Unknown error") if result else "No result returned",
+                        error=result.get("error", "Unknown error") if result else t("error.noResultReturned"),
                         error_type="ProcessingError",
                     )
                     task.status = TaskStatus.FAILED
@@ -251,7 +253,7 @@ class TaskManager:
             task.result = TaskResult(
                 task_id=task_id,
                 success=False,
-                error="Task cancelled",
+                error=t("task.cancelled"),
                 error_type="CancelledError",
             )
 
@@ -262,7 +264,7 @@ class TaskManager:
                 task.result = TaskResult(
                     task_id=task_id,
                     success=False,
-                    error=str(e),
+                    error=sanitize_error(e),
                     error_type=type(e).__name__,
                 )
 
@@ -306,7 +308,7 @@ class TaskManager:
             task_id=task_id,
             status=TaskStatus.CANCELLED.value,
             progress=task.progress,
-            message="Task cancelled",
+            message=t("task.cancelled"),
             stage="",
             file_index=task.file_index,
             total_files=task.total_files,

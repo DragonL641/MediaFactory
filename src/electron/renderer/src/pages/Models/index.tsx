@@ -15,7 +15,6 @@ import {
   Button,
   Popconfirm,
   App,
-  Skeleton,
   Tooltip,
   Result,
 } from "antd";
@@ -29,6 +28,7 @@ import {
   EyeOutlined,
   RedoOutlined,
 } from "@ant-design/icons";
+import { useTranslation } from "react-i18next";
 import {
   useModelsStatusQuery,
   useDownloadModelMutation,
@@ -36,7 +36,7 @@ import {
 } from "../../api/queries";
 import { wsClient } from "../../api/client";
 import PageHeader from "../../components/Layout/PageHeader";
-import { StatusTag } from "../../components/common";
+import { StatusTag, PageSkeleton } from "../../components/common";
 import { isAxiosError } from "axios";
 
 const { Text } = Typography;
@@ -70,6 +70,8 @@ const ModelCategory: React.FC<ModelCategoryProps> = ({
   onDelete,
   downloadingId,
 }) => {
+  const { t } = useTranslation("models");
+
   if (models.length === 0) {
     return null;
   }
@@ -101,8 +103,8 @@ const ModelCategory: React.FC<ModelCategoryProps> = ({
                   <span className="model-card-name">{model.name}</span>
                 </div>
                 <div className="model-card-meta">
-                  {model.size && <div>Size: {model.size}</div>}
-                  {model.memory && <div>Memory: {model.memory}</div>}
+                  {model.size && <div>{t("models:card.size", { size: model.size })}</div>}
+                  {model.memory && <div>{t("models:card.memory", { memory: model.memory })}</div>}
                   {model.description && (
                     <div style={{ marginTop: 4, color: "#9CA3AF" }}>
                       {model.description}
@@ -111,17 +113,17 @@ const ModelCategory: React.FC<ModelCategoryProps> = ({
                 </div>
                 <div className="model-card-footer">
                   {isDownloading ? (
-                    <StatusTag status="processing" text="Downloading..." />
+                    <StatusTag status="processing" text={t("models:card.downloading")} />
                   ) : isReady ? (
                     <>
-                      <StatusTag status="success" text="Ready" />
+                      <StatusTag status="success" text={t("models:card.ready")} />
                       <div style={{ flex: 1 }} />
                       <Popconfirm
-                        title="Delete Model"
-                        description={`Delete ${model.name}? This cannot be undone.`}
+                        title={t("models:confirm.deleteTitle")}
+                        description={t("models:confirm.deleteDescription", { name: model.name })}
                         onConfirm={() => onDelete(model.id)}
-                        okText="Delete"
-                        cancelText="Cancel"
+                        okText={t("common:actions.delete")}
+                        cancelText={t("common:actions.cancel")}
                         okButtonProps={{ danger: true }}
                       >
                         <Button size="small" type="text" danger icon={<DeleteOutlined />} />
@@ -129,8 +131,8 @@ const ModelCategory: React.FC<ModelCategoryProps> = ({
                     </>
                   ) : isIncomplete ? (
                     <>
-                      <Tooltip title="Model files are incomplete or corrupted">
-                        <StatusTag status="warning" text="Incomplete" />
+                      <Tooltip title={t("models:card.incompleteTooltip")}>
+                        <StatusTag status="warning" text={t("models:card.incomplete")} />
                       </Tooltip>
                       <div style={{ flex: 1 }} />
                       <Button
@@ -139,14 +141,14 @@ const ModelCategory: React.FC<ModelCategoryProps> = ({
                         icon={<RedoOutlined />}
                         onClick={() => onDownload(model.id)}
                       >
-                        Retry
+                        {t("models:card.retry")}
                       </Button>
                       <Popconfirm
-                        title="Delete Model"
-                        description={`Delete ${model.name}? This cannot be undone.`}
+                        title={t("models:confirm.deleteTitle")}
+                        description={t("models:confirm.deleteDescription", { name: model.name })}
                         onConfirm={() => onDelete(model.id)}
-                        okText="Delete"
-                        cancelText="Cancel"
+                        okText={t("common:actions.delete")}
+                        cancelText={t("common:actions.cancel")}
                         okButtonProps={{ danger: true }}
                       >
                         <Button size="small" type="text" danger icon={<DeleteOutlined />} />
@@ -159,7 +161,7 @@ const ModelCategory: React.FC<ModelCategoryProps> = ({
                       icon={<DownloadOutlined />}
                       onClick={() => onDownload(model.id)}
                     >
-                      Download
+                      {t("models:card.download")}
                     </Button>
                   )}
                 </div>
@@ -177,6 +179,7 @@ const ModelsPage: React.FC = () => {
   const downloadMutation = useDownloadModelMutation();
   const deleteMutation = useDeleteModelMutation();
   const { message } = App.useApp();
+  const { t } = useTranslation("models");
 
   // 当前正在下载的模型 ID
   const [downloadingId, setDownloadingId] = React.useState<string | null>(null);
@@ -189,9 +192,9 @@ const ModelsPage: React.FC = () => {
       if (data.task_id && downloadingId) {
         setDownloadingId(null);
         if (data.success) {
-          message.success("Download completed");
+          message.success(t("models:messages.downloadCompleted"));
         } else {
-          message.error((data.error as string) || "Download failed");
+          message.error((data.error as string) || t("models:messages.downloadFailed"));
         }
         queryClient.invalidateQueries({ queryKey: ["models", "status"] });
       }
@@ -203,11 +206,11 @@ const ModelsPage: React.FC = () => {
     setDownloadingId(modelId);
     downloadMutation.mutate(modelId, {
       onSuccess: () => {
-        message.success(`Download started: ${modelId}`);
+        message.success(t("models:messages.downloadStarted", { modelId }));
       },
       onError: (error: unknown) => {
         const detail = isAxiosError(error) ? error.response?.data?.detail : undefined;
-        message.error(detail || "Download failed");
+        message.error(detail || t("models:messages.downloadFailed"));
         setDownloadingId(null);
       },
     });
@@ -216,26 +219,20 @@ const ModelsPage: React.FC = () => {
   const handleDelete = (modelId: string) => {
     deleteMutation.mutate(modelId, {
       onSuccess: () => {
-        message.success(`Model deleted: ${modelId}`);
+        message.success(t("models:messages.modelDeleted", { modelId }));
         if (downloadingId === modelId) {
           setDownloadingId(null);
         }
       },
       onError: (error: unknown) => {
         const detail = isAxiosError(error) ? error.response?.data?.detail : undefined;
-        message.error(detail || "Delete failed");
+        message.error(detail || t("models:messages.deleteFailed"));
       },
     });
   };
 
   if (isLoading || !status) {
-    return (
-      <div className="page-enter">
-        <PageHeader title="Local Models" actions={<Button icon={<ReloadOutlined />} />} />
-        <Card style={{ marginBottom: 24 }}><Skeleton active paragraph={{ rows: 2 }} /></Card>
-        <Card style={{ marginBottom: 24 }}><Skeleton active paragraph={{ rows: 3 }} /></Card>
-      </div>
-    );
+    return <PageSkeleton type="models" />;
   }
 
   if (isError) {
@@ -243,11 +240,11 @@ const ModelsPage: React.FC = () => {
       <div style={{ padding: 48 }}>
         <Result
           status="error"
-          title="Failed to load models"
-          subTitle="Unable to connect to the backend service"
+          title={t("models:error.loadFailed")}
+          subTitle={t("common:error.connectFailed")}
           extra={
             <Button type="primary" onClick={() => refetch()}>
-              Retry
+              {t("common:error.retry")}
             </Button>
           }
         />
@@ -263,19 +260,19 @@ const ModelsPage: React.FC = () => {
   return (
     <div className="page-enter">
       <PageHeader
-        title="Local Models"
-        description="Manage AI models for offline processing"
+        title={t("models:pageHeader.title")}
+        description={t("models:pageHeader.description")}
         actions={
           <Button icon={<ReloadOutlined />} onClick={() => refetch()}>
-            Refresh
+            {t("common:actions.refresh")}
           </Button>
         }
       />
 
       {/* Whisper */}
       <ModelCategory
-        title="Audio Processing (Whisper)"
-        description="Whisper models for speech recognition and transcription."
+        title={t("models:category.whisper.title")}
+        description={t("models:category.whisper.description")}
         icon={<SoundOutlined />}
         models={whisperModels}
         onDownload={handleDownload}
@@ -285,8 +282,8 @@ const ModelsPage: React.FC = () => {
 
       {/* Translation Models */}
       <ModelCategory
-        title="Translation (MADLAD400)"
-        description="MADLAD400 models for local text translation."
+        title={t("models:category.translation.title")}
+        description={t("models:category.translation.description")}
         icon={<TranslationOutlined />}
         models={translationModels}
         onDownload={handleDownload}
@@ -296,8 +293,8 @@ const ModelsPage: React.FC = () => {
 
       {/* Super Resolution */}
       <ModelCategory
-        title="Super Resolution (Real-ESRGAN)"
-        description="AI-powered video upscaling models."
+        title={t("models:category.enhancement.title")}
+        description={t("models:category.enhancement.description")}
         icon={<ZoomInOutlined />}
         models={enhancementModels}
         onDownload={handleDownload}
@@ -307,8 +304,8 @@ const ModelsPage: React.FC = () => {
 
       {/* Denoising */}
       <ModelCategory
-        title="Denoising (NAFNet)"
-        description="Video denoise models for old or noisy footage."
+        title={t("models:category.denoise.title")}
+        description={t("models:category.denoise.description")}
         icon={<EyeOutlined />}
         models={denoiseModels}
         onDownload={handleDownload}

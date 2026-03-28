@@ -18,6 +18,7 @@ from ..exceptions import ProcessingError, OperationCancelledError
 from ..core.progress_protocol import ProgressCallback, NO_OP_PROGRESS
 from ..core.exception_wrapper import wrap_exceptions, convert_exception
 from ..utils.resources import get_language_name
+from ..i18n import t
 
 if TYPE_CHECKING:
     from ..llm.base import TranslationBackend
@@ -98,7 +99,7 @@ class TranslationEngine:
 
                 if not actual_src_lang:
                     log_warning(
-                        "Source language not specified or detected. Skipping translation."
+                        t("error.sourceLanguageNotDetected")
                     )
                     return result
 
@@ -226,7 +227,7 @@ class TranslationEngine:
         )
         log_info(f"[TranslationEngine] This may take a while for large models (e.g., MADLAD400-3B)")
         log_debug(f"[TranslationEngine] Calling progress.update(5, 'Loading translation model...')")
-        progress.update(5, "Loading translation model...")
+        progress.update(5, t("progress.loadingTranslationModel"))
 
         model_callable = get_translation_model(
             src_lang, tgt_lang, device=self.device, progress=progress
@@ -244,7 +245,7 @@ class TranslationEngine:
             )
 
         log_info("[TranslationEngine] Translation model loaded successfully")
-        progress.update(15, "Translation model loaded, starting translation...")
+        progress.update(15, t("progress.translationModelLoaded"))
 
         # 执行翻译
         segments = result.get("segments", [])
@@ -284,14 +285,14 @@ class TranslationEngine:
         for i, segment in enumerate(segments):
             if progress.is_cancelled():
                 raise OperationCancelledError(
-                    message="Translation cancelled by user",
+                    message=t("error.translationCancelled"),
                     context={"model_type": self.model_type, "segment_index": i},
                 )
 
             current_segment_num = i + TranslationConstants.SEGMENT_NUMBER_OFFSET
             progress_value = (current_segment_num / total_segments) * 100
             progress.update(
-                progress_value, f"分段: {current_segment_num}/{total_segments}"
+                progress_value, t("progress.translatingSegment", current=current_segment_num, total=total_segments)
             )
 
             original_text = segment["text"].strip()
@@ -308,7 +309,7 @@ class TranslationEngine:
             new_segment["text"] = translated_text
             translated_segments.append(new_segment)
 
-        progress.update(100.0, "已完成")
+        progress.update(100.0, t("progress.completed"))
         return translated_segments
 
     def _perform_multilingual_translation(

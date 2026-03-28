@@ -6,21 +6,23 @@
  */
 
 import React, { useState } from "react";
-import { Button, Space, Spin, App, theme, Skeleton, Card, Result } from "antd";
+import { Button, Space, App, theme, Result } from "antd";
 import { PlusOutlined, CloudOutlined } from "@ant-design/icons";
+import { useTranslation } from "react-i18next";
 import {
   useLLMPresetsQuery,
   useTestAllLLMMutation,
 } from "../../api/queries";
 import type { LLMPresetInfo } from "../../types";
 import PageHeader from "../../components/Layout/PageHeader";
-import { EmptyState } from "../../components/common";
+import { EmptyState, PageSkeleton } from "../../components/common";
 import ProviderCard from "./ProviderCard";
 import ProviderDialog from "./ProviderDialog";
 
 const LLMConfigPage: React.FC = () => {
   const { token } = theme.useToken();
   const { message } = App.useApp();
+  const { t } = useTranslation("llmConfig");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingPresetId, setEditingPresetId] = useState<string | null>(null);
 
@@ -63,20 +65,14 @@ const LLMConfigPage: React.FC = () => {
   const handleTestAll = () => {
     testAllMutation.mutate(undefined, {
       onSuccess: () => {
-        message.success("All connections tested");
+        message.success(t("llmConfig:messages.allTested"));
         refetch();
       },
     });
   };
 
   if (isLoading) {
-    return (
-      <div className="page-enter">
-        <PageHeader title="LLM Providers" />
-        <Card style={{ marginBottom: 12 }}><Skeleton active paragraph={{ rows: 1 }} /></Card>
-        <Card style={{ marginBottom: 12 }}><Skeleton active paragraph={{ rows: 1 }} /></Card>
-      </div>
-    );
+    return <PageSkeleton type="llm" />;
   }
 
   if (isError) {
@@ -84,11 +80,11 @@ const LLMConfigPage: React.FC = () => {
       <div style={{ padding: 48 }}>
         <Result
           status="error"
-          title="Failed to load LLM configuration"
-          subTitle="Unable to connect to the backend service"
+          title={t("llmConfig:error.loadFailed")}
+          subTitle={t("common:error.connectFailed")}
           extra={
             <Button type="primary" onClick={() => refetch()}>
-              Retry
+              {t("common:error.retry")}
             </Button>
           }
         />
@@ -99,8 +95,8 @@ const LLMConfigPage: React.FC = () => {
   return (
     <div className="page-enter">
       <PageHeader
-        title="LLM Providers"
-        description="Configure API credentials for your LLM providers"
+        title={t("llmConfig:pageHeader.title")}
+        description={t("llmConfig:pageHeader.description")}
         actions={
           <Space size={8}>
             {configuredPresets.length > 0 && (
@@ -108,7 +104,7 @@ const LLMConfigPage: React.FC = () => {
                 onClick={handleTestAll}
                 loading={testAllMutation.isPending}
               >
-                Test All
+                {t("llmConfig:actions.testAll")}
               </Button>
             )}
             <Button
@@ -116,7 +112,7 @@ const LLMConfigPage: React.FC = () => {
               icon={<PlusOutlined />}
               onClick={handleAdd}
             >
-              Add Provider
+              {t("llmConfig:actions.addProvider")}
             </Button>
           </Space>
         }
@@ -125,9 +121,9 @@ const LLMConfigPage: React.FC = () => {
       {configuredPresets.length === 0 ? (
         <EmptyState
           icon={<CloudOutlined />}
-          title="No providers configured"
-          description="Add a LLM provider to enable AI-powered translation"
-          actionText="Add Provider"
+          title={t("llmConfig:empty.title")}
+          description={t("llmConfig:empty.description")}
+          actionText={t("llmConfig:empty.actionText")}
           onAction={handleAdd}
         />
       ) : (

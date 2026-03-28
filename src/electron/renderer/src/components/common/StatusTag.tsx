@@ -12,6 +12,7 @@ import {
   LoadingOutlined,
   ClockCircleOutlined,
 } from "@ant-design/icons";
+import { useTranslation } from "react-i18next";
 
 export type StatusType =
   | "success"
@@ -26,43 +27,45 @@ interface StatusTagProps {
   text?: string;
 }
 
-const statusConfig: Record<
-  StatusType,
-  { className: string; icon: React.ReactNode; defaultText: string }
-> = {
-  success: {
-    className: "status-tag status-tag-success",
-    icon: <CheckCircleOutlined />,
-    defaultText: "Ready",
-  },
-  warning: {
-    className: "status-tag status-tag-warning",
-    icon: <ExclamationCircleOutlined />,
-    defaultText: "Warning",
-  },
-  error: {
-    className: "status-tag status-tag-error",
-    icon: <CloseCircleOutlined />,
-    defaultText: "Failed",
-  },
-  processing: {
-    className: "status-tag status-tag-processing",
-    icon: <LoadingOutlined />,
-    defaultText: "Processing",
-  },
-  pending: {
-    className: "status-tag status-tag-default",
-    icon: <ClockCircleOutlined />,
-    defaultText: "Pending",
-  },
-  default: {
-    className: "status-tag status-tag-default",
-    icon: null,
-    defaultText: "",
-  },
-};
-
 const StatusTag: React.FC<StatusTagProps> = ({ status, text }) => {
+  const { t } = useTranslation("common");
+
+  const statusConfig: Record<
+    StatusType,
+    { className: string; icon: React.ReactNode; defaultText: string }
+  > = {
+    success: {
+      className: "status-tag status-tag-success",
+      icon: <CheckCircleOutlined />,
+      defaultText: t("status.ready"),
+    },
+    warning: {
+      className: "status-tag status-tag-warning",
+      icon: <ExclamationCircleOutlined />,
+      defaultText: t("status.warning"),
+    },
+    error: {
+      className: "status-tag status-tag-error",
+      icon: <CloseCircleOutlined />,
+      defaultText: t("status.failed"),
+    },
+    processing: {
+      className: "status-tag status-tag-processing",
+      icon: <LoadingOutlined />,
+      defaultText: t("status.processing"),
+    },
+    pending: {
+      className: "status-tag status-tag-default",
+      icon: <ClockCircleOutlined />,
+      defaultText: t("status.pending"),
+    },
+    default: {
+      className: "status-tag status-tag-default",
+      icon: null,
+      defaultText: "",
+    },
+  };
+
   const config = statusConfig[status];
   return (
     <span className={config.className}>

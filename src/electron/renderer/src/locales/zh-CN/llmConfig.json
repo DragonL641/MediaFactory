@@ -1,0 +1,55 @@
+{
+  "pageHeader": {
+    "title": "LLM 供应商",
+    "description": "配置 LLM 供应商的 API 凭证"
+  },
+  "actions": {
+    "testAll": "全部测试",
+    "addProvider": "添加供应商"
+  },
+  "empty": {
+    "title": "未配置供应商",
+    "description": "添加一个 LLM 供应商以启用 AI 翻译",
+    "actionText": "添加供应商"
+  },
+  "card": {
+    "model": "模型: {{model}}",
+    "connected": "已连接",
+    "notConnected": "未连接",
+    "testTooltip": "测试连接",
+    "editTooltip": "编辑",
+    "deleteTooltip": "删除",
+    "connectedMsg": "{{name}}: 已连接 ({{latency}}ms)",
+    "connectionFailed": "连接失败",
+    "testFailed": "测试失败"
+  },
+  "confirm": {
+    "deleteTitle": "删除此供应商？",
+    "deleteDescription": "这将清除 API 密钥和模型配置。"
+  },
+  "messages": {
+    "allTested": "已测试所有连接",
+    "providerUpdated": "供应商已更新",
+    "providerAdded": "供应商已添加",
+    "saveFailed": "保存失败"
+  },
+  "dialog": {
+    "editTitle": "编辑供应商",
+    "addTitle": "添加供应商",
+    "provider": "供应商",
+    "selectProvider": "选择供应商",
+    "providerRequired": "请选择一个供应商",
+    "baseUrl": "Base URL",
+    "baseUrlRequired": "Base URL 为必填项",
+    "baseUrlPlaceholder": "https://api.example.com/v1",
+    "apiKey": "API Key",
+    "apiKeyRequired": "API Key 为必填项",
+    "apiKeyPlaceholder": "sk-...",
+    "model": "模型",
+    "modelRequired": "模型名称为必填项",
+    "modelPlaceholder": "例如: gpt-4o-mini, deepseek-chat"
+  },
+  "error": {
+    "loadFailed": "加载 LLM 配置失败"
+  }
+}

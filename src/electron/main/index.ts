@@ -78,8 +78,8 @@ async function startApp(): Promise<void> {
   } catch (error) {
     console.error("Failed to start application:", error);
     dialog.showErrorBox(
-      "启动失败",
-      `无法启动 MediaFactory 后端服务：\n${error}\n\n请检查 Python 环境配置。`
+      "Startup Failed",
+      `Failed to start MediaFactory backend service:\n${error}\n\nPlease check the Python environment configuration.`
     );
     app.quit(1);
   }

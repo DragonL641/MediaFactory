@@ -23,6 +23,7 @@ from mediafactory.engine.enhancement import (
     TemporalSmoother,
     TemporalSmootherConfig,
 )
+from mediafactory.i18n import t
 
 
 # 批处理默认大小
@@ -132,7 +133,7 @@ class VideoEnhancementEngine:
         video_path = os.path.abspath(video_path)
         if not os.path.exists(video_path):
             raise ProcessingError(
-                message=f"视频文件不存在: {video_path}",
+                message=t("error.videoFileNotExist", path=video_path),
                 context={"video_path": video_path},
             )
 
@@ -155,11 +156,11 @@ class VideoEnhancementEngine:
             log_info(f"配置: scale={self.config.scale}, model_type={self.config.model_type}")
 
             # 阶段1: 读取视频 (0-5%)
-            progress.update(0, "正在读取视频...")
+            progress.update(0, t("progress.readingVideo"))
             cap = cv2.VideoCapture(video_path)
             if not cap.isOpened():
                 raise ProcessingError(
-                    message=f"无法打开视频文件: {video_path}",
+                    message=t("error.cannotOpenVideo", path=video_path),
                     context={"video_path": video_path},
                 )
 
@@ -171,7 +172,7 @@ class VideoEnhancementEngine:
             log_info(f"视频信息: {width}x{height}, {fps}fps, {total_frames}帧")
 
             # 阶段2: 准备输出 (5-10%)
-            progress.update(5, "正在准备输出文件...")
+            progress.update(5, t("progress.preparingOutput"))
 
             # 计算输出尺寸
             out_width = width * self.config.scale
@@ -187,12 +188,12 @@ class VideoEnhancementEngine:
             if not out.isOpened():
                 cap.release()
                 raise ProcessingError(
-                    message=f"无法创建输出视频文件: {temp_video}",
+                    message=t("error.cannotCreateOutputVideo", path=temp_video),
                     context={"temp_video": temp_video},
                 )
 
             # 阶段3: 处理帧 (10-90%)
-            progress.update(10, "正在加载模型...")
+            progress.update(10, t("progress.loadingEnhancementModel"))
 
             # 预加载增强器
             sr_enhancer = self._get_sr_enhancer()
@@ -275,7 +276,7 @@ class VideoEnhancementEngine:
                     frame_progress = 10 + (frame_idx / total_frames) * 80
                     progress.update(
                         frame_progress,
-                        f"正在处理帧 {frame_idx}/{total_frames}",
+                        t("progress.processingFrames", current=frame_idx, total=total_frames),
                     )
 
                 # 处理缓冲区剩余帧
@@ -335,19 +336,19 @@ class VideoEnhancementEngine:
                 if os.path.exists(temp_video):
                     os.remove(temp_video)
                 raise ProcessingError(
-                    message="用户取消操作",
+                    message=t("error.userCancelled"),
                     context={"frame_processed": frame_idx},
                 )
 
             # 阶段4: 合并音频 (90-100%)
-            progress.update(90, "正在合并音频...")
+            progress.update(90, t("progress.mergingAudio"))
             self._merge_audio(video_path, temp_video, output_path)
 
             # 清理临时文件
             if os.path.exists(temp_video):
                 os.remove(temp_video)
 
-            progress.update(100, "视频增强完成")
+            progress.update(100, t("progress.videoEnhancementCompleted"))
             log_step(f"视频增强完成: {output_path}")
 
             return output_path

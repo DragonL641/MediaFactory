@@ -1,0 +1,80 @@
+{
+  "pageHeader": {
+    "title": "任务队列",
+    "description": "管理和执行你的媒体处理任务"
+  },
+  "actions": {
+    "addTask": "添加任务",
+    "startAll": "全部开始",
+    "cancelAll": "全部取消",
+    "clearAll": "清除已完成"
+  },
+  "confirm": {
+    "cancelRunning": {
+      "title": "取消正在运行的任务？",
+      "description": "这将停止所有当前正在运行的任务。",
+      "okText": "取消任务"
+    },
+    "clearFinished": {
+      "title": "清除已完成的任务？",
+      "description": "移除所有已完成、失败和已取消的任务。",
+      "okText": "清除"
+    }
+  },
+  "messages": {
+    "queued": "已排队 {{count}} 个任务",
+    "cancelled": "已取消 {{count}} 个任务",
+    "cleared": "已清除 {{count}} 个任务"
+  },
+  "empty": {
+    "title": "暂无任务",
+    "description": "创建一个任务开始处理你的媒体文件",
+    "actionText": "添加任务"
+  },
+  "error": {
+    "loadFailed": "加载任务失败"
+  },
+  "card": {
+    "status": {
+      "pending": "等待中",
+      "running": "运行中",
+      "completed": "已完成",
+      "failed": "失败",
+      "cancelled": "已取消"
+    },
+    "cancel": "取消",
+    "start": "开始",
+    "edit": "编辑",
+    "started": "任务已启动",
+    "startFailed": "启动任务失败"
+  },
+  "typeLabels": {
+    "subtitle": "字幕生成",
+    "audio": "音频提取",
+    "transcribe": "语音转录",
+    "translate": "字幕翻译",
+    "enhance": "视频增强"
+  },
+  "typeOptions": {
+    "subtitle": { "title": "字幕生成器", "description": "从视频文件生成字幕" },
+    "audio": { "title": "音频提取器", "description": "从视频文件提取音频" },
+    "transcribe": { "title": "语音转文字", "description": "将语音转换为文本（SRT 格式）" },
+    "translate": { "title": "字幕翻译器", "description": "翻译 SRT 字幕文件" },
+    "enhance": { "title": "视频增强", "description": "使用 AI 超分辨率增强视频画质" }
+  },
+  "createDialog": {
+    "title": "创建任务",
+    "steps": {
+      "selectType": "选择类型",
+      "configure": "配置参数"
+    },
+    "create": "创建",
+    "created": "任务已创建"
+  },
+  "editDialog": {
+    "title": "编辑任务",
+    "taskType": "任务类型",
+    "inputFile": "输入文件",
+    "saved": "任务配置已更新"
+  }
+}

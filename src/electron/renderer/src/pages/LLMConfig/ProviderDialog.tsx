@@ -12,6 +12,7 @@ import {
   Select,
   App,
 } from "antd";
+import { useTranslation } from "react-i18next";
 import { useLLMPresetsQuery, useUpdateLLMPresetMutation } from "../../api/queries";
 import { isAxiosError } from "axios";
 import type { LLMPresetInfo } from "../../types";
@@ -31,6 +32,7 @@ const ProviderDialog: React.FC<ProviderDialogProps> = ({
 }) => {
   const [form] = Form.useForm();
   const { message } = App.useApp();
+  const { t } = useTranslation("llmConfig");
   const isEditing = !!editingPresetId;
 
   const { data: presets, isLoading: presetsLoading } = useLLMPresetsQuery();
@@ -77,8 +79,8 @@ const ProviderDialog: React.FC<ProviderDialogProps> = ({
           onSuccess: () => {
             message.success(
               isEditing
-                ? "Provider updated"
-                : "Provider added"
+                ? t("llmConfig:messages.providerUpdated")
+                : t("llmConfig:messages.providerAdded")
             );
             onSuccess();
             onClose();
@@ -87,7 +89,7 @@ const ProviderDialog: React.FC<ProviderDialogProps> = ({
           onError: (error: unknown) => {
             const detail = isAxiosError(error) ? error.response?.data?.detail : undefined;
             message.error(
-              detail || "Failed to save"
+              detail || t("llmConfig:messages.saveFailed")
             );
           },
         }
@@ -107,7 +109,7 @@ const ProviderDialog: React.FC<ProviderDialogProps> = ({
 
   return (
     <Modal
-      title={isEditing ? "Edit Provider" : "Add Provider"}
+      title={isEditing ? t("llmConfig:dialog.editTitle") : t("llmConfig:dialog.addTitle")}
       open={open}
       onOk={handleSubmit}
       onCancel={onClose}
@@ -117,11 +119,11 @@ const ProviderDialog: React.FC<ProviderDialogProps> = ({
       <Form form={form} layout="vertical" style={{ marginTop: 16 }}>
         <Form.Item
           name="preset_id"
-          label="Provider"
-          rules={[{ required: true, message: "Please select a provider" }]}
+          label={t("llmConfig:dialog.provider")}
+          rules={[{ required: true, message: t("llmConfig:dialog.providerRequired") }]}
         >
           <Select
-            placeholder="Select provider"
+            placeholder={t("llmConfig:dialog.selectProvider")}
             disabled={isEditing}
             onChange={handlePresetChange}
             loading={presetsLoading}
@@ -131,24 +133,24 @@ const ProviderDialog: React.FC<ProviderDialogProps> = ({
 
         <Form.Item
           name="base_url"
-          label="Base URL"
-          rules={[{ required: true, message: "Base URL is required" }]}
+          label={t("llmConfig:dialog.baseUrl")}
+          rules={[{ required: true, message: t("llmConfig:dialog.baseUrlRequired") }]}
         >
           <Input placeholder="https://api.example.com/v1" />
         </Form.Item>
 
         <Form.Item
           name="api_key"
-          label="API Key"
-          rules={[{ required: true, message: "API Key is required" }]}
+          label={t("llmConfig:dialog.apiKey")}
+          rules={[{ required: true, message: t("llmConfig:dialog.apiKeyRequired") }]}
         >
           <Input.Password placeholder="sk-..." />
         </Form.Item>
 
         <Form.Item
           name="model"
-          label="Model"
-          rules={[{ required: true, message: "Model name is required" }]}
+          label={t("llmConfig:dialog.model")}
+          rules={[{ required: true, message: t("llmConfig:dialog.modelRequired") }]}
         >
           <Input placeholder="e.g., gpt-4o-mini, deepseek-chat" />
         </Form.Item>

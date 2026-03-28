@@ -14,6 +14,7 @@ from mediafactory.pipeline import Pipeline
 from mediafactory.pipeline.context import ProcessingContext, ProcessingResult
 from mediafactory.logging import log_info, log_error, log_error_with_context
 from mediafactory.core.progress_protocol import ProgressCallback, NO_OP_PROGRESS
+from mediafactory.api.error_handler import sanitize_error
 
 
 class TranslationService:
@@ -95,7 +96,7 @@ class TranslationService:
             )
             return ProcessingResult(
                 success=False,
-                error_message=str(e),
+                error_message=sanitize_error(e),
                 error_type=type(e).__name__,
             )
 
@@ -192,6 +193,6 @@ class TranslationService:
             )
             return ProcessingResult(
                 success=False,
-                error_message=str(e),
+                error_message=sanitize_error(e),
                 error_type=type(e).__name__,
             )

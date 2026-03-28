@@ -1,0 +1,92 @@
+{
+  "language": {
+    "autoDetect": "自动检测",
+    "english": "英语",
+    "chinese": "中文",
+    "japanese": "日语",
+    "korean": "韩语",
+    "french": "法语",
+    "german": "德语",
+    "spanish": "西班牙语",
+    "russian": "俄语"
+  },
+  "outputFormat": {
+    "srt": "SRT 字幕",
+    "ass": "ASS 字幕（样式化）",
+    "txt": "纯文本 (.txt)"
+  },
+  "stylePreset": {
+    "default": "默认",
+    "science": "科学",
+    "anime": "动漫",
+    "news": "新闻"
+  },
+  "bilingualLayout": {
+    "translateOnTop": "译文在上",
+    "originalOnTop": "原文在上",
+    "translateOnly": "仅译文",
+    "originalOnly": "仅原文"
+  },
+  "fileFilter": {
+    "video": "视频文件",
+    "audioVideo": "音频/视频文件",
+    "srt": "SRT 文件"
+  },
+  "label": {
+    "videoFile": "视频文件",
+    "audioVideoFile": "音频/视频文件",
+    "srtFile": "SRT 文件",
+    "sourceLanguage": "源语言",
+    "targetLanguage": "目标语言",
+    "outputFormat": "输出格式",
+    "stylePreset": "样式预设",
+    "bilingualSubtitles": "双语字幕",
+    "layout": "布局",
+    "useRemoteLlm": "使用远程 LLM 翻译",
+    "useRemoteLlmShort": "使用远程 LLM",
+    "llmProvider": "LLM 供应商"
+  },
+  "placeholder": {
+    "selectVideo": "点击选择视频文件...",
+    "selectAudioVideo": "点击选择音频或视频文件...",
+    "selectSrt": "点击选择 SRT 文件...",
+    "selectProvider": "选择供应商",
+    "selectFile": "点击选择文件..."
+  },
+  "audioOptions": {
+    "wav": "WAV（最佳质量）",
+    "mp3": "MP3（更小体积）",
+    "flac": "FLAC（无损）",
+    "aac": "AAC（压缩）"
+  },
+  "sampleRate": {
+    "best": "48000 Hz（最佳）",
+    "cd": "44100 Hz（CD 品质）",
+    "standard": "22050 Hz",
+    "speech": "16000 Hz（语音）"
+  },
+  "channels": {
+    "stereo": "立体声 (2ch)",
+    "mono": "单声道 (1ch)"
+  },
+  "audioLabels": {
+    "outputFormat": "输出格式",
+    "sampleRate": "采样率",
+    "channels": "声道",
+    "voiceEnhancementFilter": "语音增强滤波器",
+    "highpass": "高通 (Hz)",
+    "lowpass": "低通 (Hz)",
+    "volumeMultiplier": "音量倍率"
+  },
+  "enhanceLabels": {
+    "scale": "缩放",
+    "modelType": "模型类型",
+    "general": "通用（推荐）",
+    "anime": "动漫",
+    "enableDenoising": "启用降噪",
+    "enableTemporalSmoothing": "启用时序平滑"
+  },
+  "validation": {
+    "fileRequired": "请选择文件"
+  }
+}

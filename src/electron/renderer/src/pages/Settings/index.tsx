@@ -13,23 +13,25 @@ import {
   Switch,
   Button,
   App,
-  Skeleton,
   Result,
 } from "antd";
 import { SaveOutlined, ReloadOutlined } from "@ant-design/icons";
+import { useTranslation } from "react-i18next";
 import {
   useConfigQuery,
   useUpdateConfigMutation,
   useSaveConfigMutation,
   useReloadConfigMutation,
 } from "../../api/queries";
+import PageHeader from "../../components/Layout/PageHeader";
+import { PageSkeleton } from "../../components/common";
 import { isAxiosError } from "axios";
 import type { AppConfig } from "../../types";
-import PageHeader from "../../components/Layout/PageHeader";
 
 const SettingsPage: React.FC = () => {
   const [form] = Form.useForm();
   const { message } = App.useApp();
+  const { t } = useTranslation("settings");
 
   const { data: config, isLoading, isError, refetch } = useConfigQuery();
 
@@ -50,22 +52,17 @@ const SettingsPage: React.FC = () => {
   const handleSubmit = (values: { whisper: AppConfig["whisper"] }) => {
     updateConfigMutation.mutate(values, {
       onSuccess: () => {
-        message.success("Configuration updated");
+        message.success(t("settings:messages.configUpdated"));
       },
       onError: (error: unknown) => {
         const detail = isAxiosError(error) ? error.response?.data?.detail : undefined;
-        message.error(detail || "Failed to update config");
+        message.error(detail || t("settings:messages.updateFailed"));
       },
     });
   };
 
   if (isLoading) {
-    return (
-      <div className="page-enter">
-        <PageHeader title="Settings" />
-        <Card style={{ marginBottom: 16 }}><Skeleton active paragraph={{ rows: 4 }} /></Card>
-      </div>
-    );
+    return <PageSkeleton type="settings" />;
   }
 
   if (isError) {
@@ -73,11 +70,11 @@ const SettingsPage: React.FC = () => {
       <div style={{ padding: 48 }}>
         <Result
           status="error"
-          title="Failed to load settings"
-          subTitle="Unable to connect to the backend service"
+          title={t("settings:error.loadFailed")}
+          subTitle={t("common:error.connectFailed")}
           extra={
             <Button type="primary" onClick={() => refetch()}>
-              Retry
+              {t("common:error.retry")}
             </Button>
           }
         />
@@ -88,8 +85,8 @@ const SettingsPage: React.FC = () => {
   return (
     <div className="page-enter">
       <PageHeader
-        title="Settings"
-        description="Configure default behavior of MediaFactory"
+        title={t("settings:pageHeader.title")}
+        description={t("settings:pageHeader.description")}
       />
 
       <Form
@@ -102,7 +99,7 @@ const SettingsPage: React.FC = () => {
         <Card
           title={
             <span style={{ fontSize: 15, fontWeight: 600 }}>
-              Whisper Transcription
+              {t("settings:whisper.title")}
             </span>
           }
           style={{ marginBottom: 24 }}
@@ -111,16 +108,16 @@ const SettingsPage: React.FC = () => {
           <div className="form-row">
             <Form.Item
               name={["whisper", "beam_size"]}
-              label="Beam Size"
-              tooltip="Higher values improve accuracy but slow down transcription"
+              label={t("settings:whisper.beamSize")}
+              tooltip={t("settings:whisper.beamSizeTooltip")}
             >
               <InputNumber min={1} max={10} style={{ width: "100%" }} />
             </Form.Item>
 
             <Form.Item
               name={["whisper", "vad_threshold"]}
-              label="VAD Threshold"
-              tooltip="Threshold for voice detection (0-1)"
+              label={t("settings:whisper.vadThreshold")}
+              tooltip={t("settings:whisper.vadThresholdTooltip")}
             >
               <InputNumber min={0} max={1} step={0.05} style={{ width: "100%" }} />
             </Form.Item>
@@ -129,18 +126,18 @@ const SettingsPage: React.FC = () => {
           <div className="form-row">
             <Form.Item
               name={["whisper", "vad_filter"]}
-              label="VAD Filter"
+              label={t("settings:whisper.vadFilter")}
               valuePropName="checked"
-              tooltip="Voice Activity Detection - filters out silence"
+              tooltip={t("settings:whisper.vadFilterTooltip")}
             >
               <Switch />
             </Form.Item>
 
             <Form.Item
               name={["whisper", "word_timestamps"]}
-              label="Word-level Timestamps"
+              label={t("settings:whisper.wordTimestamps")}
               valuePropName="checked"
-              tooltip="Generate timestamps for each word"
+              tooltip={t("settings:whisper.wordTimestampsTooltip")}
             >
               <Switch />
             </Form.Item>
@@ -154,25 +151,25 @@ const SettingsPage: React.FC = () => {
             onClick={() =>
               reloadConfigMutation.mutate(undefined, {
                 onSuccess: (data: { config?: AppConfig }) => {
-                  message.success("Configuration reloaded");
+                  message.success(t("settings:messages.configReloaded"));
                   form.setFieldsValue({ whisper: data.config?.whisper });
                 },
               })
             }
             loading={reloadConfigMutation.isPending}
           >
-            Reload
+            {t("settings:actions.reload")}
           </Button>
           <Button
             icon={<SaveOutlined />}
             onClick={() =>
               saveConfigMutation.mutate(undefined, {
-                onSuccess: () => message.success("Saved to disk"),
+                onSuccess: () => message.success(t("settings:messages.savedToDisk")),
               })
             }
             loading={saveConfigMutation.isPending}
           >
-            Save to Disk
+            {t("settings:actions.saveToDisk")}
           </Button>
           <Button
             type="primary"
@@ -180,7 +177,7 @@ const SettingsPage: React.FC = () => {
             icon={<SaveOutlined />}
             loading={updateConfigMutation.isPending}
           >
-            Apply
+            {t("settings:actions.apply")}
           </Button>
         </div>
       </Form>

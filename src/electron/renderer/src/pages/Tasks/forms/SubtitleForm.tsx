@@ -5,12 +5,14 @@
 import React, { useState } from "react";
 import { Form, Select, Switch } from "antd";
 import type { FormInstance } from "antd";
+import { useTranslation } from "react-i18next";
 import {
-  LANGUAGE_OPTIONS,
-  TARGET_LANGUAGE_OPTIONS,
-  OUTPUT_FORMAT_OPTIONS,
-  STYLE_PRESET_OPTIONS,
-  BILINGUAL_LAYOUT_OPTIONS,
+  useLanguageOptions,
+  useTargetLanguageOptions,
+  useOutputFormatOptions,
+  useStylePresetOptions,
+  useBilingualLayoutOptions,
+  useFileFilters,
 } from "./shared";
 import FileDialogInput from "../../../components/Form/FileDialogInput";
 import LLMProviderSelect from "../../../components/Form/LLMProviderSelect";
@@ -20,9 +22,17 @@ interface SubtitleFormProps {
 }
 
 const SubtitleForm: React.FC<SubtitleFormProps> = ({ form }) => {
+  const { t } = useTranslation("forms");
   const [useLlm, setUseLlm] = useState(false);
   const [bilingual, setBilingual] = useState(false);
   const outputFormat = Form.useWatch(["output_format"], form);
+
+  const languageOptions = useLanguageOptions();
+  const targetLanguageOptions = useTargetLanguageOptions();
+  const outputFormatOptions = useOutputFormatOptions();
+  const stylePresetOptions = useStylePresetOptions();
+  const bilingualLayoutOptions = useBilingualLayoutOptions();
+  const fileFilters = useFileFilters();
 
   const showAssPreset = outputFormat === "ass";
   const showBilingual = outputFormat === "srt" || outputFormat === "ass";
@@ -40,44 +50,44 @@ const SubtitleForm: React.FC<SubtitleFormProps> = ({ form }) => {
       <FileDialogInput
         form={form}
         name="video_path"
-        label="Video File"
-        placeholder="Click to select video file..."
-        filters={[{ name: "Video Files", extensions: ["mp4", "avi", "mov", "mkv", "wmv", "flv", "webm"] }]}
+        label={t("forms:label.videoFile")}
+        placeholder={t("forms:placeholder.selectVideo")}
+        filters={fileFilters.video}
       />
 
-      <Form.Item name="source_lang" label="Source Language">
-        <Select options={LANGUAGE_OPTIONS} />
+      <Form.Item name="source_lang" label={t("forms:label.sourceLanguage")}>
+        <Select options={languageOptions} />
       </Form.Item>
 
-      <Form.Item name="target_lang" label="Target Language">
-        <Select options={TARGET_LANGUAGE_OPTIONS} />
+      <Form.Item name="target_lang" label={t("forms:label.targetLanguage")}>
+        <Select options={targetLanguageOptions} />
       </Form.Item>
 
-      <Form.Item name="output_format" label="Output Format">
-        <Select options={OUTPUT_FORMAT_OPTIONS} />
+      <Form.Item name="output_format" label={t("forms:label.outputFormat")}>
+        <Select options={outputFormatOptions} />
       </Form.Item>
 
       {showAssPreset && (
-        <Form.Item name="style_preset" label="Style Preset">
-          <Select options={STYLE_PRESET_OPTIONS} />
+        <Form.Item name="style_preset" label={t("forms:label.stylePreset")}>
+          <Select options={stylePresetOptions} />
         </Form.Item>
       )}
 
       {showBilingual && (
         <>
-          <Form.Item name="bilingual" label="Bilingual Subtitles" valuePropName="checked">
+          <Form.Item name="bilingual" label={t("forms:label.bilingualSubtitles")} valuePropName="checked">
             <Switch onChange={(checked) => setBilingual(checked)} />
           </Form.Item>
 
           {bilingual && (
-            <Form.Item name="bilingual_layout" label="Layout">
-              <Select options={BILINGUAL_LAYOUT_OPTIONS} />
+            <Form.Item name="bilingual_layout" label={t("forms:label.layout")}>
+              <Select options={bilingualLayoutOptions} />
             </Form.Item>
           )}
         </>
       )}
 
-      <Form.Item name="use_llm" label="Use Remote LLM for Translation" valuePropName="checked">
+      <Form.Item name="use_llm" label={t("forms:label.useRemoteLlm")} valuePropName="checked">
         <Switch onChange={(checked) => setUseLlm(checked)} />
       </Form.Item>
 

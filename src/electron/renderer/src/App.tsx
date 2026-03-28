@@ -6,6 +6,7 @@ import React, { useEffect, useState } from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { Spin, Typography, theme } from "antd";
 import { useQueryClient } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 
 import MainLayout from "./components/Layout/MainLayout";
 import ErrorBoundary from "./components/ErrorBoundary";
@@ -24,6 +25,7 @@ const App: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const queryClient = useQueryClient();
+  const { t } = useTranslation("common");
 
   useEffect(() => {
     const init = async () => {
@@ -37,6 +39,19 @@ const App: React.FC = () => {
             queryClient.invalidateQueries({ queryKey: queryKeys.tasks });
           }
         });
+
+        // 从后端获取语言偏好
+        const client = (await import("./api/client")).getApiClient;
+        try {
+          const apiClient = client();
+          const configRes = await apiClient.get("/api/config/");
+          const lang = configRes.data?.app?.language || "en";
+          const i18n = (await import("i18next")).default;
+          await i18n.changeLanguage(lang);
+        } catch {
+          // 使用默认语言
+        }
+
         setIsLoading(false);
       } catch (err) {
         console.error("Failed to initialize API client:", err);
@@ -60,7 +75,7 @@ const App: React.FC = () => {
       >
         <Spin size="large">
           <div style={{ padding: 24, textAlign: "center" }}>
-            Connecting to backend...
+            {t("loading.connecting")}
           </div>
         </Spin>
       </div>
@@ -79,11 +94,11 @@ const App: React.FC = () => {
           padding: 24,
         }}
       >
-        <h2>Unable to connect to backend</h2>
+        <h2>{t("loading.connectError")}</h2>
         <Text type="secondary">{error}</Text>
         <br />
         <Text type="secondary" style={{ fontSize: token.fontSizeSM }}>
-          Please check if the Python backend is running
+          {t("loading.connectHint")}
         </Text>
       </div>
     );

@@ -11,8 +11,8 @@ import {
   SoundOutlined,
   TranslationOutlined,
   VideoCameraOutlined,
-  PictureOutlined,
 } from "@ant-design/icons";
+import { useTranslation } from "react-i18next";
 
 const { Text } = Typography;
 
@@ -23,38 +23,41 @@ export interface TaskTypeOption {
   icon: React.ReactNode;
 }
 
-export const TASK_TYPES: TaskTypeOption[] = [
-  {
-    key: "subtitle",
-    title: "Subtitle Generator",
-    description: "Generate subtitles from video files",
-    icon: <SoundOutlined style={{ fontSize: 32 }} />,
-  },
-  {
-    key: "audio",
-    title: "Audio Extractor",
-    description: "Extract audio from video files",
-    icon: <AudioOutlined style={{ fontSize: 32 }} />,
-  },
-  {
-    key: "transcribe",
-    title: "Speech to Text",
-    description: "Convert speech to text (SRT format)",
-    icon: <SoundOutlined style={{ fontSize: 32 }} />,
-  },
-  {
-    key: "translate",
-    title: "Subtitle Translator",
-    description: "Translate SRT subtitle files",
-    icon: <TranslationOutlined style={{ fontSize: 32 }} />,
-  },
-  {
-    key: "enhance",
-    title: "Video Enhancement",
-    description: "Enhance video quality with AI upscaling",
-    icon: <VideoCameraOutlined style={{ fontSize: 32 }} />,
-  },
-];
+export const useTaskTypes = (): TaskTypeOption[] => {
+  const { t } = useTranslation("tasks");
+  return [
+    {
+      key: "subtitle",
+      title: t("tasks:typeOptions.subtitle.title"),
+      description: t("tasks:typeOptions.subtitle.description"),
+      icon: <SoundOutlined style={{ fontSize: 32 }} />,
+    },
+    {
+      key: "audio",
+      title: t("tasks:typeOptions.audio.title"),
+      description: t("tasks:typeOptions.audio.description"),
+      icon: <AudioOutlined style={{ fontSize: 32 }} />,
+    },
+    {
+      key: "transcribe",
+      title: t("tasks:typeOptions.transcribe.title"),
+      description: t("tasks:typeOptions.transcribe.description"),
+      icon: <SoundOutlined style={{ fontSize: 32 }} />,
+    },
+    {
+      key: "translate",
+      title: t("tasks:typeOptions.translate.title"),
+      description: t("tasks:typeOptions.translate.description"),
+      icon: <TranslationOutlined style={{ fontSize: 32 }} />,
+    },
+    {
+      key: "enhance",
+      title: t("tasks:typeOptions.enhance.title"),
+      description: t("tasks:typeOptions.enhance.description"),
+      icon: <VideoCameraOutlined style={{ fontSize: 32 }} />,
+    },
+  ];
+};
 
 interface TaskTypeSelectorProps {
   onSelect: (typeKey: string) => void;
@@ -62,10 +65,11 @@ interface TaskTypeSelectorProps {
 
 const TaskTypeSelector: React.FC<TaskTypeSelectorProps> = ({ onSelect }) => {
   const { token } = theme.useToken();
+  const taskTypes = useTaskTypes();
 
   return (
     <Row gutter={[16, 16]} justify="center">
-      {TASK_TYPES.map((type) => (
+      {taskTypes.map((type) => (
         <Col xs={24} sm={12} md={8} key={type.key}>
           <Card
             hoverable

@@ -11,7 +11,6 @@ import {
   Space,
   Popconfirm,
   App,
-  Spin,
   Result,
 } from "antd";
 import {
@@ -21,6 +20,7 @@ import {
   ClearOutlined,
   FileTextOutlined,
 } from "@ant-design/icons";
+import { useTranslation } from "react-i18next";
 import {
   useTasksQuery,
   useCancelTaskMutation,
@@ -31,7 +31,7 @@ import {
 } from "../../api/queries";
 import type { Task, BatchOperationResponse } from "../../types";
 import PageHeader from "../../components/Layout/PageHeader";
-import { EmptyState } from "../../components/common";
+import { EmptyState, PageSkeleton } from "../../components/common";
 import TaskCard from "./TaskCard";
 import CreateTaskDialog from "./CreateTaskDialog";
 import EditTaskDialog from "./EditTaskDialog";
@@ -40,6 +40,7 @@ const TasksPage: React.FC = () => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editTaskId, setEditTaskId] = useState<string | null>(null);
   const { message } = App.useApp();
+  const { t } = useTranslation("tasks");
 
   const { data: tasks, isLoading, isError, refetch } = useTasksQuery();
   const cancelMutation = useCancelTaskMutation();
@@ -59,7 +60,7 @@ const TasksPage: React.FC = () => {
   const handleBatchStart = () => {
     batchStartMutation.mutate(undefined, {
       onSuccess: (data: BatchOperationResponse) => {
-        message.success(`Queued ${data.started} task(s)`);
+        message.success(t("tasks:messages.queued", { count: data.started }));
       },
     });
   };
@@ -67,7 +68,7 @@ const TasksPage: React.FC = () => {
   const handleBatchCancel = () => {
     batchCancelMutation.mutate(undefined, {
       onSuccess: (data: BatchOperationResponse) => {
-        message.success(`Cancelled ${data.cancelled} task(s)`);
+        message.success(t("tasks:messages.cancelled", { count: data.cancelled }));
       },
     });
   };
@@ -75,17 +76,13 @@ const TasksPage: React.FC = () => {
   const handleBatchClear = () => {
     batchClearMutation.mutate(undefined, {
       onSuccess: (data: BatchOperationResponse) => {
-        message.success(`Cleared ${data.cleared} task(s)`);
+        message.success(t("tasks:messages.cleared", { count: data.cleared }));
       },
     });
   };
 
   if (isLoading) {
-    return (
-      <div style={{ textAlign: "center", padding: 48 }}>
-        <Spin />
-      </div>
-    );
+    return <PageSkeleton type="tasks" />;
   }
 
   if (isError) {
@@ -93,11 +90,11 @@ const TasksPage: React.FC = () => {
       <div style={{ padding: 48 }}>
         <Result
           status="error"
-          title="Failed to load tasks"
-          subTitle="Unable to connect to the backend service"
+          title={t("tasks:error.loadFailed")}
+          subTitle={t("common:error.connectFailed")}
           extra={
             <Button type="primary" onClick={() => refetch()}>
-              Retry
+              {t("common:error.retry")}
             </Button>
           }
         />
@@ -115,8 +112,8 @@ const TasksPage: React.FC = () => {
   return (
     <div className="page-enter">
       <PageHeader
-        title="Task Queue"
-        description="Manage and execute your media processing tasks"
+        title={t("tasks:pageHeader.title")}
+        description={t("tasks:pageHeader.description")}
         actions={
           <Space size={8}>
             <Button
@@ -124,7 +121,7 @@ const TasksPage: React.FC = () => {
               type="primary"
               onClick={() => setDialogOpen(true)}
             >
-              Add Task
+              {t("tasks:actions.addTask")}
             </Button>
             <Button
               icon={<PlayCircleOutlined />}
@@ -132,14 +129,14 @@ const TasksPage: React.FC = () => {
               loading={batchStartMutation.isPending}
               disabled={!hasPendingTasks}
             >
-              Start All
+              {t("tasks:actions.startAll")}
             </Button>
             <Popconfirm
-              title="Cancel running tasks?"
-              description="This will stop all currently running tasks."
+              title={t("tasks:confirm.cancelRunning.title")}
+              description={t("tasks:confirm.cancelRunning.description")}
               onConfirm={handleBatchCancel}
-              okText="Cancel Tasks"
-              cancelText="Back"
+              okText={t("common:actions.cancel")}
+              cancelText={t("common:actions.back")}
               okButtonProps={{ danger: true }}
               disabled={!hasRunningTasks}
             >
@@ -148,15 +145,15 @@ const TasksPage: React.FC = () => {
                 loading={batchCancelMutation.isPending}
                 disabled={!hasRunningTasks}
               >
-                Cancel All
+                {t("tasks:actions.cancelAll")}
               </Button>
             </Popconfirm>
             <Popconfirm
-              title="Clear finished tasks?"
-              description="Remove all completed, failed, and cancelled tasks."
+              title={t("tasks:confirm.clearFinished.title")}
+              description={t("tasks:confirm.clearFinished.description")}
               onConfirm={handleBatchClear}
-              okText="Clear"
-              cancelText="Cancel"
+              okText={t("common:actions.delete")}
+              cancelText={t("common:actions.cancel")}
               okButtonProps={{ danger: true }}
               disabled={!hasClearedTasks}
             >
@@ -165,7 +162,7 @@ const TasksPage: React.FC = () => {
                 loading={batchClearMutation.isPending}
                 disabled={!hasClearedTasks}
               >
-                Clear All
+                {t("tasks:actions.clearAll")}
               </Button>
             </Popconfirm>
           </Space>
@@ -175,9 +172,9 @@ const TasksPage: React.FC = () => {
       {taskList.length === 0 ? (
         <EmptyState
           icon={<FileTextOutlined />}
-          title="No tasks yet"
-          description="Create a task to start processing your media files"
-          actionText="Add Task"
+          title={t("tasks:empty.title")}
+          description={t("tasks:empty.description")}
+          actionText={t("tasks:empty.actionText")}
           onAction={() => setDialogOpen(true)}
         />
       ) : (

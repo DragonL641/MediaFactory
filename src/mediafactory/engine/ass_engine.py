@@ -14,6 +14,7 @@ from .srt import BilingualLayout
 from ..exceptions import ProcessingError
 from ..core.exception_wrapper import convert_exception
 from ..logging import log_info, log_warning
+from ..i18n import t
 
 
 # 样式模板目录
@@ -226,7 +227,7 @@ class ASSEngine:
 
         if not path.exists():
             raise ProcessingError(
-                message=f"样式文件不存在: {filepath}",
+                message=t("error.styleFileNotExist", path=filepath),
                 context={"filepath": filepath},
             )
 
@@ -235,7 +236,7 @@ class ASSEngine:
                 content = f.read()
         except Exception as e:
             raise ProcessingError(
-                message=f"无法读取样式文件: {e}",
+                message=t("error.cannotReadStyleFile", error=str(e)),
                 context={"filepath": str(path)},
             ) from e
 

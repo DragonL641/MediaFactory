@@ -247,6 +247,20 @@ class LLMApiConfig(BaseModel):
 
 
 # ============================================================================
+# 应用通用设置
+# ============================================================================
+
+
+class AppSettings(BaseModel):
+    """应用通用设置"""
+
+    language: str = Field(
+        default="en",
+        description="Interface language (en, zh-CN)",
+    )
+
+
+# ============================================================================
 # 根配置
 # ============================================================================
 
@@ -276,6 +290,10 @@ class AppConfig(BaseModel):
     llm_api: LLMApiConfig = Field(
         default_factory=LLMApiConfig,
         description="LLM API 通用配置",
+    )
+    app: AppSettings = Field(
+        default_factory=AppSettings,
+        description="应用通用设置",
     )
 
     def has_available_models(self) -> bool:

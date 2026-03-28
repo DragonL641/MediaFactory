@@ -8,6 +8,7 @@ from ..utils.resources import get_language_name
 from ..logging import log_step, log_info, log_warning, log_success, log_debug
 from ..exceptions import ProcessingError
 from ..core.exception_wrapper import convert_exception
+from ..i18n import t
 
 
 class AudioExtractionStage(SkipableStage):
@@ -30,7 +31,7 @@ class AudioExtractionStage(SkipableStage):
         log_step("Audio Extraction")
         ctx.set_stage("audio_extraction")
         progress = ctx.progress_callback or NO_OP_PROGRESS
-        progress.update(0.0, "Starting audio extraction...")
+        progress.update(0.0, t("progress.audioExtractionStart"))
 
         # 从 ctx.config 读取额外参数（兼容 Pipeline 和直接调用）
         config = ctx.config or {}
@@ -54,7 +55,7 @@ class AudioExtractionStage(SkipableStage):
     def validate(self, ctx: ProcessingContext) -> bool:
         """验证音频文件"""
         if not ctx.audio_path:
-            self._log("Audio path not set", "error")
+            self._log(t("error.audioPathNotSet"), "error")
             return False
         if not os.path.exists(ctx.audio_path):
             self._log(f"Audio file does not exist: {ctx.audio_path}", "error")
@@ -79,7 +80,7 @@ class TranscriptionStage(SkipableStage):
         log_step("Speech Recognition")
         ctx.set_stage("transcription")
         progress = ctx.progress_callback or NO_OP_PROGRESS
-        progress.update(0.0, "Preparing transcription...")
+        progress.update(0.0, t("progress.transcriptionPrepare"))
 
         result = self.recognition_engine.transcribe(
             ctx.whisper_model_instance, ctx.audio_path, ctx.src_lang, progress
@@ -90,7 +91,7 @@ class TranscriptionStage(SkipableStage):
         ctx.transcription_result = result
 
         log_info(f"Detected/selected language: {get_language_name(detected_lang)}")
-        progress.update(100.0, "Audio transcription completed")
+        progress.update(100.0, t("progress.transcriptionCompleted"))
         return ctx
 
     def validate(self, ctx: ProcessingContext) -> bool:
@@ -134,7 +135,7 @@ class TranslationStage(SkipableStage):
         ctx.set_stage("translation")
         progress = ctx.progress_callback or NO_OP_PROGRESS
         log_debug(f"[TranslationStage] progress_callback: {ctx.progress_callback is not None}, type: {type(progress).__name__}")
-        progress.update(0.0, "Preparing translation...")
+        progress.update(0.0, t("progress.translationPrepare"))
 
         src_lang = ctx.detected_lang or ctx.src_lang
         log_info(f"[TranslationStage] Source language: {src_lang}, Target language: {ctx.tgt_lang}")
@@ -171,7 +172,7 @@ class TranslationStage(SkipableStage):
                 )
 
         # 里程碑进度：开始语言检测
-        progress.update(10, "Detecting source language...")
+        progress.update(10, t("progress.detectingSourceLanguage"))
 
         result = self.translation_engine.translate(
             ctx.transcription_result,
@@ -183,7 +184,7 @@ class TranslationStage(SkipableStage):
 
         ctx.translation_result = result
         log_success("Translation completed")
-        progress.update(100.0, "Translation completed")
+        progress.update(100.0, t("progress.translationCompleted"))
         return ctx
 
     def validate(self, ctx: ProcessingContext) -> bool:
@@ -223,7 +224,7 @@ class SRTGenerationStage(SkipableStage):
         log_step("Final Stage")
         ctx.set_stage("srt_generation")
         progress = ctx.progress_callback or NO_OP_PROGRESS
-        progress.update(0.0, "Preparing subtitle generation...")
+        progress.update(0.0, t("progress.subtitleGenerationPrepare"))
 
         # 优先使用翻译结果
         result = ctx.translation_result or ctx.transcription_result
@@ -260,7 +261,7 @@ class SRTGenerationStage(SkipableStage):
         segments = result.get("segments", [])
 
         # 里程碑进度：开始生成文件
-        progress.update(30, f"Generating {output_format.upper()} file...")
+        progress.update(30, t("progress.generatingSubtitleFile", format=output_format.upper()))
 
         # 根据格式生成输出
         if output_format == "txt":
@@ -289,10 +290,10 @@ class SRTGenerationStage(SkipableStage):
         ctx.output_path = output_path
 
         # 里程碑进度：文件写入完成
-        progress.update(80, "Finalizing...")
+        progress.update(80, t("progress.finalizing"))
 
         log_success(f"Subtitle generated: {output_path}")
-        progress.update(100.0, "Subtitle generation task completed!")
+        progress.update(100.0, t("progress.subtitleGenerationCompleted"))
         return ctx
 
     def validate(self, ctx: ProcessingContext) -> bool:
@@ -337,12 +338,12 @@ class ModelLoadingStage(SkipableStage):
 
             log_step(f"Whisper model: {ctx.whisper_model}")
             log_step(f"Device: {ctx.whisper_device}")
-            progress.update(0.0, f"Loading {ctx.whisper_model} model...")
+            progress.update(0.0, t("progress.loadingModel", model=ctx.whisper_model))
 
             from ..resource_manager import whisper_model
 
             # 里程碑进度：开始加载
-            progress.update(20, "Initializing model...")
+            progress.update(20, t("progress.initializingModel"))
 
             # 加载模型（模型路径由 whisper_model 内部处理）
             model_instance = whisper_model(ctx.whisper_model, ctx.whisper_device)
@@ -350,11 +351,11 @@ class ModelLoadingStage(SkipableStage):
             ctx.whisper_model_instance = model_instance.__enter__()
 
             # 里程碑进度：模型加载中
-            progress.update(60, "Loading model weights...")
+            progress.update(60, t("progress.loadingModelWeights"))
 
             log_success(f"Faster Whisper model {ctx.whisper_model} loaded successfully")
             progress.update(
-                100.0, f"Faster Whisper {ctx.whisper_model} loaded successfully"
+                100.0, t("progress.modelLoaded", model=ctx.whisper_model)
             )
             return ctx
 
@@ -412,7 +413,7 @@ class VideoEnhancementStage(SkipableStage):
         log_step("Video Enhancement")
         ctx.set_stage("video_enhancement")
         progress = ctx.progress_callback or NO_OP_PROGRESS
-        progress.update(0.0, "Starting video enhancement...")
+        progress.update(0.0, t("progress.videoEnhancementStart"))
 
         # 延迟导入以避免启动时加载 ML 依赖
         from ..engine.video_enhancement import VideoEnhancementEngine, EnhancementConfig
@@ -432,7 +433,7 @@ class VideoEnhancementStage(SkipableStage):
         ctx.output_path = result
 
         log_success(f"Video enhanced: {ctx.output_path}")
-        progress.update(100.0, "Video enhancement completed")
+        progress.update(100.0, t("progress.videoEnhancementCompleted"))
         return ctx
 
     def validate(self, ctx: ProcessingContext) -> bool:

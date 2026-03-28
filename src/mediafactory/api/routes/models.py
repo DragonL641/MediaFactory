@@ -13,6 +13,8 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 from mediafactory.services.models import ModelStatusService
+from mediafactory.api.error_handler import sanitize_error
+from mediafactory.i18n import t
 
 logger = logging.getLogger(__name__)
 
@@ -272,7 +274,7 @@ async def start_model_download(
     )
 
     task_id = await task_manager.create_task(
-        config, name=f"下载模型: {model_id}"
+        config, name=t("task.downloadingModel", modelId=model_id)
     )
 
     # 后台执行下载
@@ -312,7 +314,7 @@ async def start_model_download(
             await ws_manager.broadcast_task_complete(
                 task_id=task_id,
                 success=False,
-                error=str(e),
+                error=sanitize_error(e),
             )
 
     # 启动后台任务
@@ -321,7 +323,7 @@ async def start_model_download(
     return {
         "task_id": task_id,
         "status": "pending",
-        "message": f"下载任务已创建: {model_id}",
+        "message": t("task.downloadCreated", modelId=model_id),
     }
 
 
@@ -336,7 +338,7 @@ async def delete_model(model_id: str):
         raise HTTPException(status_code=400, detail=error)
 
     _invalidate_models_status_cache()
-    return {"success": True, "message": f"模型已删除: {model_id}"}
+    return {"success": True, "message": t("task.modelDeleted", modelId=model_id)}
 
 
 @router.post("/llm/test")
