@@ -6,7 +6,7 @@
  */
 
 import React, { useState } from "react";
-import { Button, Typography, Empty, Spin, App, theme, Skeleton, Card, Result } from "antd";
+import { Button, Space, Spin, App, theme, Skeleton, Card, Result } from "antd";
 import { PlusOutlined, CloudOutlined } from "@ant-design/icons";
 import {
   useLLMPresetsQuery,
@@ -14,10 +14,9 @@ import {
 } from "../../api/queries";
 import type { LLMPresetInfo } from "../../types";
 import PageHeader from "../../components/Layout/PageHeader";
+import { EmptyState } from "../../components/common";
 import ProviderCard from "./ProviderCard";
 import ProviderDialog from "./ProviderDialog";
-
-const { Title, Text } = Typography;
 
 const LLMConfigPage: React.FC = () => {
   const { token } = theme.useToken();
@@ -101,41 +100,38 @@ const LLMConfigPage: React.FC = () => {
     <div className="page-enter">
       <PageHeader
         title="LLM Providers"
+        description="Configure API credentials for your LLM providers"
         actions={
-          <Button
-            type="primary"
-            icon={<PlusOutlined />}
-            onClick={handleAdd}
-          >
-            Add Provider
-          </Button>
+          <Space size={8}>
+            {configuredPresets.length > 0 && (
+              <Button
+                onClick={handleTestAll}
+                loading={testAllMutation.isPending}
+              >
+                Test All
+              </Button>
+            )}
+            <Button
+              type="primary"
+              icon={<PlusOutlined />}
+              onClick={handleAdd}
+            >
+              Add Provider
+            </Button>
+          </Space>
         }
       />
 
       {configuredPresets.length === 0 ? (
-        <Empty
-          image={<CloudOutlined style={{ fontSize: 48, color: token.colorTextQuaternary }} />}
-          description={
-            <span>
-              No LLM providers configured
-              <br />
-              <Text type="secondary">
-                Click "Add Provider" to configure a remote LLM API
-              </Text>
-            </span>
-          }
+        <EmptyState
+          icon={<CloudOutlined />}
+          title="No providers configured"
+          description="Add a LLM provider to enable AI-powered translation"
+          actionText="Add Provider"
+          onAction={handleAdd}
         />
       ) : (
-        <>
-          <div style={{ marginBottom: 16 }}>
-            <Button
-              size="small"
-              onClick={handleTestAll}
-              loading={testAllMutation.isPending}
-            >
-              Test All Connections
-            </Button>
-          </div>
+        <div>
           {configuredPresets.map((preset) => (
             <ProviderCard
               key={preset.id}
@@ -148,7 +144,7 @@ const LLMConfigPage: React.FC = () => {
               onEdit={() => handleEdit(preset.id)}
             />
           ))}
-        </>
+        </div>
       )}
 
       <ProviderDialog

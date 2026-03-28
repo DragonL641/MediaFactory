@@ -12,9 +12,7 @@ import {
   InputNumber,
   Switch,
   Button,
-  Space,
   App,
-  Divider,
   Skeleton,
   Result,
 } from "antd";
@@ -89,91 +87,102 @@ const SettingsPage: React.FC = () => {
 
   return (
     <div className="page-enter">
-      <PageHeader title="Settings" />
+      <PageHeader
+        title="Settings"
+        description="Configure default behavior of MediaFactory"
+      />
 
       <Form
         form={form}
         layout="vertical"
         onFinish={handleSubmit}
-        style={{ maxWidth: 800 }}
+        style={{ maxWidth: 720 }}
       >
         {/* Whisper 设置 */}
-        <Card title="Whisper Transcription" style={{ marginBottom: 16 }}>
-          <Form.Item
-            name={["whisper", "beam_size"]}
-            label="Beam Size"
-            tooltip="Higher values improve accuracy but slow down transcription"
-          >
-            <InputNumber min={1} max={10} style={{ width: "100%" }} />
-          </Form.Item>
+        <Card
+          title={
+            <span style={{ fontSize: 15, fontWeight: 600 }}>
+              Whisper Transcription
+            </span>
+          }
+          style={{ marginBottom: 24 }}
+          styles={{ body: { paddingTop: 16 } }}
+        >
+          <div className="form-row">
+            <Form.Item
+              name={["whisper", "beam_size"]}
+              label="Beam Size"
+              tooltip="Higher values improve accuracy but slow down transcription"
+            >
+              <InputNumber min={1} max={10} style={{ width: "100%" }} />
+            </Form.Item>
 
-          <Form.Item
-            name={["whisper", "vad_filter"]}
-            label="VAD Filter"
-            valuePropName="checked"
-            tooltip="Voice Activity Detection - filters out silence"
-          >
-            <Switch />
-          </Form.Item>
+            <Form.Item
+              name={["whisper", "vad_threshold"]}
+              label="VAD Threshold"
+              tooltip="Threshold for voice detection (0-1)"
+            >
+              <InputNumber min={0} max={1} step={0.05} style={{ width: "100%" }} />
+            </Form.Item>
+          </div>
 
-          <Form.Item
-            name={["whisper", "vad_threshold"]}
-            label="VAD Threshold"
-            tooltip="Threshold for voice detection (0-1)"
-          >
-            <InputNumber min={0} max={1} step={0.05} style={{ width: "100%" }} />
-          </Form.Item>
+          <div className="form-row">
+            <Form.Item
+              name={["whisper", "vad_filter"]}
+              label="VAD Filter"
+              valuePropName="checked"
+              tooltip="Voice Activity Detection - filters out silence"
+            >
+              <Switch />
+            </Form.Item>
 
-          <Form.Item
-            name={["whisper", "word_timestamps"]}
-            label="Word-level Timestamps"
-            valuePropName="checked"
-            tooltip="Generate timestamps for each word"
-          >
-            <Switch />
-          </Form.Item>
+            <Form.Item
+              name={["whisper", "word_timestamps"]}
+              label="Word-level Timestamps"
+              valuePropName="checked"
+              tooltip="Generate timestamps for each word"
+            >
+              <Switch />
+            </Form.Item>
+          </div>
         </Card>
 
-        <Divider />
-
-        {/* 操作按钮 */}
-        <Form.Item>
-          <Space>
-            <Button
-              type="primary"
-              htmlType="submit"
-              icon={<SaveOutlined />}
-              loading={updateConfigMutation.isPending}
-            >
-              Update
-            </Button>
-            <Button
-              icon={<SaveOutlined />}
-              onClick={() =>
-                saveConfigMutation.mutate(undefined, {
-                  onSuccess: () => message.success("Saved to disk"),
-                })
-              }
-              loading={saveConfigMutation.isPending}
-            >
-              Save to Disk
-            </Button>
-            <Button
-              icon={<ReloadOutlined />}
-              onClick={() =>
-                reloadConfigMutation.mutate(undefined, {
-                  onSuccess: (data: { config?: AppConfig }) => {
-                    message.success("Configuration reloaded");
-                    form.setFieldsValue({ whisper: data.config?.whisper });
-                  },
-                })
-              }
-              loading={reloadConfigMutation.isPending}
-            >
-              Reload
-            </Button>
-          </Space>
-        </Form.Item>
+        {/* 操作按钮 - 右对齐 */}
+        <div className="form-actions">
+          <Button
+            icon={<ReloadOutlined />}
+            onClick={() =>
+              reloadConfigMutation.mutate(undefined, {
+                onSuccess: (data: { config?: AppConfig }) => {
+                  message.success("Configuration reloaded");
+                  form.setFieldsValue({ whisper: data.config?.whisper });
+                },
+              })
+            }
+            loading={reloadConfigMutation.isPending}
+          >
+            Reload
+          </Button>
+          <Button
+            icon={<SaveOutlined />}
+            onClick={() =>
+              saveConfigMutation.mutate(undefined, {
+                onSuccess: () => message.success("Saved to disk"),
+              })
+            }
+            loading={saveConfigMutation.isPending}
+          >
+            Save to Disk
+          </Button>
+          <Button
+            type="primary"
+            htmlType="submit"
+            icon={<SaveOutlined />}
+            loading={updateConfigMutation.isPending}
+          >
+            Apply
+          </Button>
+        </div>
       </Form>
     </div>
   );

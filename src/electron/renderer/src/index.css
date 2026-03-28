@@ -1,4 +1,4 @@
-/* MediaFactory Electron Renderer Styles */
+/* MediaFactory - Premium Design System */
 
 * {
   margin: 0;
@@ -6,22 +6,26 @@
   box-sizing: border-box;
 }
 
-html, body, #root {
+html,
+body,
+#root {
   height: 100%;
   width: 100%;
   overflow: auto;
 }
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI",
+    Roboto, "Helvetica Neue", sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  background: #f8fafc;
 }
 
-/* 自定义滚动条 */
+/* 优雅的滚动条 */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
 }
 
 ::-webkit-scrollbar-track {
@@ -29,15 +33,292 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: var(--ant-color-border-secondary, #c1c1c1);
-  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.15);
+  border-radius: 3px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--ant-color-text-quaternary, #a8a8a8);
+  background: rgba(0, 0, 0, 0.25);
 }
 
-/* 任务卡片交互 */
+/* === 页面头部统一样式 === */
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 24px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid #f3f4f6;
+}
+
+.page-header-left {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.page-header-title {
+  font-size: 22px;
+  font-weight: 600;
+  color: #111827;
+  margin: 0;
+  line-height: 1.3;
+}
+
+.page-header-description {
+  font-size: 14px;
+  color: #6b7280;
+  margin: 0;
+}
+
+/* === 卡片悬浮效果 === */
+.card-hover {
+  transition: box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.card-hover:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  transform: translateY(-1px);
+}
+
+/* === 空状态优化 === */
+.empty-state {
+  padding: 64px 24px;
+  text-align: center;
+  background: #fafbfc;
+  border: 1px dashed #e5e7eb;
+  border-radius: 12px;
+}
+
+.empty-state-icon {
+  font-size: 48px;
+  color: #d1d5db;
+  margin-bottom: 16px;
+}
+
+.empty-state-title {
+  font-size: 16px;
+  font-weight: 500;
+  color: #374151;
+  margin-bottom: 8px;
+}
+
+.empty-state-description {
+  font-size: 14px;
+  color: #9ca3af;
+  margin-bottom: 20px;
+}
+
+/* === 状态标签统一样式 === */
+.status-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.status-tag-success {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.status-tag-warning {
+  background: #fef3c7;
+  color: #b45309;
+}
+
+.status-tag-error {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.status-tag-processing {
+  background: #dbeafe;
+  color: #1e40af;
+}
+
+.status-tag-default {
+  background: #f3f4f6;
+  color: #4b5563;
+}
+
+/* === 页面切换动画 === */
+.page-enter {
+  animation: pageIn 0.25s ease-out;
+}
+
+@keyframes pageIn {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* === 分类标题样式 === */
+.section-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 16px;
+  font-weight: 600;
+  color: #111827;
+  margin-bottom: 12px;
+}
+
+.section-title-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  background: #eff6ff;
+  color: #2563eb;
+  font-size: 14px;
+}
+
+/* === 操作按钮组 === */
+.action-buttons {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.action-buttons .ant-btn-primary {
+  font-weight: 500;
+}
+
+/* === 模型卡片专用 === */
+.model-card {
+  border: 1px solid #e5e7eb;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.model-card:hover {
+  border-color: #d1d5db;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+.model-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 8px;
+}
+
+.model-card-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: #111827;
+}
+
+.model-card-meta {
+  font-size: 12px;
+  color: #6b7280;
+  line-height: 1.6;
+}
+
+.model-card-footer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid #f3f4f6;
+}
+
+/* === Provider 卡片 === */
+.provider-card {
+  padding: 16px;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  margin-bottom: 12px;
+  background: #ffffff;
+  transition: border-color 0.2s;
+}
+
+.provider-card:hover {
+  border-color: #d1d5db;
+}
+
+.provider-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.provider-card-info {
+  flex: 1;
+}
+
+.provider-card-name {
+  font-size: 15px;
+  font-weight: 600;
+  color: #111827;
+  margin-bottom: 4px;
+}
+
+.provider-card-url {
+  font-size: 12px;
+  color: #9ca3af;
+}
+
+.provider-card-model {
+  font-size: 12px;
+  color: #6b7280;
+  margin-top: 2px;
+}
+
+.provider-card-actions {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+
+/* === 表单优化 === */
+.form-section {
+  margin-bottom: 24px;
+}
+
+.form-section-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: #111827;
+  margin-bottom: 16px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #f3f4f6;
+}
+
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+@media (max-width: 640px) {
+  .form-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* === 底部操作栏 === */
+.form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  padding-top: 16px;
+  margin-top: 24px;
+  border-top: 1px solid #f3f4f6;
+}
+
+/* === 任务卡片交互 === */
 .task-card {
   transition: box-shadow 0.2s ease;
 }
@@ -46,23 +327,7 @@ body {
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
 }
 
-/* 进度条过渡 */
+/* === 进度条过渡 === */
 .ant-progress-bg {
   transition: width 0.3s ease;
-}
-
-/* 页面切换动画 */
-.page-enter {
-  animation: pageIn 0.2s ease-out;
-}
-
-@keyframes pageIn {
-  from {
-    opacity: 0;
-    transform: translateY(8px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
 }

@@ -1,5 +1,7 @@
 /**
  * 主布局组件
+ *
+ * 包含侧边栏导航和主内容区域，支持侧边栏折叠
  */
 
 import React, { useState } from "react";
@@ -56,13 +58,13 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
     navigate(key);
   };
 
-  const siderWidth = collapsed ? 80 : 200;
+  const siderWidth = collapsed ? 72 : 200;
 
   return (
     <Layout style={{ minHeight: "100vh" }}>
       <Sider
         width={200}
-        collapsedWidth={80}
+        collapsedWidth={72}
         collapsed={collapsed}
         trigger={null}
         style={{
@@ -72,37 +74,54 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
           left: 0,
           top: 0,
           bottom: 0,
-          borderRight: `1px solid ${colorPrimary}10`,
+          borderRight: "1px solid #F3F4F6",
           zIndex: 10,
-          transition: "width 0.2s",
+          transition: "width 0.2s ease",
         }}
       >
+        {/* Logo区域 - 更简洁 */}
         <div
           style={{
-            height: 48,
-            margin: "16px 16px 8px",
+            height: 56,
+            margin: "12px 12px 8px",
             display: "flex",
             alignItems: "center",
-            justifyContent: "center",
-            borderRadius: 8,
-            background: `${colorPrimary}08`,
+            justifyContent: collapsed ? "center" : "flex-start",
+            paddingLeft: collapsed ? 0 : 8,
           }}
         >
           <Text
             strong
-            style={{ fontSize: collapsed ? 16 : 15, color: colorPrimary }}
+            style={{
+              fontSize: collapsed ? 18 : 16,
+              color: colorPrimary,
+              fontWeight: 600,
+              letterSpacing: collapsed ? 0 : "-0.3px",
+            }}
           >
             {collapsed ? "MF" : "MediaFactory"}
           </Text>
         </div>
+
+        {/* 分隔线 */}
+        <div
+          style={{
+            height: 1,
+            background: "#F3F4F6",
+            margin: "0 16px 8px",
+          }}
+        />
+
         <Menu
           mode="inline"
           selectedKeys={[location.pathname]}
           items={menuItems}
           onClick={handleMenuClick}
+          style={{ border: "none" }}
         />
-        {/* 自定义折叠按钮：侧边栏右边线中部 */}
-        <Tooltip title={collapsed ? "Expand" : "Collapse"} placement="right">
+
+        {/* 折叠按钮 - 更精致 */}
+        <Tooltip title={collapsed ? "展开" : "收起"} placement="right">
           <Button
             type="text"
             size="small"
@@ -110,20 +129,20 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
             onClick={() => setCollapsed(!collapsed)}
             style={{
               position: "absolute",
-              right: -14,
+              right: -12,
               top: "50%",
               transform: "translateY(-50%)",
-              width: 28,
-              height: 28,
+              width: 24,
+              height: 24,
               borderRadius: "50%",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              border: `1px solid ${colorPrimary}30`,
-              background: colorBgElevated,
-              color: colorPrimary,
+              border: "1px solid #E5E7EB",
+              background: "#FFFFFF",
+              color: "#6B7280",
               fontSize: 10,
-              boxShadow: "0 1px 4px rgba(0,0,0,0.1)",
+              boxShadow: "0 2px 4px rgba(0,0,0,0.06)",
               zIndex: 20,
             }}
           />
@@ -132,14 +151,14 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
       <Layout
         style={{
           marginLeft: siderWidth,
-          transition: "margin-left 0.2s",
+          transition: "margin-left 0.2s ease",
         }}
       >
         <Content
           style={{
-            margin: 24,
+            margin: 20,
             padding: 24,
-            minHeight: "calc(100vh - 48px)",
+            minHeight: "calc(100vh - 40px)",
             background: colorBgContainer,
             borderRadius: borderRadiusLG,
             overflowY: "auto",

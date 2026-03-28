@@ -1,13 +1,10 @@
 /**
  * 页面头部共享组件
  *
- * 统一所有页面的标题栏结构
+ * 统一所有页面的标题栏结构，包含标题、描述和操作区
  */
 
 import React from "react";
-import { Typography, Space } from "antd";
-
-const { Title, Text } = Typography;
 
 interface PageHeaderProps {
   title: string;
@@ -21,25 +18,12 @@ const PageHeader: React.FC<PageHeaderProps> = ({
   actions,
 }) => {
   return (
-    <div
-      style={{
-        display: "flex",
-        justifyContent: "space-between",
-        alignItems: description ? "flex-start" : "center",
-        marginBottom: 24,
-      }}
-    >
-      <div>
-        <Title level={4} style={{ margin: 0 }}>
-          {title}
-        </Title>
-        {description && (
-          <Text type="secondary" style={{ fontSize: 14 }}>
-            {description}
-          </Text>
-        )}
+    <div className="page-header">
+      <div className="page-header-left">
+        <h1 className="page-header-title">{title}</h1>
+        {description && <p className="page-header-description">{description}</p>}
       </div>
-      {actions && <Space>{actions}</Space>}
+      {actions && <div className="action-buttons">{actions}</div>}
     </div>
   );
 };

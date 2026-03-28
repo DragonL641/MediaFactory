@@ -6,12 +6,8 @@
 
 import React, { useState } from "react";
 import {
-  Card,
-  Tag,
   Button,
-  Space,
   Popconfirm,
-  Typography,
   Tooltip,
   App,
 } from "antd";
@@ -19,14 +15,11 @@ import {
   EditOutlined,
   DeleteOutlined,
   WifiOutlined,
-  CheckCircleOutlined,
-  CloseCircleOutlined,
 } from "@ant-design/icons";
 import { useTestLLMMutation, useDeleteLLMPresetMutation } from "../../api/queries";
 import { isAxiosError } from "axios";
 import type { TestConnectionResponse } from "../../types";
-
-const { Text } = Typography;
+import { StatusTag } from "../../components/common";
 
 interface ProviderCardProps {
   presetId: string;
@@ -77,11 +70,20 @@ const ProviderCard: React.FC<ProviderCardProps> = ({
   };
 
   return (
-    <Card
-      size="small"
-      style={{ marginBottom: 12 }}
-      extra={
-        <Space size={4}>
+    <div className="provider-card">
+      <div className="provider-card-header">
+        <div className="provider-card-info">
+          <div className="provider-card-name">{displayName}</div>
+          <div className="provider-card-url">{baseUrl}</div>
+          {model && <div className="provider-card-model">Model: {model}</div>}
+        </div>
+        <div className="provider-card-actions">
+          {connectionAvailable !== undefined && (
+            <StatusTag
+              status={connectionAvailable ? "success" : "default"}
+              text={connectionAvailable ? "Connected" : "Not Connected"}
+            />
+          )}
           <Tooltip title="Test Connection">
             <Button
               type="text"
@@ -106,41 +108,9 @@ const ProviderCard: React.FC<ProviderCardProps> = ({
               <Button type="text" size="small" danger icon={<DeleteOutlined />} />
             </Tooltip>
           </Popconfirm>
-        </Space>
-      }
-    >
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-        <div>
-          <Text strong>{displayName}</Text>
-          <br />
-          <Text type="secondary" style={{ fontSize: 12 }}>
-            {baseUrl}
-          </Text>
-          {model && (
-            <>
-              <br />
-              <Text type="secondary" style={{ fontSize: 12 }}>
-                Model: {model}
-              </Text>
-            </>
-          )}
         </div>
-        {connectionAvailable !== undefined && (
-          <Tag
-            icon={
-              connectionAvailable ? (
-                <CheckCircleOutlined />
-              ) : (
-                <CloseCircleOutlined />
-              )
-            }
-            color={connectionAvailable ? "success" : "default"}
-          >
-            {connectionAvailable ? "Connected" : "Not Connected"}
-          </Tag>
-        )}
       </div>
-    </Card>
+    </div>
   );
 };
 

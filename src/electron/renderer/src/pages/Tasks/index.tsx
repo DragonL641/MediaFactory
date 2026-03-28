@@ -9,7 +9,6 @@ import React, { useState } from "react";
 import {
   Button,
   Space,
-  Empty,
   Popconfirm,
   App,
   Spin,
@@ -32,6 +31,7 @@ import {
 } from "../../api/queries";
 import type { Task, BatchOperationResponse } from "../../types";
 import PageHeader from "../../components/Layout/PageHeader";
+import { EmptyState } from "../../components/common";
 import TaskCard from "./TaskCard";
 import CreateTaskDialog from "./CreateTaskDialog";
 import EditTaskDialog from "./EditTaskDialog";
@@ -116,8 +116,9 @@ const TasksPage: React.FC = () => {
     <div className="page-enter">
       <PageHeader
         title="Task Queue"
+        description="Manage and execute your media processing tasks"
         actions={
-          <Space>
+          <Space size={8}>
             <Button
               icon={<PlusOutlined />}
               type="primary"
@@ -133,18 +134,26 @@ const TasksPage: React.FC = () => {
             >
               Start All
             </Button>
-            <Button
-              icon={<StopOutlined />}
-              danger
-              onClick={handleBatchCancel}
-              loading={batchCancelMutation.isPending}
+            <Popconfirm
+              title="Cancel running tasks?"
+              description="This will stop all currently running tasks."
+              onConfirm={handleBatchCancel}
+              okText="Cancel Tasks"
+              cancelText="Back"
+              okButtonProps={{ danger: true }}
               disabled={!hasRunningTasks}
             >
-              Cancel All
-            </Button>
+              <Button
+                icon={<StopOutlined />}
+                loading={batchCancelMutation.isPending}
+                disabled={!hasRunningTasks}
+              >
+                Cancel All
+              </Button>
+            </Popconfirm>
             <Popconfirm
-              title="Clear all finished tasks?"
-              description="This will remove all completed, failed, and cancelled tasks."
+              title="Clear finished tasks?"
+              description="Remove all completed, failed, and cancelled tasks."
               onConfirm={handleBatchClear}
               okText="Clear"
               cancelText="Cancel"
@@ -164,9 +173,12 @@ const TasksPage: React.FC = () => {
       />
 
       {taskList.length === 0 ? (
-        <Empty
-          image={<FileTextOutlined style={{ fontSize: 48, opacity: 0.3 }} />}
-          description="No tasks yet. Click 'Add Task' to create one."
+        <EmptyState
+          icon={<FileTextOutlined />}
+          title="No tasks yet"
+          description="Create a task to start processing your media files"
+          actionText="Add Task"
+          onAction={() => setDialogOpen(true)}
         />
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>

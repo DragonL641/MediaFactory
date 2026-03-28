@@ -13,10 +13,8 @@ import {
   Col,
   Card,
   Button,
-  Tag,
   Popconfirm,
   App,
-  Space,
   Skeleton,
   Tooltip,
   Result,
@@ -25,13 +23,10 @@ import {
   DownloadOutlined,
   DeleteOutlined,
   ReloadOutlined,
-  CheckCircleOutlined,
   SoundOutlined,
   TranslationOutlined,
   ZoomInOutlined,
   EyeOutlined,
-  LoadingOutlined,
-  ExclamationCircleOutlined,
   RedoOutlined,
 } from "@ant-design/icons";
 import {
@@ -41,6 +36,7 @@ import {
 } from "../../api/queries";
 import { wsClient } from "../../api/client";
 import PageHeader from "../../components/Layout/PageHeader";
+import { StatusTag } from "../../components/common";
 import { isAxiosError } from "axios";
 
 const { Text } = Typography;
@@ -79,18 +75,19 @@ const ModelCategory: React.FC<ModelCategoryProps> = ({
   }
 
   return (
-    <Card
-      title={
-        <Space>
-          {icon}
-          <span>{title}</span>
-        </Space>
-      }
-      style={{ marginBottom: 24 }}
-    >
-      <Text type="secondary" style={{ display: "block", marginBottom: 16 }}>
+    <div style={{ marginBottom: 28 }}>
+      {/* 分类标题 */}
+      <div className="section-title">
+        <span className="section-title-icon">{icon}</span>
+        <span>{title}</span>
+      </div>
+      <Text
+        type="secondary"
+        style={{ display: "block", marginBottom: 16, marginLeft: 38 }}
+      >
         {description}
       </Text>
+
       <Row gutter={[16, 16]}>
         {models.map((model) => {
           const isDownloading = downloadingId === model.id;
@@ -99,43 +96,26 @@ const ModelCategory: React.FC<ModelCategoryProps> = ({
 
           return (
             <Col xs={24} sm={12} lg={8} key={model.id}>
-              <Card size="small" style={{ height: "100%" }}>
-                <div style={{ marginBottom: 8 }}>
-                  <Text strong>{model.name}</Text>
+              <Card size="small" className="model-card" style={{ height: "100%" }}>
+                <div className="model-card-header">
+                  <span className="model-card-name">{model.name}</span>
                 </div>
-                {model.size && (
-                  <Text type="secondary" style={{ fontSize: 12 }}>
-                    Size: {model.size}
-                  </Text>
-                )}
-                {model.memory && (
-                  <>
-                    <br />
-                    <Text type="secondary" style={{ fontSize: 12 }}>
-                      Memory: {model.memory}
-                    </Text>
-                  </>
-                )}
-                {model.description && (
-                  <>
-                    <br />
-                    <Text type="secondary" style={{ fontSize: 12 }}>
+                <div className="model-card-meta">
+                  {model.size && <div>Size: {model.size}</div>}
+                  {model.memory && <div>Memory: {model.memory}</div>}
+                  {model.description && (
+                    <div style={{ marginTop: 4, color: "#9CA3AF" }}>
                       {model.description}
-                    </Text>
-                  </>
-                )}
-                <div style={{ marginTop: 12, display: "flex", alignItems: "center", gap: 8 }}>
+                    </div>
+                  )}
+                </div>
+                <div className="model-card-footer">
                   {isDownloading ? (
-                    <>
-                      <Tag icon={<LoadingOutlined />} color="processing">
-                        Downloading...
-                      </Tag>
-                    </>
+                    <StatusTag status="processing" text="Downloading..." />
                   ) : isReady ? (
                     <>
-                      <Tag icon={<CheckCircleOutlined />} color="success">
-                        Ready
-                      </Tag>
+                      <StatusTag status="success" text="Ready" />
+                      <div style={{ flex: 1 }} />
                       <Popconfirm
                         title="Delete Model"
                         description={`Delete ${model.name}? This cannot be undone.`}
@@ -144,27 +124,22 @@ const ModelCategory: React.FC<ModelCategoryProps> = ({
                         cancelText="Cancel"
                         okButtonProps={{ danger: true }}
                       >
-                        <Button
-                          size="small"
-                          danger
-                          icon={<DeleteOutlined />}
-                        />
+                        <Button size="small" type="text" danger icon={<DeleteOutlined />} />
                       </Popconfirm>
                     </>
                   ) : isIncomplete ? (
                     <>
                       <Tooltip title="Model files are incomplete or corrupted">
-                        <Tag icon={<ExclamationCircleOutlined />} color="warning">
-                          Incomplete
-                        </Tag>
+                        <StatusTag status="warning" text="Incomplete" />
                       </Tooltip>
+                      <div style={{ flex: 1 }} />
                       <Button
                         size="small"
-                        type="primary"
+                        type="link"
                         icon={<RedoOutlined />}
                         onClick={() => onDownload(model.id)}
                       >
-                        Redownload
+                        Retry
                       </Button>
                       <Popconfirm
                         title="Delete Model"
@@ -174,11 +149,7 @@ const ModelCategory: React.FC<ModelCategoryProps> = ({
                         cancelText="Cancel"
                         okButtonProps={{ danger: true }}
                       >
-                        <Button
-                          size="small"
-                          danger
-                          icon={<DeleteOutlined />}
-                        />
+                        <Button size="small" type="text" danger icon={<DeleteOutlined />} />
                       </Popconfirm>
                     </>
                   ) : (
@@ -197,7 +168,7 @@ const ModelCategory: React.FC<ModelCategoryProps> = ({
           );
         })}
       </Row>
-    </Card>
+    </div>
   );
 };
 
@@ -293,11 +264,9 @@ const ModelsPage: React.FC = () => {
     <div className="page-enter">
       <PageHeader
         title="Local Models"
+        description="Manage AI models for offline processing"
         actions={
-          <Button
-            icon={<ReloadOutlined />}
-            onClick={() => refetch()}
-          >
+          <Button icon={<ReloadOutlined />} onClick={() => refetch()}>
             Refresh
           </Button>
         }
