@@ -36,8 +36,8 @@ class BilingualLayout:
 
     TRANSLATE_ON_TOP = "translate_on_top"  # 译文在上
     ORIGINAL_ON_TOP = "original_on_top"  # 原文在上
-    ONLY_TRANSLATE = "only_translate"  # 仅显示译文
-    ONLY_ORIGINAL = "only_original"  # 仅显示原文
+    ONLY_TRANSLATE = "translate_only"  # 仅显示译文
+    ONLY_ORIGINAL = "original_only"  # 仅显示原文
 
 
 class SRTEngine:

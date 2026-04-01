@@ -194,7 +194,7 @@ export interface LLMPresetInfo {
 
 export interface ProgressData {
   task_id: string;
-  status: TaskStatus;
+  status: string; // TaskStatus 枚举值 + "downloading" 等扩展状态
   progress: number;
   message: string;
   stage?: string;

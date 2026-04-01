@@ -9,7 +9,7 @@ __pycache__/
 # Distribution / packaging
 .Python
 develop-eggs/
-# release/         # ★ 统一发布产物目录
+release/         # ★ 统一发布产物目录
 downloads/
 eggs/
 .eggs/

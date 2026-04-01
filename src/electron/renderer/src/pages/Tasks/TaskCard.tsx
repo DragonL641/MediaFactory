@@ -76,8 +76,8 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, onCancel, onDelete, onRetry, 
       {/* 状态行：名称 + 标签 + 操作 */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8, flex: 1, minWidth: 0 }}>
-          <Text ellipsis style={{ maxWidth: 300, fontWeight: 500 }}>
-            {task.message || task.name || task.id}
+          <Text ellipsis style={{ fontWeight: 500 }}>
+            {task.name || task.id}
           </Text>
           <Tag color={config.color} icon={config.icon}>
             {config.text}
@@ -113,7 +113,7 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, onCancel, onDelete, onRetry, 
             <Popconfirm
               title={t("card.confirmDelete")}
               onConfirm={onDelete}
-              okText={t("card.confirm", { ns: "common" })}
+              okText={t("actions.confirm", { ns: "common" })}
               cancelText={t("card.cancel")}
             >
               <Button size="small" danger icon={<DeleteOutlined />} />
@@ -121,6 +121,13 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, onCancel, onDelete, onRetry, 
           )}
         </Space>
       </div>
+
+      {/* 实时状态消息 */}
+      {status === TaskStatus.RUNNING && task.message && (
+        <Text type="secondary" ellipsis style={{ display: "block", fontSize: 12 }}>
+          {task.message}
+        </Text>
+      )}
 
       {/* 进度条 */}
       {status === TaskStatus.RUNNING && (

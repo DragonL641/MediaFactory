@@ -287,6 +287,15 @@ class LoggingConfig(BaseModel):
 # ============================================================================
 
 
+class AppSettingsConfig(BaseModel):
+    """应用设置"""
+
+    language: str = Field(
+        default="en",
+        description="界面语言",
+    )
+
+
 class AppConfig(BaseModel):
     """根配置对象
 
@@ -295,6 +304,12 @@ class AppConfig(BaseModel):
         config.model.local_model_path
         config.openai_compatible.openai.api_key
     """
+
+    # 应用设置
+    app: AppSettingsConfig = Field(
+        default_factory=AppSettingsConfig,
+        description="应用设置",
+    )
 
     # 嵌套配置节
     whisper: WhisperConfig = Field(

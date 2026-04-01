@@ -37,6 +37,9 @@ class SubtitleService:
         use_llm: bool = False,
         llm_preset: Optional[str] = None,
         output_format: str = "srt",
+        bilingual: bool = False,
+        bilingual_layout: str = "translate_on_top",
+        style_preset: str = "default",
         progress: ProgressCallback = NO_OP_PROGRESS,
     ) -> ProcessingResult:
         """
@@ -79,6 +82,9 @@ class SubtitleService:
                 src_lang=source_lang,
                 tgt_lang=target_lang,
                 progress_callback=progress,
+                bilingual=bilingual,
+                bilingual_layout=bilingual_layout,
+                style_preset=style_preset,
                 config={
                     "output_format_type": output_format,
                     "output_format": output_format,

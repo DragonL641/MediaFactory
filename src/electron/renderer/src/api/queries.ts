@@ -66,6 +66,7 @@ export function useCreateSubtitleTaskMutation() {
       bilingual?: boolean;
       bilingual_layout?: string;
       style_preset?: string;
+      llm_preset?: string;
     }) => {
       const client = getApiClient();
       const response = await client.post("/api/processing/subtitle", params);
@@ -140,6 +141,7 @@ export function useCreateTranslateTaskMutation() {
       source_lang: string;
       target_lang: string;
       use_llm: boolean;
+      llm_preset?: string;
     }) => {
       const client = getApiClient();
       const response = await client.post("/api/processing/translate", params);

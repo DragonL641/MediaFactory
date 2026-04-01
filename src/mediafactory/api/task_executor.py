@@ -73,6 +73,9 @@ async def _execute_subtitle_async(config: TaskConfig, progress: ProgressCallback
         use_llm=config.use_llm,
         llm_preset=config.llm_preset,
         output_format=config.output_format,
+        bilingual=config.bilingual,
+        bilingual_layout=config.bilingual_layout,
+        style_preset=config.style_preset,
         progress=progress,
     )
     return _make_result(result)

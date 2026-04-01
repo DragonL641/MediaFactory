@@ -40,7 +40,8 @@ class Task:
     config: TaskConfig
     status: TaskStatus = TaskStatus.PENDING
     progress: float = 0.0
-    message: str = ""
+    name: str = ""  # 任务名称（创建时设定，不变）
+    message: str = ""  # 实时状态消息（运行时更新）
     stage: Optional[str] = None
     result: Optional[TaskResult] = None
     cancel_token: CancellationToken = field(default_factory=CancellationToken)
@@ -70,7 +71,7 @@ class TaskManager:
             id=task_id,
             config=config,
             status=TaskStatus.PENDING,
-            message=name or f"Task {task_id}",
+            name=name or f"Task {task_id}",
         )
         async with self._lock:
             self._tasks[task_id] = task
@@ -394,7 +395,7 @@ class TaskManager:
 
         result = {
             "id": task.id,
-            "name": task.message,
+            "name": task.name,
             "type": task.config.task_type.value,
             "inputPath": task.config.input_path,
             "outputPath": task.result.output_path if task.result else None,
@@ -420,7 +421,7 @@ class TaskManager:
         return [
             {
                 "id": task.id,
-                "name": task.message,
+                "name": task.name,
                 "type": task.config.task_type.value,
                 "inputPath": task.config.input_path,
                 "outputPath": task.result.output_path if task.result else None,

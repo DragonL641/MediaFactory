@@ -236,7 +236,7 @@ class TranscribeRequest(BaseModel):
 
     audio_path: str
     output_path: Optional[str] = None
-    language: str = "auto"
+    source_lang: str = "auto"
     output_format: str = "srt"
     style_preset: str = "default"
 

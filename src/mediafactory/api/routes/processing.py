@@ -103,7 +103,7 @@ async def create_transcribe_task(request: TranscribeRequest):
         task_type=TaskType.TRANSCRIBE,
         input_path=request.audio_path,
         output_path=request.output_path,
-        source_lang=request.language,
+        source_lang=request.source_lang,
         output_format=request.output_format,
         style_preset=request.style_preset,
     )
