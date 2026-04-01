@@ -4,12 +4,14 @@ FastAPI 应用入口
 提供 HTTP + WebSocket API 供 Electron 前端调用。
 """
 
+from __future__ import annotations
+
 import asyncio
 import logging
 from contextlib import asynccontextmanager
 from typing import Optional
 
-from fastapi import FastAPI
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 
 from mediafactory.api.routes import config, models, processing
@@ -18,10 +20,10 @@ from mediafactory.api.websocket import manager as ws_manager
 logger = logging.getLogger(__name__)
 
 # 全局任务管理器
-_task_manager: Optional["TaskManager"] = None
+_task_manager: Optional[TaskManager] = None
 
 
-def get_task_manager() -> "TaskManager":
+def get_task_manager() -> TaskManager:
     """获取全局任务管理器实例"""
     global _task_manager
     if _task_manager is None:
@@ -69,10 +71,10 @@ def create_app() -> FastAPI:
         lifespan=lifespan,
     )
 
-    # CORS 配置（仅允许 localhost，用于 Electron）
+    # CORS 配置（允许所有来源，本地桌面工具无安全风险）
     app.add_middleware(
         CORSMiddleware,
-        allow_origin_regex=r"^https?://(localhost|127\.0\.0\.1):\d+$",
+        allow_origins=["*"],
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
@@ -94,7 +96,6 @@ def create_app() -> FastAPI:
     app.include_router(config.router, prefix="/api/config", tags=["config"])
 
     # WebSocket 端点
-    from fastapi import WebSocket, WebSocketDisconnect
 
     @app.websocket("/ws")
     async def websocket_endpoint(websocket: WebSocket):

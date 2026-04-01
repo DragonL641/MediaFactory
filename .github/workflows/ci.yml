@@ -45,13 +45,10 @@ jobs:
     
     # 步骤5: 将覆盖率报告上传到Codecov
     - name: Upload coverage to Codecov
-      uses: codecov/codecov-action@v3
+      uses: codecov/codecov-action@v5
       with:
-        # 指定要上传的覆盖率文件
-        file: ./coverage.xml
-        # 设置标记用于区分不同类型的测试
+        files: ./coverage.xml
         flags: unittests
-        # 上传任务的名称标识
         name: codecov-umbrella
 
   # 代码质量检查作业
@@ -95,14 +92,12 @@ jobs:
       with:
         node-version: "20"
         cache: "npm"
-        cache-dependency-path: src/electron/package-lock.json
+        cache-dependency-path: package-lock.json
 
     - name: Install dependencies
-      working-directory: ./src/electron
       run: npm ci
 
     - name: Build
-      working-directory: ./src/electron
       run: npm run build
 
 
@@ -136,7 +131,7 @@ jobs:
     # 运行Safety依赖安全检查，生成完整报告
     - name: Run Safety dependency check
       continue-on-error: true
-      run: uv run safety check --full-report
+      run: uv run safety scan --full-report || uv run safety check --full-report
     
     # 将安全扫描结果作为工件存档保存
     - name: Archive security results

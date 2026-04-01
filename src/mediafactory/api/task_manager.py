@@ -5,6 +5,8 @@
 支持创建不自动执行、手动启动单个/全部任务、串行队列执行。
 """
 
+from __future__ import annotations
+
 import asyncio
 import logging
 import time
@@ -14,6 +16,7 @@ from typing import Any, Callable, Dict, List, Optional
 
 from mediafactory.api.schemas import TaskConfig, TaskProgress, TaskResult, TaskStatus, TaskType
 from mediafactory.api.websocket import manager as ws_manager
+from mediafactory.core.progress_protocol import ProgressCallback
 from mediafactory.core.tool import CancellationToken
 from mediafactory.api.error_handler import sanitize_error
 from mediafactory.i18n import t
@@ -178,7 +181,7 @@ class TaskManager:
     async def _execute_task(
         self,
         task_id: str,
-        executor: Callable[[TaskConfig, "ProgressCallback"], Any],
+        executor: Callable[[TaskConfig, ProgressCallback], Any],
     ):
         """内部方法：执行单个任务，完成后自动触发队列下一个"""
         task = self._tasks.get(task_id)

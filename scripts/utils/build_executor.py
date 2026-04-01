@@ -167,10 +167,6 @@ def build_macos(version: Optional[str] = None) -> int:
     Returns:
         退出码（0 表示成功）
     """
-    if platform.system() != "Darwin":
-        log_error("此脚本仅在 macOS 上运行")
-        return 1
-
     version = version or get_project_version()
     log_step(f"开始构建 {PROJECT_NAME} v{version} (macOS)")
 
@@ -208,10 +204,6 @@ def build_windows(version: Optional[str] = None) -> int:
     Returns:
         退出码（0 表示成功）
     """
-    if platform.system() != "Windows":
-        log_error("此脚本仅在 Windows 上运行")
-        return 1
-
     version = version or get_project_version()
     log_step(f"开始构建 {PROJECT_NAME} v{version} (Windows)")
 
