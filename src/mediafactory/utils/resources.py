@@ -46,24 +46,16 @@ def get_system_resources() -> Dict[str, Any]:
 def check_model_suitability(model_name: str, model_type: str) -> Tuple[bool, str]:
     """检查系统是否能够处理所选模型。
 
-    估算需求（MADLAD400 GGUF 量化模型）：
-    - MADLAD400-3B Q4K: ~3GB VRAM / ~4GB RAM
-    - MADLAD400-7B Q4K: ~5GB VRAM / ~7GB RAM
-    - MADLAD400-3B FP16: ~6GB VRAM / ~10GB RAM
+    估算需求（M2M100 模型）：
+    - M2M100-1.2B FP16: ~4.8GB VRAM / ~5GB RAM
     """
     resources = get_system_resources()
     req_vram = 0.0
     req_ram = 0.0
-    if "madlad400-7b" in model_name.lower():
-        req_vram = 5.0
-        req_ram = 7.0
-    elif "madlad400-3b-fp16" in model_name.lower():
-        req_vram = 6.0
-        req_ram = 10.0
-    elif "madlad400" in model_name.lower():
-        # MADLAD400-3B Q4K 默认值
-        req_vram = 3.0
-        req_ram = 4.0
+    if "m2m100" in model_name.lower():
+        # M2M100-1.2B FP16
+        req_vram = 4.8
+        req_ram = 5.0
     if resources["gpu_available"]:
         if resources["gpu_vram_available_gb"] < req_vram:
             return (

@@ -373,7 +373,7 @@ Service 层通过 WebSocket 推送到前端
 
 ### Q14: 项目的"无模型"构建策略是什么意思？
 
-**A:** 翻译模型很大（M2M100 3.7GB，MADLAD400 15GB），如果捆绑在安装包里：
+**A:** 翻译模型很大（M2M100-1.2B 约 9.9GB），如果捆绑在安装包里：
 - 安装包体积巨大
 - 用户可能只需要其中一个模型
 - 模型更新需要重新发版
@@ -383,7 +383,7 @@ Service 层通过 WebSocket 推送到前端
 - 首次启动时引导用户下载所需模型
 - 模型存储在 `./models/` 目录，独立于应用
 
-模型管理有完整的下载/删除/完整性校验机制，还根据系统内存自动推荐合适的翻译模型。
+模型管理有完整的下载/删除/完整性校验机制，还根据系统内存判断是否适合本地翻译模型（M2M100-1.2B 需要 ~5GB RAM），否则推荐使用 LLM API。
 
 > **技术细节：** 模型下载使用 `huggingface_hub.snapshot_download()`，它会将整个 HuggingFace 仓库下载到 `models/{org}/{model_name}/` 目录。下载是增量的——如果文件已存在且校验和匹配，会跳过。模型完整性校验通过 `models/model_registry.py` 中的 `is_model_complete()` 实现：对比本地文件总大小与 HuggingFace API 返回的预期大小。`PyInstaller` 打包时通过 `.spec` 文件的 `excludes` 列表排除 `torch`、`transformers`、`faster_whisper` 等大型依赖，将打包体积从 ~10GB 降至 ~200MB。用户首次运行时通过 Setup Wizard 引导 `pip install` 这些 ML 依赖。
 
@@ -424,13 +424,11 @@ Service 层通过 WebSocket 推送到前端
 total_ram = get_system_total_memory_gb()
 available_vram = get_available_vram_gb()
 
-# 翻译模型选择（从大到小尝试）
-if available_vram >= 16:  # 34GB 模型需要 32GB RAM
-    recommend "google/madlad400-7b-mt-bt"
-elif total_ram >= 16:  # 15GB 模型需要 16GB RAM
-    recommend "google/madlad400-3b-mt"
-else:  # 兜底
-    recommend "facebook/m2m100_418M"  # 只需 8GB RAM
+# 翻译模型选择（唯一本地模型）
+if total_ram >= 16:  # 9.9GB 模型需要 16GB RAM
+    recommend "facebook/m2m100_1.2B"
+else:  # 内存不足
+    recommend "使用 LLM API 翻译"
 ```
 
 模型注册表（`MODEL_REGISTRY`）里记录了每个模型的文件大小、运行内存需求、支持的语言等信息，选择时综合考虑。

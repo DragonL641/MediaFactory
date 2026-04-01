@@ -327,6 +327,24 @@ export function useDeleteTaskMutation() {
   });
 }
 
+/**
+ * 重试失败/取消的任务
+ */
+export function useRetryTaskMutation() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (taskId: string) => {
+      const client = getApiClient();
+      const response = await client.post(`/api/processing/retry/${taskId}`);
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.tasks });
+    },
+  });
+}
+
 // ============ Models ============
 
 /**
@@ -355,24 +373,6 @@ export function useDownloadModelMutation() {
     mutationFn: async (modelId: string) => {
       const client = getApiClient();
       const response = await client.post(`/api/models/download/${modelId}`);
-      return response.data;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.modelsStatus });
-    },
-  });
-}
-
-/**
- * 取消模型下载
- */
-export function useCancelDownloadMutation() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async (modelId: string) => {
-      const client = getApiClient();
-      const response = await client.post(`/api/models/download/${modelId}/cancel`);
       return response.data;
     },
     onSuccess: () => {

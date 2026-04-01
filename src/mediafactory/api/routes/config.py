@@ -103,9 +103,6 @@ async def update_full_config(request: PartialConfigUpdate):
             from mediafactory.i18n import set_language
             set_language(request.app["language"])
 
-        if update_kwargs:
-            update_config(**update_kwargs)
-
         # 返回更新后的配置
         config = get_config()
         return config.to_toml_dict()
@@ -164,12 +161,19 @@ async def get_llm_presets():
     for preset_id, preset_info in presets.items():
         preset_config = getattr(config.openai_compatible, preset_id, None)
         has_key = preset_config.api_key != "" if preset_config else False
+        has_base_url = bool(preset_config.base_url) if preset_config else False
+        # custom 预设：有 base_url 即视为已配置
+        is_configured = (
+            (has_base_url or bool(preset_config.model))
+            if preset_id == "custom"
+            else (has_key or bool(preset_config.model))
+        )
         result[preset_id] = {
             "display_name": preset_info["display_name"],
             "base_url": preset_config.base_url or preset_info["base_url"],
             "model": preset_config.model,
             "model_examples": preset_info["model_examples"],
-            "configured": has_key or bool(preset_config.model),
+            "configured": is_configured,
             "has_api_key": has_key,
             "connection_available": preset_config.connection_available,
         }
@@ -180,7 +184,7 @@ async def get_llm_presets():
 class LLMPresetUpdateRequest(BaseModel):
     """LLM 预设更新请求（JSON body）"""
 
-    api_key: str
+    api_key: Optional[str] = ""
     base_url: Optional[str] = None
     model: Optional[str] = None
 

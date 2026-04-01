@@ -16,10 +16,20 @@ from pathlib import Path
 from typing import Optional, Any
 from loguru import logger as _loguru_logger
 
-# 日志清理配置
+# 日志清理配置（默认值，优先从 config.toml 读取）
 _LOG_RETENTION_DAYS = 30
 _LOG_MAX_FILES = 20
 _LOG_FILE_PATTERN = "LOG-*.log"
+
+
+def _get_logging_config() -> tuple[int, int]:
+    """从配置获取日志保留参数，返回 (retention_days, max_files)"""
+    try:
+        from ..config import get_config
+        config = get_config()
+        return config.logging.retention_days, config.logging.max_files
+    except Exception:
+        return _LOG_RETENTION_DAYS, _LOG_MAX_FILES
 
 # Remove default handler
 _loguru_logger.remove()
@@ -170,8 +180,9 @@ class LoguruAppLogger:
 
         to_delete: set[Path] = set()
 
-        # 规则 1：删除超过 30 天的文件
-        cutoff_time = time.time() - (_LOG_RETENTION_DAYS * 86400)
+        # 规则 1：删除超过保留天数的文件
+        retention_days, max_files = self._get_log_config()
+        cutoff_time = time.time() - (retention_days * 86400)
         for f in log_files:
             try:
                 if f.stat().st_mtime < cutoff_time:
@@ -179,9 +190,9 @@ class LoguruAppLogger:
             except OSError:
                 pass
 
-        # 规则 2：超过 20 个文件时，删除最旧的
-        if len(log_files) > _LOG_MAX_FILES:
-            for f in log_files[_LOG_MAX_FILES:]:
+        # 规则 2：超过最大文件数时，删除最旧的
+        if len(log_files) > max_files:
+            for f in log_files[max_files:]:
                 to_delete.add(f)
 
         # 执行删除

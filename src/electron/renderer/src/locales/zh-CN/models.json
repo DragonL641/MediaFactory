@@ -9,8 +9,8 @@
       "description": "用于语音识别和转录的 Whisper 模型。"
     },
     "translation": {
-      "title": "翻译 (MADLAD400)",
-      "description": "用于本地文本翻译的 MADLAD400 模型。"
+      "title": "翻译 (M2M100)",
+      "description": "用于本地文本翻译的 M2M100 模型。"
     },
     "enhancement": {
       "title": "超分辨率 (Real-ESRGAN)",
@@ -24,12 +24,15 @@
   "card": {
     "size": "大小: {{size}}",
     "memory": "内存: {{memory}}",
+    "subtitle": "{{name}}：至少 {{size}} 存储空间，{{memory}} 内存",
+    "subtitleWithVram": "{{name}}：至少 {{size}} 存储空间，{{memory}} 内存或 {{vram}} 显存",
     "downloading": "下载中...",
     "ready": "就绪",
     "incomplete": "不完整",
     "download": "下载",
     "incompleteTooltip": "模型文件不完整或已损坏",
-    "retry": "重试"
+    "retry": "重试",
+    "delete": "删除"
   },
   "confirm": {
     "deleteTitle": "删除模型",

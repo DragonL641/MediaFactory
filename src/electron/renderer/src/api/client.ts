@@ -5,7 +5,7 @@
  * WebSocket 客户端用于实时进度推送
  */
 
-import axios, { AxiosInstance, AxiosError } from "axios";
+import axios, { AxiosInstance, AxiosError, isAxiosError } from "axios";
 import type { WebSocketMessage } from "../types";
 
 let apiClient: AxiosInstance | null = null;
@@ -83,6 +83,19 @@ export function getApiClient(): AxiosInstance {
  */
 export function getBaseUrl(): string {
   return baseUrl;
+}
+
+/**
+ * 从 Axios 错误中提取后端返回的错误详情
+ * 统一处理 detail / error / message 三种后端响应格式
+ */
+export function getErrorDetail(error: unknown): string | undefined {
+  if (isAxiosError(error)) {
+    const data = error.response?.data as Record<string, unknown> | undefined;
+    if (!data) return undefined;
+    return (data.detail || data.error || data.message) as string | undefined;
+  }
+  return undefined;
 }
 
 /**
@@ -225,6 +238,7 @@ export class WebSocketClient {
   }
 
   disconnect(): void {
+    this.listeners.clear();
     this.globalListeners.clear();
     if (this.ws) {
       this.ws.close();

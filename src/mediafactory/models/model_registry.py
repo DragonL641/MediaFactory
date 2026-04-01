@@ -2,7 +2,7 @@
 
 This module provides a centralized registry for ALL models:
 - Whisper models (speech recognition)
-- Translation models (MADLAD400)
+- Translation models (M2M100)
 - Enhancement models (Real-ESRGAN, NAFNet, CodeFormer)
 
 Supports memory-aware selection and license tracking for commercial use compliance.
@@ -109,6 +109,7 @@ class ModelInfo:
     recommended_system_mb: int = 0  # 0 means auto-calculate
     requires_prompt: bool = False
     description: str = ""
+    purpose: str = ""  # 功能描述，用于 UI 卡片标题
     gguf_file: Optional[str] = None  # GGUF filename for quantized models
     runtime_vram_mb: int = 0  # GPU runtime VRAM
     recommended_vram_mb: int = 0  # Recommended VRAM
@@ -166,55 +167,25 @@ MODEL_REGISTRY: dict[str, ModelInfo] = {
         language_support="99+ languages",
         precision="float16",
         description="Best quality for transcription",
+        purpose="Speech Recognition",
     ),
     # ========== Translation Models ==========
-    # M2M100 (Apache 2.0 许可证，轻量级)
-    "facebook/m2m100_418M": ModelInfo(
-        huggingface_id="facebook/m2m100_418M",
-        display_name="M2M100-418M",
+    # M2M100-1.2B (MIT 许可证，唯一本地翻译模型)
+    "facebook/m2m100_1.2B": ModelInfo(
+        huggingface_id="facebook/m2m100_1.2B",
+        display_name="M2M100-1.2B",
         model_type=ModelType.TRANSLATION,
-        model_size_mb=3700,
-        runtime_memory_mb=2790,  # 官方FP32数据2.79GB
-        runtime_vram_mb=2048,  # 2 GB VRAM (FP16)
-        recommended_system_mb=8192,  # 8 GB
-        recommended_vram_mb=4096,  # 4 GB VRAM
-        license=LicenseType.APACHE_2_0,
+        model_size_mb=2500,
+        runtime_memory_mb=5120,  # ~5 GB (CPU fp16)
+        runtime_vram_mb=4800,  # ~4.8 GB VRAM (fp16)
+        recommended_system_mb=16384,  # 16 GB
+        recommended_vram_mb=8192,  # 8 GB VRAM
+        license=LicenseType.MIT,
         language_support="100 languages",
         precision="fp16",
         requires_prompt=False,
-        description="Lightweight Multilingual Translation for Low-RAM Devices",
-    ),
-    # MADLAD400 (Apache 2.0 许可证，支持商用)
-    # 使用 safetensors 格式（HuggingFace 上的 GGUF 文件缺少必要元数据）
-    "google/madlad400-3b-mt": ModelInfo(
-        huggingface_id="google/madlad400-3b-mt",
-        display_name="MADLAD400-3B",
-        model_type=ModelType.TRANSLATION,
-        model_size_mb=15000,
-        runtime_memory_mb=8192,  # 8 GB (CPU)
-        runtime_vram_mb=5120,  # 5 GB VRAM (官方FP16数据4.99GB)
-        recommended_system_mb=16384,  # 16 GB
-        recommended_vram_mb=8192,  # 8 GB VRAM
-        license=LicenseType.APACHE_2_0,
-        language_support="400+ languages",
-        precision="fp16",
-        requires_prompt=False,
-        description="All-language translation",
-    ),
-    "google/madlad400-7b-mt-bt": ModelInfo(
-        huggingface_id="google/madlad400-7b-mt-bt",
-        display_name="MADLAD400-7B",
-        model_type=ModelType.TRANSLATION,
-        model_size_mb=34000,
-        runtime_memory_mb=18432,  # 18 GB (CPU应该比VRAM略高)
-        runtime_vram_mb=14336,  # 14 GB VRAM (7B × 2 bytes = 14GB)
-        recommended_system_mb=32768,  # 32 GB
-        recommended_vram_mb=16384,  # 16 GB VRAM
-        license=LicenseType.APACHE_2_0,
-        language_support="400+ languages",
-        precision="fp16",
-        requires_prompt=False,
-        description="High-quality translation",
+        description="Multilingual translation model (1.2B parameters)",
+        purpose="Multilingual Translation",
     ),
     # ========== Enhancement Models: Super Resolution (Real-ESRGAN) ==========
     "RealESRGAN_x4plus": ModelInfo(
@@ -228,6 +199,7 @@ MODEL_REGISTRY: dict[str, ModelInfo] = {
         huggingface_repo="lllyasviel/Annotators",
         huggingface_filename="RealESRGAN_x4plus.pth",
         description="4x upscaling for most videos",
+        purpose="4x Video Upscaling",
         metadata={"scale": 4, "type": "general"},
     ),
     "RealESRGAN_x2plus": ModelInfo(
@@ -241,6 +213,7 @@ MODEL_REGISTRY: dict[str, ModelInfo] = {
         huggingface_repo="nateraw/real-esrgan",
         huggingface_filename="RealESRGAN_x2plus.pth",
         description="2x upscaling, faster processing",
+        purpose="2x Video Upscaling",
         metadata={"scale": 2, "type": "general"},
     ),
     "RealESRGAN_x4plus_anime_6B": ModelInfo(
@@ -254,6 +227,7 @@ MODEL_REGISTRY: dict[str, ModelInfo] = {
         huggingface_repo="Runware/upscaler",
         huggingface_filename="RealESRGAN_x4plus_anime_6B.pth",
         description="4x upscaling for anime",
+        purpose="4x Video Upscaling (Anime)",
         metadata={"scale": 4, "type": "anime"},
     ),
     # ========== Enhancement Models: Denoise (NAFNet) ==========
@@ -268,6 +242,7 @@ MODEL_REGISTRY: dict[str, ModelInfo] = {
         huggingface_repo="nyanko7/nafnet-models",
         huggingface_filename="NAFNet-GoPro-width64.pth",
         description="Denoise for old/compressed videos",
+        purpose="Video Denoising",
         metadata={"type": "denoise"},
     ),
 }
@@ -397,7 +372,7 @@ def get_translation_model_info(huggingface_id: str) -> Optional[ModelInfo]:
     """Get translation model information by HuggingFace ID.
 
     Args:
-        huggingface_id: HuggingFace 模型 ID（如 "google/madlad400-3b-mt"）
+        huggingface_id: HuggingFace 模型 ID（如 "facebook/m2m100_1.2B"）
 
     Returns:
         ModelInfo if found and is a translation model, None otherwise
@@ -438,7 +413,7 @@ def get_recommended_translation_models() -> list[str]:
     ]
 
     # 最低要求 16GB，否则推荐使用 LLM API
-    return suitable_models or ["google/madlad400-3b-mt"]
+    return suitable_models or ["facebook/m2m100_1.2B"]
 
 
 def get_best_translation_model_for_installation() -> str:
@@ -455,7 +430,7 @@ def get_best_translation_model_for_installation() -> str:
     # 最低要求 16GB
     if total_memory < 16:
         log_warning("系统内存不足 16GB，建议使用 LLM API 翻译")
-        return "google/madlad400-3b-mt"  # 仍然返回，但会有警告
+        return "facebook/m2m100_1.2B"  # 仍然返回，但会有警告
 
     suitable_models = [
         (huggingface_id, info)
@@ -465,7 +440,7 @@ def get_best_translation_model_for_installation() -> str:
     ]
 
     if not suitable_models:
-        return "google/madlad400-3b-mt"
+        return "facebook/m2m100_1.2B"
 
     # Return the model with highest runtime memory (best quality)
     return max(suitable_models, key=lambda x: x[1].runtime_memory_gb)[0]

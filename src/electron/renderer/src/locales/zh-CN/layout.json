@@ -1,8 +1,6 @@
 {
-  "menu": {
-    "tasks": "任务队列",
-    "models": "本地模型",
-    "llmConfig": "LLM 配置",
+  "tabs": {
+    "tasks": "任务",
     "settings": "设置"
   },
   "brand": {

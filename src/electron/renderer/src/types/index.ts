@@ -22,7 +22,7 @@ export enum TaskType {
 export interface Task {
   id: string;
   name: string;
-  type: string; // TaskType value
+  type: TaskType;
   inputPath: string; // camelCase，匹配后端返回
   outputPath?: string; // camelCase，匹配后端返回
   status: TaskStatus;
@@ -67,31 +67,55 @@ export interface ModelStatus {
 export interface TranslationModelInfo {
   id: string;
   name: string;
+  purpose: string;
   tier: string;
+  size: string;
   memory: string;
+  vram?: string;
   downloaded: boolean;
+  complete: boolean;
 }
 
 export interface EnhancementModelInfo {
   id: string;
   name: string;
+  purpose: string;
   size: string;
   memory: string;
+  vram?: string;
   description: string;
   downloaded: boolean;
+  complete: boolean;
 }
 
 export interface DenoiseModelInfo {
   id: string;
   name: string;
+  purpose: string;
   size: string;
   memory: string;
+  vram?: string;
   description: string;
   downloaded: boolean;
+  complete: boolean;
+}
+
+export interface WhisperModelInfo {
+  id: string;
+  name: string;
+  purpose: string;
+  size: string;
+  memory: string;
+  vram?: string;
+  description: string;
+  downloaded: boolean;
+  complete: boolean;
 }
 
 export interface AllModelsStatus {
-  whisper: ModelStatus;
+  whisper: ModelStatus & {
+    models?: WhisperModelInfo[];
+  };
   translation: ModelStatus & {
     models: TranslationModelInfo[];
   };
@@ -108,30 +132,48 @@ export interface AllModelsStatus {
   };
 }
 
+export interface AppSettings {
+  language?: string;
+}
+
+export interface LoggingConfig {
+  retention_days?: number;
+  max_files?: number;
+}
+
 export interface AppConfig {
   whisper: WhisperConfig;
   model: ModelConfig;
   llm_api?: LLMApiConfig;
   openai_compatible?: Record<string, LLMProviderConfig>;
+  logging?: LoggingConfig;
+  app?: AppSettings;
 }
 
 export interface WhisperConfig {
   beam_size: number;
+  no_speech_threshold?: number;
+  condition_on_previous_text?: boolean;
+  word_timestamps?: boolean;
   vad_filter: boolean;
   vad_threshold: number;
-  word_timestamps?: boolean;
+  vad_min_speech_duration_ms?: number;
+  vad_min_silence_duration_ms?: number;
 }
 
 export interface ModelConfig {
   local_model_path?: string;
   download_source?: string;
+  download_timeout?: number;
   models_dir?: string;
+  available_translation_models?: string[];
+  whisper_models?: string[];
 }
 
 export interface LLMApiConfig {
   current_preset?: string;
   timeout?: number;
-  max_retries?: number;
+  temperature?: number;
 }
 
 export interface LLMProviderConfig {
@@ -160,16 +202,12 @@ export interface ProgressData {
   total_files?: number;
 }
 
-// WebSocket 消息类型
+// WebSocket 消息类型（与后端 websocket.py 对齐）
 export type WebSocketEventType =
   | "progress"
-  | "task_created"
   | "task_complete"
-  | "task_completed"
-  | "task_failed"
-  | "task_cancelled"
-  | "model_status"
-  | "config_changed";
+  | "subscribed"
+  | "server_shutdown";
 
 export interface WebSocketMessage {
   type: WebSocketEventType;

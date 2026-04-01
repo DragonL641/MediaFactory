@@ -198,8 +198,8 @@ Get status of all models (Whisper, Translation, LLM).
   "translation": {
     "models": [
       {
-        "id": "google/madlad400-3b-mt",
-        "name": "MADLAD-400 3B",
+        "id": "facebook/m2m100_1.2B",
+        "name": "M2M100 1.2B",
         "tier": "standard",
         "downloaded": true
       }

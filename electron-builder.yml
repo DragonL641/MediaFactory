@@ -1,6 +1,6 @@
 appId: com.mediafactory.app
 productName: MediaFactory
-copyright: Copyright © 2024 MediaFactory
+copyright: Copyright © 2024-2026 MediaFactory
 
 directories:
   output: release/${version}
@@ -16,11 +16,11 @@ extraResources:
     to: python
     filter:
       - "**/*"
-  # 模型目录 (运行时创建)
+  # 模型目录 (无模型构建策略 - 用户通过 Setup Wizard 下载)
   - from: models
     to: models
     filter:
-      - "**/*"
+      - ".gitkeep"
   # 默认配置
   - from: config.toml
     to: config.toml
@@ -56,9 +56,10 @@ nsis:
   installerLanguages:
     - en_US
     - zh_CN
-  language: "1033"  # 简体中文
+  language: "1033"  # English (United States)
 
 linux:
+  # 注意：Linux 暂不支持，此配置仅供未来参考
   target:
     - target: AppImage
       arch:

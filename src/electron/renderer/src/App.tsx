@@ -11,8 +11,6 @@ import { useTranslation } from "react-i18next";
 import MainLayout from "./components/Layout/MainLayout";
 import ErrorBoundary from "./components/ErrorBoundary";
 import TasksPage from "./pages/Tasks";
-import ModelsPage from "./pages/Models";
-import LLMConfigPage from "./pages/LLMConfig";
 import SettingsPage from "./pages/Settings";
 import { initApiClient, wsClient } from "./api/client";
 import { queryKeys } from "./api/queries";
@@ -28,14 +26,27 @@ const App: React.FC = () => {
   const { t } = useTranslation("common");
 
   useEffect(() => {
+    let wsUnsubscribe: (() => void) | null = null;
+
     const init = async () => {
       try {
         await initApiClient();
         // 初始化 WebSocket 连接
         wsClient.connect();
-        // 注册全局监听器，收到进度/完成消息时刷新任务列表
-        wsClient.addGlobalListener((message: WebSocketMessage) => {
-          if (message.type === "progress" || message.type === "task_complete") {
+        // 注册全局监听器，收到进度/完成消息时更新任务状态
+        wsUnsubscribe = wsClient.addGlobalListener((message: WebSocketMessage) => {
+          if (message.type === "progress" && message.task_id) {
+            // 精确更新单个 task 进度，避免全列表刷新
+            queryClient.setQueryData(queryKeys.tasks, (old: any[] | undefined) => {
+              if (!old) return old;
+              return old.map(task =>
+                task.id === message.task_id
+                  ? { ...task, progress: message.data?.progress, message: message.data?.message, status: message.data?.status }
+                  : task
+              );
+            });
+          } else if (message.type === "task_complete" && message.task_id) {
+            // 任务完成时仍需 invalidate 获取最终状态
             queryClient.invalidateQueries({ queryKey: queryKeys.tasks });
           }
         });
@@ -61,6 +72,10 @@ const App: React.FC = () => {
     };
 
     init();
+
+    return () => {
+      wsUnsubscribe?.();
+    };
   }, []);
 
   if (isLoading) {
@@ -111,9 +126,8 @@ const App: React.FC = () => {
         <Routes>
           <Route path="/" element={<Navigate to="/tasks" replace />} />
           <Route path="/tasks" element={<TasksPage />} />
-          <Route path="/models" element={<ModelsPage />} />
-          <Route path="/llm-config" element={<LLMConfigPage />} />
           <Route path="/settings" element={<SettingsPage />} />
+          <Route path="*" element={<Navigate to="/tasks" replace />} />
         </Routes>
         </ErrorBoundary>
       </MainLayout>

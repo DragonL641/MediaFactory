@@ -20,7 +20,7 @@ export function useLanguage() {
       try {
         const client = getApiClient();
         await client.put("/api/config/", {
-          config: { app: { language: lang } },
+          app: { language: lang },
         });
         await client.post("/api/config/save");
       } catch (e) {

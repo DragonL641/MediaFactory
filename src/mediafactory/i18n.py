@@ -103,12 +103,6 @@ def t(key: str, **kwargs) -> str:
 
 
 def init_i18n() -> None:
-    """初始化 i18n，从配置读取语言偏好"""
+    """初始化 i18n，后端固定使用英文"""
     _load_all_translations()
-    try:
-        from mediafactory.config import get_config
-        config = get_config()
-        lang = getattr(config.app, "language", "en") if hasattr(config, "app") else "en"
-        set_language(lang)
-    except Exception:
-        set_language("en")
+    set_language("en")

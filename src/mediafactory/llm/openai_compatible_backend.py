@@ -10,15 +10,18 @@
 - 其他兼容服务
 
 特性：
-- 使用 OpenAI SDK 进行统一调用
-- 批量翻译 + 智能降级策略
-- 行数不匹配时：纠正 → 分批 → 逐句 → 本地模型
+- 使用 OpenAI SDK 进行统一调用（SDK 内置重试）
+- 批量翻译 + 简化降级策略
+- 行数不匹配时：纠正 → 二分（仅一次）→ 记录失败位置
+- API 异常时：直接记录失败位置
+- 所有失败位置统一在末尾用本地模型翻译
 - 支持可中断的翻译操作
 - Prompt 外置管理
 """
 
 import json
-import time
+import re
+from dataclasses import dataclass, field
 from typing import Optional, List, Dict, Callable
 
 from .base import (
@@ -31,7 +34,7 @@ from .base import (
 from .local_fallback import LocalModelFallback
 from ..constants import LANGUAGE_NAMES
 from ..core.progress_protocol import ProgressCallback
-from ..exceptions import ProcessingError
+from ..exceptions import OperationCancelledError
 from ..logging import (
     log_debug,
     log_info,
@@ -39,11 +42,20 @@ from ..logging import (
     log_error,
     log_llm_request,
     log_llm_response,
-    log_llm_retry,
 )
 
-# 批量翻译配置
-DEFAULT_BATCH_SIZE = 20  # 默认批量大小
+
+@dataclass
+class BatchResult:
+    """单批次翻译结果。
+
+    Attributes:
+        translations: 翻译结果列表（成功的有译文，失败的保留原文）
+        failed_indices: 失败位置索引（相对于本批次的局部索引）
+    """
+
+    translations: List[str]
+    failed_indices: List[int] = field(default_factory=list)
 
 
 class OpenAICompatibleBackend(TranslationBackend):
@@ -53,7 +65,7 @@ class OpenAICompatibleBackend(TranslationBackend):
     只需配置 base_url + api_key + model 即可使用。
 
     降级策略：
-    批量翻译 (20句) → 纠正 → 分成两小批 → 逐句 → 本地模型
+    批量翻译 → 纠正重试 → 二分（仅一次）→ 记录失败位置 → 末尾本地翻译
     """
 
     def __init__(
@@ -64,7 +76,8 @@ class OpenAICompatibleBackend(TranslationBackend):
         temperature: float = 0.3,
         timeout: int = 30,
         max_retries: int = 3,
-        batch_size: int = DEFAULT_BATCH_SIZE,
+        batch_size: int = 40,
+        split_threshold: int = 10,
         **kwargs,
     ):
         """初始化 OpenAI 兼容后端。
@@ -75,8 +88,9 @@ class OpenAICompatibleBackend(TranslationBackend):
             model: 使用的模型名称
             temperature: 生成温度（翻译建议 0.1-0.3）
             timeout: 请求超时时间（秒）
-            max_retries: 最大重试次数
+            max_retries: SDK 最大重试次数
             batch_size: 批量翻译的批次大小
+            split_threshold: 低于此数量不进行二分降级
             **kwargs: 其他参数
         """
         self._api_key = api_key or ""
@@ -86,6 +100,7 @@ class OpenAICompatibleBackend(TranslationBackend):
         self._timeout = timeout
         self._max_retries = max_retries
         self._batch_size = batch_size
+        self._split_threshold = split_threshold
         self._client = None
         self._kwargs = kwargs
         self._local_fallback: Optional[LocalModelFallback] = None
@@ -96,17 +111,24 @@ class OpenAICompatibleBackend(TranslationBackend):
             pass
 
     def _init_client(self) -> None:
-        """初始化 OpenAI 客户端。"""
+        """初始化 OpenAI 客户端。
+
+        本地 LLM（如 Ollama）不需要 API Key，使用占位符 "not-needed"。
+        仅在 base_url 缺失时跳过初始化。
+        """
         try:
             from openai import OpenAI
         except ImportError:
             return
 
-        if not self._api_key or not self._base_url:
+        if not self._base_url:
             return
 
+        # 本地 LLM 不需要 API Key，使用占位值
+        api_key = self._api_key if self._api_key else "not-needed"
+
         self._client = OpenAI(
-            api_key=self._api_key,
+            api_key=api_key,
             base_url=self._base_url,
             timeout=self._timeout,
             max_retries=self._max_retries,
@@ -120,8 +142,11 @@ class OpenAICompatibleBackend(TranslationBackend):
 
     @property
     def is_available(self) -> bool:
-        """检查后端是否可用。"""
-        if not self._api_key or not self._base_url:
+        """检查后端是否可用。
+
+        本地 LLM 只需要 base_url 即可使用，不需要 api_key。
+        """
+        if not self._base_url:
             return False
 
         if self._client is None:
@@ -238,9 +263,7 @@ class OpenAICompatibleBackend(TranslationBackend):
         """
         if not self.is_available:
             return TranslationResult(
-                translated_text=(
-                    request.text if isinstance(request.text, str) else request.text
-                ),
+                translated_text=request.text,
                 backend_used=self.name,
                 success=False,
                 error_message="OpenAI 兼容 API 未配置或不可用",
@@ -275,6 +298,8 @@ class OpenAICompatibleBackend(TranslationBackend):
                     success=True,
                 )
 
+        except OperationCancelledError:
+            raise
         except Exception as e:
             error_msg = str(e)
             log_error(f"[OpenAI-Compatible] 翻译失败: {error_msg}")
@@ -301,7 +326,7 @@ class OpenAICompatibleBackend(TranslationBackend):
         cancelled_callback: Optional[Callable] = None,
         progress_callback: Optional[ProgressCallback] = None,
     ) -> List[str]:
-        """翻译所有文本（分批处理）。
+        """翻译所有文本（分批处理 + 统一失败收集）。
 
         Args:
             texts: 待翻译的文本列表
@@ -337,14 +362,15 @@ class OpenAICompatibleBackend(TranslationBackend):
 
         log_info(
             f"[OpenAI-Compatible] 开始翻译: {len(non_empty_texts)} 行, "
-            f"目标语言={tgt_name}"
+            f"目标语言={tgt_name}, 批次大小={self._batch_size}"
         )
 
         if progress_callback:
             progress_callback.update(5, "Starting translation...")
 
-        # 分批翻译
-        all_translated = []
+        # 分批翻译 + 收集失败位置
+        all_translated = list(non_empty_texts)  # 预填原文
+        failed_global_indices: List[int] = []
         total_batches = (
             len(non_empty_texts) + self._batch_size - 1
         ) // self._batch_size
@@ -352,21 +378,52 @@ class OpenAICompatibleBackend(TranslationBackend):
         for batch_idx in range(total_batches):
             # 检查是否已取消
             if cancelled_callback and cancelled_callback():
-                log_warning("[OpenAI-Compatible] 翻译被取消")
-                raise RuntimeError("翻译已被取消")
+                raise OperationCancelledError("翻译已取消")
 
-            start = batch_idx * self._batch_size
-            end = min(start + self._batch_size, len(non_empty_texts))
-            batch = non_empty_texts[start:end]
+            global_start = batch_idx * self._batch_size
+            global_end = min(global_start + self._batch_size, len(non_empty_texts))
+            batch = non_empty_texts[global_start:global_end]
 
             log_debug(
-                f"[OpenAI-Compatible] 翻译批次 {batch_idx + 1}/{total_batches}: 行 {start + 1}-{end}"
+                f"[OpenAI-Compatible] 翻译批次 {batch_idx + 1}/{total_batches}: "
+                f"行 {global_start + 1}-{global_end}"
             )
 
-            translated_batch = self._translate_batch(
-                batch, tgt_lang, cancelled_callback
-            )
-            all_translated.extend(translated_batch)
+            try:
+                result = self._translate_batch(
+                    batch, tgt_lang, cancelled_callback, allow_split=True
+                )
+                # 填入翻译结果
+                for i, text in enumerate(result.translations):
+                    all_translated[global_start + i] = text
+                # 记录失败位置（转为全局索引）
+                failed_global_indices.extend(
+                    global_start + i for i in result.failed_indices
+                )
+            except OperationCancelledError:
+                raise
+            except Exception as e:
+                if self._is_content_filter_error(e):
+                    # contentFilter: 二分递归，尽量保留 LLM 翻译
+                    log_warning(
+                        f"[OpenAI-Compatible] 批次 {batch_idx + 1}/{total_batches} "
+                        f"触发内容过滤，开始二分处理..."
+                    )
+                    result = self._translate_batch_with_content_filter_split(
+                        batch, tgt_lang, cancelled_callback
+                    )
+                    for i, text in enumerate(result.translations):
+                        all_translated[global_start + i] = text
+                    failed_global_indices.extend(
+                        global_start + i for i in result.failed_indices
+                    )
+                else:
+                    # 非 contentFilter 错误：整批失败
+                    log_warning(
+                        f"[OpenAI-Compatible] 批次 {batch_idx + 1}/{total_batches} "
+                        f"API 调用失败: {e}，记录失败位置"
+                    )
+                    failed_global_indices.extend(range(global_start, global_end))
 
             # 报告进度（5-95% 范围）
             if progress_callback:
@@ -376,6 +433,19 @@ class OpenAICompatibleBackend(TranslationBackend):
                     f"Translating batch {batch_idx + 1}/{total_batches}",
                 )
 
+        # 统一用本地模型翻译所有失败位置
+        if failed_global_indices:
+            log_info(
+                f"[OpenAI-Compatible] {len(failed_global_indices)} 句 LLM 翻译失败，"
+                f"使用本地模型回退翻译"
+            )
+            failed_texts = [all_translated[i] for i in failed_global_indices]
+            local_results = self._local_fallback.translate_batch(
+                failed_texts, tgt_lang, src_lang=src_lang
+            )
+            for idx, translated in zip(failed_global_indices, local_results):
+                all_translated[idx] = translated
+
         # 恢复空字符串
         result = restore_result(all_translated, empty_indices, len(texts))
 
@@ -383,7 +453,14 @@ class OpenAICompatibleBackend(TranslationBackend):
         if progress_callback:
             progress_callback.update(100, "Translation completed")
 
-        log_info(f"[OpenAI-Compatible] 翻译完成: {len(non_empty_texts)} 行")
+        log_info(
+            f"[OpenAI-Compatible] 翻译完成: {len(non_empty_texts)} 行"
+            + (
+                f"，其中 {len(failed_global_indices)} 句使用本地模型"
+                if failed_global_indices
+                else ""
+            )
+        )
         log_llm_response(
             "openai_compatible",
             success=True,
@@ -397,23 +474,26 @@ class OpenAICompatibleBackend(TranslationBackend):
         batch: List[str],
         tgt_lang: str,
         cancelled_callback: Optional[Callable] = None,
-    ) -> List[str]:
-        """单批次翻译，包含完整降级逻辑。
+        allow_split: bool = True,
+    ) -> BatchResult:
+        """单批次翻译，包含简化降级逻辑。
 
         降级策略：
         1. 尝试批量翻译
-        2. 行数不匹配 → 单次纠正
-        3. 纠正失败 → 分成两小批
-        4. 小批次失败 → 逐句翻译
-        5. 单句失败 → 本地模型
+        2. 行数不匹配 → 单次纠正重试
+        3. 纠正失败 → 二分（仅当 allow_split 且数量 >= split_threshold）
+        4. 不再二分 → 记录失败位置
+
+        注意：API 异常（SDK 已重试耗尽）直接抛出，由 _translate_all_texts 统一处理。
 
         Args:
             batch: 待翻译的文本批次
             tgt_lang: 目标语言代码
             cancelled_callback: 取消检查回调
+            allow_split: 是否允许二分降级
 
         Returns:
-            翻译结果列表
+            BatchResult: 翻译结果和失败位置
         """
         tgt_name = self.get_language_name(tgt_lang)
 
@@ -422,11 +502,13 @@ class OpenAICompatibleBackend(TranslationBackend):
         result = self._parse_json_response(response)
 
         if result and self._validate_keys(result, batch):
-            return [result[str(i)] for i in range(len(batch))]  # ✅ 成功
+            return BatchResult(
+                translations=[result[str(i)] for i in range(len(batch))]
+            )
 
         # 2. 行数不匹配，尝试纠正
         log_warning(
-            f"[OpenAI-Compatible] 批次验证失败，尝试纠正..."
+            f"[OpenAI-Compatible] 批次验证失败（{len(batch)} 句），尝试纠正..."
         )
         corrected = self._call_llm_batch(
             batch, tgt_name, cancelled_callback,
@@ -435,96 +517,109 @@ class OpenAICompatibleBackend(TranslationBackend):
         result = self._parse_json_response(corrected)
 
         if result and self._validate_keys(result, batch):
-            return [result[str(i)] for i in range(len(batch))]  # ✅ 纠正成功
+            return BatchResult(
+                translations=[result[str(i)] for i in range(len(batch))]
+            )
 
-        # 3. 纠正失败，分成两小批
+        # 3. 纠正失败，尝试二分
+        if allow_split and len(batch) >= self._split_threshold:
+            half = len(batch) // 2
+            log_warning(
+                f"[OpenAI-Compatible] 纠正失败，二分处理: "
+                f"{len(batch)} → {half} + {len(batch) - half}"
+            )
+
+            first = self._translate_batch(
+                batch[:half], tgt_lang, cancelled_callback, allow_split=False
+            )
+            second = self._translate_batch(
+                batch[half:], tgt_lang, cancelled_callback, allow_split=False
+            )
+
+            # 合并结果
+            return BatchResult(
+                translations=first.translations + second.translations,
+                failed_indices=(
+                    first.failed_indices
+                    + [half + i for i in second.failed_indices]
+                ),
+            )
+
+        # 4. 不再二分，记录失败
         log_warning(
-            f"[OpenAI-Compatible] 纠正失败，分批处理: {len(batch)} → 2 批"
+            f"[OpenAI-Compatible] 批次 {len(batch)} 句无法翻译，记录失败位置"
+        )
+        return BatchResult(
+            translations=list(batch),
+            failed_indices=list(range(len(batch))),
         )
 
-        half = len(batch) // 2
-        first_half = self._translate_batch_small(
-            batch[:half], tgt_lang, cancelled_callback
-        )
-        second_half = self._translate_batch_small(
-            batch[half:], tgt_lang, cancelled_callback
+    # ==================== contentFilter 二分递归 ====================
+
+    @staticmethod
+    def _is_content_filter_error(error: Exception) -> bool:
+        """检测是否为 LLM 内容过滤错误（如 GLM code 1301）"""
+        error_str = str(error).lower()
+        return any(
+            keyword in error_str
+            for keyword in ("1301", "contentfilter", "不安全", "敏感内容")
         )
 
-        return first_half + second_half
-
-    def _translate_batch_small(
+    def _translate_batch_with_content_filter_split(
         self,
         batch: List[str],
         tgt_lang: str,
         cancelled_callback: Optional[Callable] = None,
-    ) -> List[str]:
-        """小批次翻译（不再分批，失败直接转单句）。
+    ) -> BatchResult:
+        """contentFilter 错误的二分递归处理。
 
-        Args:
-            batch: 待翻译的文本批次（通常 ≤10 句）
-            tgt_lang: 目标语言代码
-            cancelled_callback: 取消检查回调
-
-        Returns:
-            翻译结果列表
+        策略：二分 → 两半分别重试 → 成功的保留 LLM 翻译 →
+        失败的继续二分 → 达到最小批次回退本地模型。
         """
-        tgt_name = self.get_language_name(tgt_lang)
+        if cancelled_callback and cancelled_callback():
+            raise OperationCancelledError("翻译已取消")
 
-        # 尝试批量翻译
-        response = self._call_llm_batch(batch, tgt_name, cancelled_callback)
-        result = self._parse_json_response(response)
+        try:
+            return self._translate_batch(
+                batch, tgt_lang, cancelled_callback, allow_split=False
+            )
+        except OperationCancelledError:
+            raise
+        except Exception as e:
+            # 非 contentFilter 错误直接抛出
+            if not self._is_content_filter_error(e):
+                raise
 
-        if result and self._validate_keys(result, batch):
-            return [result[str(i)] for i in range(len(batch))]  # ✅ 成功
-
-        # 小批次也失败，转单句翻译
-        log_warning(
-            f"[OpenAI-Compatible] 小批次验证失败，转逐句翻译: {len(batch)} 句"
-        )
-        return self._translate_individually(batch, tgt_lang, cancelled_callback)
-
-    def _translate_individually(
-        self,
-        texts: List[str],
-        tgt_lang: str,
-        cancelled_callback: Optional[Callable] = None,
-    ) -> List[str]:
-        """逐句翻译，单句失败时回退到本地模型。
-
-        Args:
-            texts: 待翻译的文本列表
-            tgt_lang: 目标语言代码
-            cancelled_callback: 取消检查回调
-
-        Returns:
-            翻译结果列表
-        """
-        tgt_name = self.get_language_name(tgt_lang)
-        results = []
-
-        for i, text in enumerate(texts):
-            if cancelled_callback and cancelled_callback():
-                raise RuntimeError("翻译已取消")
-
-            try:
-                # 尝试 LLM 单句翻译
-                translated = self._translate_single_llm(
-                    text, tgt_name, cancelled_callback
-                )
-                results.append(translated)
-                log_debug(f"[OpenAI-Compatible] 单句 {i+1}/{len(texts)} LLM 翻译成功")
-
-            except Exception as e:
-                # LLM 单句失败，回退到本地模型
+            # 达到最小批次，标记整批失败（由 _translate_all_texts 统一本地回退）
+            if len(batch) < self._split_threshold:
                 log_warning(
-                    f"[OpenAI-Compatible] 单句 {i+1} LLM 翻译失败: {e}，回退到本地模型"
+                    f"[OpenAI-Compatible] 批次降至 {len(batch)} 句仍触发内容过滤，"
+                    f"回退本地模型"
                 )
-                translated = self._local_fallback.translate_single(
-                    text, tgt_lang
+                return BatchResult(
+                    translations=list(batch),
+                    failed_indices=list(range(len(batch))),
                 )
-                results.append(translated)
 
-        return results
+            # 二分重试
+            half = len(batch) // 2
+            log_info(
+                f"[OpenAI-Compatible] 内容过滤触发二分: "
+                f"{len(batch)} → {half} + {len(batch) - half}"
+            )
+            first = self._translate_batch_with_content_filter_split(
+                batch[:half], tgt_lang, cancelled_callback
+            )
+            second = self._translate_batch_with_content_filter_split(
+                batch[half:], tgt_lang, cancelled_callback
+            )
+            return BatchResult(
+                translations=first.translations + second.translations,
+                failed_indices=(
+                    first.failed_indices
+                    + [half + i for i in second.failed_indices]
+                ),
+            )
 
     # ==================== 底层 API 调用 ====================
 
@@ -534,7 +629,7 @@ class OpenAICompatibleBackend(TranslationBackend):
         user_content: str,
         cancelled_callback: Optional[Callable] = None,
     ) -> str:
-        """底层 API 调用，包含重试逻辑。
+        """底层 API 调用（无应用层重试，依赖 SDK 内置重试）。
 
         Args:
             system_prompt: 系统提示词
@@ -545,47 +640,23 @@ class OpenAICompatibleBackend(TranslationBackend):
             LLM 响应文本
 
         Raises:
-            RuntimeError: API 调用失败或被取消
+            OperationCancelledError: 翻译已取消
+            Exception: API 调用失败（SDK 已重试耗尽）
         """
-        for attempt in range(self._max_retries):
-            if cancelled_callback and cancelled_callback():
-                raise RuntimeError("翻译已取消")
+        if cancelled_callback and cancelled_callback():
+            raise OperationCancelledError("翻译已取消")
 
-            try:
-                response = self._client.chat.completions.create(
-                    model=self._model,
-                    messages=[
-                        {"role": "system", "content": system_prompt},
-                        {"role": "user", "content": user_content},
-                    ],
-                    temperature=self._temperature,
-                )
+        response = self._client.chat.completions.create(
+            model=self._model,
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_content},
+            ],
+            temperature=self._temperature,
+        )
 
-                content = response.choices[0].message.content
-                return content.strip() if content else ""
-
-            except Exception as e:
-                error_str = str(e)
-
-                # 检查是否为不可重试错误
-                if self._is_non_retryable_error(error_str):
-                    raise
-
-                log_llm_retry(
-                    "openai_compatible", attempt + 1, self._max_retries, error_str
-                )
-
-                if attempt < self._max_retries - 1:
-                    wait_time = min(2**attempt, 60)
-                    log_debug(f"[OpenAI-Compatible] 等待 {wait_time} 秒后重试...")
-                    time.sleep(wait_time)
-                    continue
-                else:
-                    raise RuntimeError(
-                        f"{self._parse_error_message(error_str)} (经过 {self._max_retries} 次重试)"
-                    )
-
-        return ""
+        content = response.choices[0].message.content
+        return content.strip() if content else ""
 
     def _call_llm_batch(
         self,
@@ -612,50 +683,6 @@ class OpenAICompatibleBackend(TranslationBackend):
         )
         return self._call_llm(prompt, input_json, cancelled_callback)
 
-    def _translate_single_llm(
-        self,
-        text: str,
-        tgt_name: str,
-        cancelled_callback: Optional[Callable] = None,
-    ) -> str:
-        """单句 LLM 翻译（共用 _call_llm 的重试逻辑）。
-
-        Args:
-            text: 待翻译文本
-            tgt_name: 目标语言名称
-            cancelled_callback: 取消检查回调
-
-        Returns:
-            翻译结果文本
-        """
-        prompt = self._get_single_prompt(tgt_name)
-        response = self._call_llm(prompt, text, cancelled_callback)
-        return response.strip() if response else text
-
-    def _is_non_retryable_error(self, error_str: str) -> bool:
-        """检查是否为不可重试的错误。"""
-        error_lower = error_str.lower()
-
-        # 鉴权错误
-        if any(
-            kw in error_lower
-            for kw in ["401", "unauthorized", "invalid api key", "api key", "expired"]
-        ):
-            return True
-
-        # 模型不存在
-        if any(
-            kw in error_lower
-            for kw in ["model not found", "does not exist", "invalid model"]
-        ):
-            return True
-
-        # 配额用尽
-        if any(kw in error_lower for kw in ["insufficient_quota", "quota"]):
-            return True
-
-        return False
-
     # ==================== 辅助方法 ====================
 
     def _parse_json_response(self, response_text: str) -> Optional[Dict[str, str]]:
@@ -679,8 +706,6 @@ class OpenAICompatibleBackend(TranslationBackend):
             pass
 
         # 尝试提取 JSON 代码块
-        import re
-
         json_match = re.search(r"```(?:json)?\s*([\s\S]*?)\s*```", response_text)
         if json_match:
             try:
@@ -727,20 +752,6 @@ class OpenAICompatibleBackend(TranslationBackend):
             "translate/batch",
             target_language=target_language,
             custom_instructions=custom_instructions,
-        )
-
-    def _get_single_prompt(self, target_language: str) -> str:
-        """获取单句翻译 prompt。"""
-        from ..utils.prompt_loader import get_prompt
-
-        return get_prompt(
-            "translate/single",
-            source_language="自动检测",
-            target_language=target_language,
-            prev_text="（无）",
-            current_text="（待翻译）",
-            next_text="（无）",
-            custom_instructions="",
         )
 
     def get_language_name(self, lang_code: str) -> str:

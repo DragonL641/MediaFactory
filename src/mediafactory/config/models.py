@@ -16,23 +16,19 @@ from pydantic import BaseModel, Field
 
 
 class WhisperConfig(BaseModel):
-    """Whisper 语音识别配置"""
+    """Whisper 语音识别配置
+
+    以下参数已写死在 engine/recognition.py 中（调参意义不大）：
+    - patience=1.0 (Beam search 标准值)
+    - length_penalty=1.0 (Whisper 官方推荐)
+    - vad_speech_pad_ms=200 (Silero VAD 推荐值)
+    """
 
     beam_size: int = Field(
         default=5,
         ge=1,
         le=10,
         description="Beam search 宽度",
-    )
-    patience: float = Field(
-        default=1.0,
-        ge=0.0,
-        le=10.0,
-        description="Beam search 耐心值",
-    )
-    length_penalty: float = Field(
-        default=1.0,
-        description="长度惩罚",
     )
     no_speech_threshold: float = Field(
         default=0.1,
@@ -67,16 +63,10 @@ class WhisperConfig(BaseModel):
         description="最短语音段落时长（毫秒）",
     )
     vad_min_silence_duration_ms: int = Field(
-        default=100,
+        default=500,
         ge=0,
         le=10000,
         description="分割语音段落的最短静音时长（毫秒）",
-    )
-    vad_speech_pad_ms: int = Field(
-        default=30,
-        ge=0,
-        le=1000,
-        description="语音段落前后填充（毫秒）",
     )
 
 
@@ -222,41 +212,73 @@ class LLMApiConfig(BaseModel):
         le=10,
         description="最大重试次数",
     )
-    rate_limit_enabled: bool = Field(
-        default=True,
-        description="启用速率限制",
+    batch_size: int = Field(
+        default=40,
+        ge=1,
+        le=200,
+        description="批量翻译批次大小",
     )
-    rate_limit_per_second: float = Field(
-        default=5.0,
+    split_threshold: int = Field(
+        default=10,
+        ge=1,
+        le=100,
+        description="低于此数量不进行二分降级",
+    )
+    temperature: float = Field(
+        default=0.3,
         ge=0.0,
-        le=100.0,
-        description="每秒请求数限制",
-    )
-    max_chars_per_request: int = Field(
-        default=3000,
-        ge=1,
-        le=100000,
-        description="每次请求最大字符数",
-    )
-    max_segments_per_request: int = Field(
-        default=100,
-        ge=1,
-        le=1000,
-        description="每次请求最大片段数",
+        le=2.0,
+        description="LLM 生成温度，越低越确定，越高越多样",
     )
 
 
 # ============================================================================
-# 应用通用设置
+# FFmpeg 配置
 # ============================================================================
 
 
-class AppSettings(BaseModel):
-    """应用通用设置"""
+class FFmpegConfig(BaseModel):
+    """FFmpeg 子进程超时配置"""
 
-    language: str = Field(
-        default="en",
-        description="Interface language (en, zh-CN)",
+    soft_subtitle_timeout: int = Field(
+        default=300,
+        ge=60,
+        le=3600,
+        description="软字幕嵌入超时（秒）",
+    )
+    hard_subtitle_timeout: int = Field(
+        default=1800,
+        ge=300,
+        le=7200,
+        description="硬字幕烧录超时（秒）",
+    )
+    multi_subtitle_timeout: int = Field(
+        default=300,
+        ge=60,
+        le=3600,
+        description="多字幕嵌入超时（秒）",
+    )
+
+
+# ============================================================================
+# 日志配置
+# ============================================================================
+
+
+class LoggingConfig(BaseModel):
+    """日志清理配置"""
+
+    retention_days: int = Field(
+        default=30,
+        ge=1,
+        le=365,
+        description="日志保留天数",
+    )
+    max_files: int = Field(
+        default=20,
+        ge=1,
+        le=100,
+        description="最多保留日志文件数",
     )
 
 
@@ -291,9 +313,13 @@ class AppConfig(BaseModel):
         default_factory=LLMApiConfig,
         description="LLM API 通用配置",
     )
-    app: AppSettings = Field(
-        default_factory=AppSettings,
-        description="应用通用设置",
+    ffmpeg: FFmpegConfig = Field(
+        default_factory=FFmpegConfig,
+        description="FFmpeg 子进程超时配置",
+    )
+    logging: LoggingConfig = Field(
+        default_factory=LoggingConfig,
+        description="日志清理配置",
     )
 
     def has_available_models(self) -> bool:

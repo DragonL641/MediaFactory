@@ -119,7 +119,7 @@
   },
   "info": {
     "translationModelNotFound": "未找到本地翻译模型 ({{model}})。",
-    "downloadModelHint": "请运行: python scripts/utils/download_model.py google/madlad400-3b-mt",
+    "downloadModelHint": "请运行: python scripts/utils/download_model.py facebook/m2m100_1.2B",
     "translationModelNotSupported": "翻译模型可能不支持该语言对",
     "transcriptionProgress": "进度: {{percent}}%, 已处理 {{processed}}s/{{total}}s, 分段数: {{segments}}",
     "userCancelledEnhancement": "用户取消了视频增强"

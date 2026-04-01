@@ -73,6 +73,6 @@ For secure usage of MediaFactory:
 
 For security-related questions or concerns:
 - Email: [fldx123456@163.com](mailto:fldx123456@163.com)
-- GitHub Security Advisory: [Security Advisories](https://github.com/DragonL641/VideoDub/security/advisories)
+- GitHub Security Advisory: [Security Advisories](https://github.com/DragonL641/MediaFactory/security/advisories)
 
 We appreciate responsible disclosure and will acknowledge your contribution in our release notes (unless you prefer to remain anonymous).

@@ -187,9 +187,7 @@ class TranslationBackend(ABC):
         """
         if all(result.strip() == "" for result in results):
             return TranslationResult(
-                translated_text=(
-                    request.text if isinstance(request.text, str) else request.text
-                ),
+                translated_text=request.text,
                 backend_used=self.name,
                 success=False,
                 error_message="所有翻译结果均为空，请检查配置",
@@ -201,6 +199,8 @@ class TranslationBackend(ABC):
     ) -> dict | None:
         """验证连接测试的前提条件（API Key 和 Base URL）。
 
+        对于本地 LLM（如 Ollama），api_key 可以为空，只要有 base_url 即可。
+
         Args:
             api_key: API Key
             base_url: API Base URL
@@ -209,11 +209,11 @@ class TranslationBackend(ABC):
         Returns:
             如果验证失败，返回错误字典；否则返回 None
         """
-        if not api_key:
+        if not api_key and not base_url:
             return {
                 "success": False,
-                "message": "API Key is required",
-                "error": "API Key is empty",
+                "message": "API Key or Base URL is required",
+                "error": "Both API Key and Base URL are empty",
             }
 
         if not base_url:

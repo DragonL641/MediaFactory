@@ -4,22 +4,16 @@
 
 import { useTranslation } from "react-i18next";
 
-// i18n 版本的选项 hooks
+// 源语言选项（包含 auto detect）
 export const useLanguageOptions = () => {
   const { t } = useTranslation("forms");
   return [
     { value: "auto", label: t("forms:language.autoDetect") },
-    { value: "en", label: t("forms:language.english") },
-    { value: "zh", label: t("forms:language.chinese") },
-    { value: "ja", label: t("forms:language.japanese") },
-    { value: "ko", label: t("forms:language.korean") },
-    { value: "fr", label: t("forms:language.french") },
-    { value: "de", label: t("forms:language.german") },
-    { value: "es", label: t("forms:language.spanish") },
-    { value: "ru", label: t("forms:language.russian") },
+    ...useTargetLanguageOptions(),
   ];
 };
 
+// 目标语言选项（不含 auto detect）
 export const useTargetLanguageOptions = () => {
   const { t } = useTranslation("forms");
   return [
@@ -31,6 +25,11 @@ export const useTargetLanguageOptions = () => {
     { value: "de", label: t("forms:language.german") },
     { value: "es", label: t("forms:language.spanish") },
     { value: "ru", label: t("forms:language.russian") },
+    { value: "ar", label: t("forms:language.arabic") },
+    { value: "hi", label: t("forms:language.hindi") },
+    { value: "it", label: t("forms:language.italian") },
+    { value: "pt", label: t("forms:language.portuguese") },
+    { value: "nl", label: t("forms:language.dutch") },
   ];
 };
 

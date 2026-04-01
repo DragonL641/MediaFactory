@@ -28,6 +28,22 @@ class VideoComposer:
         """初始化视频合成引擎。"""
         self._ffmpeg_exe = self._get_ffmpeg_executable()
 
+    def _get_ffmpeg_timeout(self, timeout_type: str) -> int:
+        """从配置获取 FFmpeg 超时时间"""
+        try:
+            from ..config import get_config
+            config = get_config()
+            if timeout_type == "hard":
+                return config.ffmpeg.hard_subtitle_timeout
+            elif timeout_type == "multi":
+                return config.ffmpeg.multi_subtitle_timeout
+            else:
+                return config.ffmpeg.soft_subtitle_timeout
+        except Exception:
+            # 配置不可用时回退到默认值
+            defaults = {"hard": 1800, "multi": 300, "soft": 300}
+            return defaults.get(timeout_type, 300)
+
     def _get_ffmpeg_executable(self) -> str:
         """获取 FFmpeg 可执行文件路径。
 
@@ -142,7 +158,7 @@ class VideoComposer:
                     cmd,
                     capture_output=True,
                     text=True,
-                    timeout=300,  # 5分钟超时
+                    timeout=self._get_ffmpeg_timeout("soft"),
                 )
 
                 if result.returncode != 0:
@@ -239,7 +255,7 @@ class VideoComposer:
                     cmd,
                     capture_output=True,
                     text=True,
-                    timeout=1800,  # 30分钟超时（重编码较慢）
+                    timeout=self._get_ffmpeg_timeout("hard"),  # 重编码较慢
                 )
 
                 if result.returncode != 0:
@@ -355,7 +371,7 @@ class VideoComposer:
                     cmd,
                     capture_output=True,
                     text=True,
-                    timeout=300,
+                    timeout=self._get_ffmpeg_timeout("multi"),
                 )
 
                 if result.returncode != 0:

@@ -119,7 +119,7 @@
   },
   "info": {
     "translationModelNotFound": "Translation model ({{model}}) not found locally.",
-    "downloadModelHint": "Please run: python scripts/utils/download_model.py google/madlad400-3b-mt",
+    "downloadModelHint": "Please run: python scripts/utils/download_model.py facebook/m2m100_1.2B",
     "translationModelNotSupported": "Translation model may not support this language pair",
     "transcriptionProgress": "Progress: {{percent}}%, processed {{processed}}s/{{total}}s, segments: {{segments}}",
     "userCancelledEnhancement": "User cancelled video enhancement"

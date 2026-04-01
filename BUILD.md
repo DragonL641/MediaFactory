@@ -26,25 +26,144 @@ uv sync
 pip install -e .
 ```
 
-## 构建命令
+## 构建概览
 
-### macOS 构建
+MediaFactory 的构建分为三个阶段：
+
+| 阶段 | 说明 | 产物 |
+|------|------|------|
+| **后端构建** | PyInstaller 打包 Python FastAPI 后端 | `dist/MediaFactory.app` + `dist/python/` |
+| **前端构建** | electron-vite 编译 React + TypeScript | `dist/electron/` |
+| **应用打包** | electron-builder 打包为安装包 | `release/{version}/MediaFactory-{version}-{arch}.dmg` |
+
+### 快速开始（完整构建）
 
 ```bash
-python scripts/build/build_darwin.py
+# 1. 后端构建
+uv run python scripts/build/build_darwin.py     # macOS
+uv run python scripts/build/build_win.py         # Windows
+
+# 2. 前端构建（在项目根目录执行，根 package.json 已配置 electron-vite 命令）
+npm run build
+
+# 3. 应用打包
+npx electron-builder --mac                        # macOS DMG
+npx electron-builder --win                        # Windows NSIS
 ```
 
-**产物**：`dist/MediaFactory-{version}.app.zip`
+---
 
-### Windows 构建
+## 阶段一：后端构建（Python）
+
+### macOS
 
 ```bash
-python scripts/build/build_win.py
+uv run python scripts/build/build_darwin.py
+```
+
+**产物**：
+- `dist/MediaFactory.app` — 独立 macOS 应用包
+- `dist/MediaFactory-{version}.app.zip` — 压缩分发包
+- `dist/python/` — PyInstaller COLLECT 产物（用于 Electron 打包）
+
+### Windows
+
+```bash
+uv run python scripts/build/build_win.py
 ```
 
 **产物**：`dist/MediaFactory-{version}-win64.zip`
 
-### 源码归档
+### 清理构建产物
+
+```bash
+uv run python scripts/build/build_darwin.py --clean   # macOS
+uv run python scripts/build/build_win.py --clean       # Windows
+```
+
+> **注意**：后端构建会自动将 PyInstaller 产物复制到 `dist/python/`，供阶段三的 Electron 打包使用。
+
+---
+
+## 阶段二：前端构建（Electron）
+
+MediaFactory 使用 Electron + React + TypeScript + Ant Design 作为前端，`electron-vite` 作为构建工具。
+
+### 开发模式
+
+```bash
+# 终端 1: 启动 Python 后端
+uv sync --group core
+uv run python -m mediafactory
+
+# 终端 2: 启动 Electron 开发服务器（热更新）
+npm run dev
+```
+
+### 生产构建
+
+```bash
+npm run build
+```
+
+构建产物位于 `dist/electron/` 目录：
+- `dist/electron/main/` — Electron 主进程
+- `dist/electron/preload/` — Preload 脚本
+- `dist/electron/renderer/` — React 前端
+
+### 前端技术栈
+
+- **框架**: React 18 + TypeScript
+- **UI 库**: Ant Design 5
+- **状态管理**: @tanstack/react-query
+- **HTTP 客户端**: Axios
+- **实时通信**: WebSocket
+- **构建工具**: electron-vite
+
+---
+
+## 阶段三：应用打包（DMG / NSIS）
+
+将后端和前端整合打包为用户可安装的桌面应用。
+
+### 前置条件
+
+确保已完成阶段一和阶段二，以下目录存在：
+- `dist/python/` — PyInstaller 后端产物
+- `dist/electron/` — 前端编译产物
+
+### macOS DMG
+
+```bash
+# 仅当前架构（arm64）
+npx electron-builder --mac --arm64
+
+# 仅 x64
+npx electron-builder --mac --x64
+
+# 同时构建两个架构
+npx electron-builder --mac
+```
+
+**产物**：`release/{version}/MediaFactory-{version}-arm64.dmg`、`MediaFactory-{version}-x64.dmg`
+
+### Windows NSIS
+
+```bash
+npx electron-builder --win
+```
+
+**产物**：`release/{version}/MediaFactory-{version}-x64-setup.exe`
+
+### 注意事项
+
+- **模型不打包**：采用"无模型"构建策略，用户通过 Setup Wizard 下载模型
+- **代码签名**：本地开发跳过签名，正式发布需 Apple Developer / Windows 代码签名证书
+- **macOS Gatekeeper**：未签名应用会被 Gatekeeper 阻止，用户需右键 → 打开来绕过
+
+---
+
+## 源码归档
 
 ```bash
 # 构建 tar.gz 和 zip
@@ -56,23 +175,13 @@ python scripts/build/build_source.py --zip-only
 
 **产物**：`release/MediaFactory-{version}.source.zip`
 
-### 清理构建产物
-
-```bash
-# macOS
-python scripts/build/build_darwin.py --clean
-
-# Windows
-python scripts/build/build_win.py --clean
-```
-
 ## 版本管理
 
 版本号在 `pyproject.toml` 中定义，这是单一真相源：
 
 ```toml
 [project]
-version = "0.2.0"
+version = "0.2.1"
 ```
 
 构建脚本会自动读取此版本号。
@@ -115,19 +224,19 @@ cargo install git-cliff
 #    编辑 project.version 字段
 
 # 2. 生成 changelog（在打 tag 之前）
-git-cliff --tag v0.2.0 --unreleased --prepend CHANGELOG.md
+git-cliff --tag v0.2.1 --unreleased --prepend CHANGELOG.md
 
 # 3. 检查生成的 changelog，必要时手动调整
 
 # 4. 提交版本更新和 changelog
 git add pyproject.toml CHANGELOG.md
-git commit -m "chore: bump version to 0.2.0 and update changelog"
+git commit -m "chore: bump version to 0.2.1 and update changelog"
 
 # 5. 打 tag
-git tag v0.2.0
+git tag v0.2.1
 
 # 6. 推送提交和 tag
-git push && git push origin v0.2.0
+git push && git push origin v0.2.1
 
 # 7. 创建 GitHub Release（可选）
 #    tag 已包含完整的发布内容
@@ -140,13 +249,13 @@ git push && git push origin v0.2.0
 git-cliff --unreleased
 
 # 生成两个 tag 之间的变更
-git-cliff v0.1.0..v0.2.0
+git-cliff v0.1.0..v0.2.1
 
 # 追加到现有 CHANGELOG.md
-git-cliff --tag v0.2.0 --prepend CHANGELOG.md
+git-cliff --tag v0.2.1 --prepend CHANGELOG.md
 
 # 仅输出到标准输出
-git-cliff --tag v0.2.0 --unreleased
+git-cliff --tag v0.2.1 --unreleased
 ```
 
 ### Commit 规范
@@ -173,59 +282,12 @@ docs: 更新安装文档
 
 ## Electron 前端构建
 
-MediaFactory 使用 Electron + React + TypeScript + Ant Design 作为前端。
-
-### 开发模式
-
-```bash
-# 终端 1: 启动 Python 后端（API 服务器）
-uv sync --group core
-python -m mediafactory
-
-# 终端 2: 启动 Electron 开发服务器（热更新）
-cd src/electron
-npm install
-npm run dev
-```
-
-### 前端构建
-
-```bash
-cd src/electron
-npm run build
-```
-
-构建产物位于 `dist/electron/` 目录：
-- `dist/electron/main/` — Electron 主进程
-- `dist/electron/preload/` — Preload 脚本
-- `dist/electron/renderer/` — React 前端
-
-### 完整桌面应用打包
-
-```bash
-# 1. 构建 Python 后端
-pyinstaller scripts/pyinstaller/installer_simple.spec
-
-# 2. 构建前端并打包桌面应用
-cd src/electron
-npm run build
-npx electron-builder --mac    # macOS
-npx electron-builder --win    # Windows
-```
-
-### 前端技术栈
-
-- **框架**: React 18 + TypeScript
-- **UI 库**: Ant Design 5
-- **状态管理**: @tanstack/react-query
-- **HTTP 客户端**: Axios
-- **实时通信**: WebSocket
-- **构建工具**: electron-vite
+> 已整合到上方「阶段二：前端构建」章节。
 
 ## 直接使用 PyInstaller
 
 ```bash
-pyinstaller scripts/pyinstaller/installer_simple.spec
+uv run python -m PyInstaller scripts/pyinstaller/installer_simple.spec --clean --noconfirm
 ```
 
 ## 构建系统架构
@@ -260,20 +322,29 @@ scripts/
 
 ## 构建产物
 
-构建完成后，产物位于 `dist/` 目录：
+### 后端产物（`dist/`）
 
 ```
 dist/
-├── MediaFactory/                      # 产物文件夹
-│   ├── MediaFactory                   # 可执行文件 (Linux/macOS)
-│   ├── MediaFactory.exe               # 可执行文件 (Windows)
-│   ├── config.toml                    # 用户配置文件（可编辑）
-│   ├── NOTICE.txt                     # 第三方许可声明
-│   ├── README.txt                     # 模型下载指南
-│   ├── models/                        # 模型目录（需用户下载）
-│   │   └── README.txt                 # 模型目录说明
+├── MediaFactory/                      # PyInstaller COLLECT 目录
+│   ├── MediaFactory                   # 可执行文件
 │   └── _internal/                     # 依赖文件
-└── MediaFactory-0.2.0-{platform}.zip  # 压缩产物（自动生成）
+├── MediaFactory.app/                  # macOS .app 包
+├── MediaFactory-{version}.app.zip     # macOS 压缩包
+├── python/                            # 用于 Electron 打包的副本
+└── electron/                          # 前端编译产物
+    ├── main/                          # Electron 主进程
+    ├── preload/                       # Preload 脚本
+    └── renderer/                      # React 前端
+```
+
+### 最终安装包（`release/{version}/`）
+
+```
+release/{version}/
+├── MediaFactory-{version}-arm64.dmg   # macOS ARM DMG
+├── MediaFactory-{version}-x64.dmg     # macOS x64 DMG
+└── MediaFactory-{version}-x64-setup.exe  # Windows 安装包
 ```
 
 ## 图标文件

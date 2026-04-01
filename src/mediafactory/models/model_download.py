@@ -5,6 +5,7 @@
 """
 
 import shutil
+import threading
 import time
 from pathlib import Path
 from typing import Optional, Callable, Tuple
@@ -14,8 +15,11 @@ from typing import Optional, Callable, Tuple
 
 from .model_registry import (
     MODEL_REGISTRY,
+    DownloadMode,
     ModelType,
+    get_enhancement_models_dir,
     get_model_info,
+    get_model_local_path,
     get_models_base_dir,  # 使用 model_registry 中的统一路径函数
 )
 from ..logging import log_error, log_exception, log_info
@@ -40,7 +44,7 @@ def get_model_total_size(
     """从 HuggingFace API 获取模型总大小。
 
     Args:
-        huggingface_id: HuggingFace 模型 ID（如 "google/madlad400-3b-mt"）
+        huggingface_id: HuggingFace 模型 ID（如 "facebook/m2m100_1.2B"）
         endpoint: 可选的镜像源 URL
 
     Returns:
@@ -214,12 +218,20 @@ def download_model(
     if model_info is None:
         raise ValueError(f"Unknown model ID '{huggingface_id}'")
 
-    # 确定本地保存路径（使用嵌套目录结构）
-    if custom_path is None:
-        # 直接使用 huggingface_id 作为子目录（保留斜杠）
-        local_path = get_models_dir() / huggingface_id
-    else:
+    is_file_mode = model_info.download_mode == DownloadMode.FILE
+
+    # 确定本地保存路径
+    if custom_path is not None:
         local_path = Path(custom_path).absolute()
+    elif is_file_mode:
+        # 单文件模型保存到 enhancement 目录
+        enhancement_dir = get_enhancement_models_dir()
+        enhancement_dir.mkdir(parents=True, exist_ok=True)
+        filename = model_info.local_filename or model_info.huggingface_filename or huggingface_id
+        local_path = enhancement_dir / filename
+    else:
+        # 仓库模型使用 huggingface_id 作为子目录（保留斜杠）
+        local_path = get_models_dir() / huggingface_id
 
     # 处理下载源
     endpoint = None if download_source == "https://huggingface.co" else download_source
@@ -228,40 +240,90 @@ def download_model(
     allow_patterns = None
     ignore_patterns = None
 
+    # 进度轮询：在后台线程中扫描本地目录大小，估算下载进度
+    # huggingface_hub 的 snapshot_download 不提供字节级进度回调，只能通过轮询实现
+    _stop_polling = threading.Event()
+    _total_size_bytes = model_info.model_size_mb * 1024 * 1024
+
+    def _poll_download_progress():
+        """后台轮询已下载字节数，通过 progress_callback 上报进度"""
+        while not _stop_polling.is_set():
+            _stop_polling.wait(2.0)  # 2 秒间隔
+            if _stop_polling.is_set():
+                break
+            if progress_callback is None:
+                continue
+            try:
+                downloaded = get_downloaded_size(local_path)
+                if _total_size_bytes > 0:
+                    percentage = min(downloaded / _total_size_bytes, 0.99)
+                    downloaded_mb = downloaded / (1024 * 1024)
+                    total_mb = _total_size_bytes / (1024 * 1024)
+                    msg = f"{downloaded_mb:.0f} MB / {total_mb:.0f} MB"
+                    progress_callback(percentage, msg)
+            except Exception:
+                pass  # 轮询错误不影响下载
+
+    # 启动轮询线程（仅在有回调和已知模型大小时）
+    _poller = None
+    if progress_callback is not None and _total_size_bytes > 0:
+        _poller = threading.Thread(
+            target=_poll_download_progress, daemon=True, name="download-progress-poller"
+        )
+        _poller.start()
+
     # 带重试机制的下载
     last_error = None
-    for attempt in range(MAX_RETRIES):
-        try:
+    try:
+        for attempt in range(MAX_RETRIES):
             if attempt > 0:
                 log_info(f"Retrying download ({attempt + 1}/{MAX_RETRIES}) for {huggingface_id}...")
                 time.sleep(RETRY_DELAY)
 
-            # 使用 snapshot_download 直接下载整个仓库
-            # 这是 HuggingFace 官方推荐的方式，会自动处理所有文件
-            # huggingface_hub 默认支持断点续传
-            from huggingface_hub import snapshot_download
+            try:
+                if is_file_mode:
+                    # 单文件模型：使用 hf_hub_download 下载指定文件
+                    from huggingface_hub import hf_hub_download
 
-            snapshot_download(
-                repo_id=huggingface_id,
-                local_dir=str(local_path),
-                endpoint=endpoint,
-                allow_patterns=allow_patterns,
-                ignore_patterns=ignore_patterns,
-                max_workers=4,
-            )
+                    hf_hub_download(
+                        repo_id=model_info.huggingface_repo,
+                        filename=model_info.huggingface_filename,
+                        local_dir=str(get_enhancement_models_dir()),
+                        endpoint=endpoint,
+                    )
+                else:
+                    # 仓库模型：使用 snapshot_download 下载整个仓库
+                    from huggingface_hub import snapshot_download
 
-            # 下载成功后更新配置文件
-            _update_config_after_download(huggingface_id, model_info.model_type)
+                    snapshot_download(
+                        repo_id=huggingface_id,
+                        local_dir=str(local_path),
+                        endpoint=endpoint,
+                        allow_patterns=allow_patterns,
+                        ignore_patterns=ignore_patterns,
+                        max_workers=4,
+                    )
 
-            return local_path
+                # 下载成功，停止轮询并通知完成
+                _stop_polling.set()
+                if progress_callback is not None:
+                    progress_callback(1.0, "Download complete")
 
-        except Exception as ex:
-            last_error = ex
-            log_error(f"Download failed for {huggingface_id} (attempt {attempt + 1}/{MAX_RETRIES}): {ex}")
+                # 下载成功后更新配置文件
+                _update_config_after_download(huggingface_id, model_info.model_type)
 
-            # 非最后一次重试，继续尝试
-            if attempt < MAX_RETRIES - 1:
-                continue
+                return local_path
+
+            except Exception as ex:
+                last_error = ex
+                log_error(f"Download failed for {huggingface_id} (attempt {attempt + 1}/{MAX_RETRIES}): {ex}")
+
+                # 非最后一次重试，继续尝试
+                if attempt < MAX_RETRIES - 1:
+                    continue
+    finally:
+        # 确保轮询线程停止
+        _stop_polling.set()
 
     # 所有重试都失败，抛出异常
     raise Exception(f"Download failed after {MAX_RETRIES} retries: {last_error}")
@@ -282,11 +344,18 @@ def delete_model(huggingface_id: str) -> Tuple[bool, str]:
         log_error(f"delete_model failed: {error_msg}")
         return False, error_msg
 
-    # 使用嵌套目录结构
-    models_dir = get_models_dir()
-    model_path = models_dir / huggingface_id
+    # 根据下载模式确定模型路径
+    if model_info.download_mode == DownloadMode.FILE:
+        # 单文件模型（如 Real-ESRGAN、NAFNet）
+        model_path = get_model_local_path(huggingface_id)
+        is_file_mode = True
+    else:
+        # 仓库模型（如 Whisper、翻译模型）
+        models_dir = get_models_dir()
+        model_path = models_dir / huggingface_id
+        is_file_mode = False
 
-    if not model_path.exists():
+    if model_path is None or not model_path.exists():
         error_msg = f"Model not found: {huggingface_id}"
         log_error(f"delete_model failed: {error_msg}")
         return False, error_msg
@@ -297,21 +366,21 @@ def delete_model(huggingface_id: str) -> Tuple[bool, str]:
 
     for attempt in range(max_retries):
         try:
-            # 先尝试清理 HuggingFace 缓存目录中的临时文件
-            cache_dir = model_path / ".cache"
-            if cache_dir.exists():
-                try:
-                    shutil.rmtree(cache_dir)
-                    log_info(f"Cleaned cache directory for {huggingface_id}")
-                except PermissionError:
-                    # 缓存目录可能正在被使用，继续尝试删除主目录
-                    pass
+            if is_file_mode:
+                # 单文件模式：直接删除文件
+                model_path.unlink()
+            else:
+                # 仓库模式：清理缓存后删除目录
+                cache_dir = model_path / ".cache"
+                if cache_dir.exists():
+                    try:
+                        shutil.rmtree(cache_dir)
+                        log_info(f"Cleaned cache directory for {huggingface_id}")
+                    except PermissionError:
+                        pass
+                shutil.rmtree(model_path)
 
-            # 删除主目录
-            shutil.rmtree(model_path)
             log_info(f"Model deleted: {huggingface_id}")
-
-            # 删除成功后更新配置文件
             _update_config_after_delete(huggingface_id, model_info.model_type)
             return True, ""
 
@@ -323,7 +392,6 @@ def delete_model(huggingface_id: str) -> Tuple[bool, str]:
             else:
                 error_msg = f"Permission denied: {e}"
                 log_error(f"Failed to delete model {huggingface_id}: {error_msg}")
-                # 提供更友好的错误提示
                 if ".incomplete" in str(e) or "being used by another process" in str(e):
                     error_msg = f"模型正在下载或被其他进程占用，请稍后重试。\n详情: {e}"
                 return False, error_msg
@@ -387,6 +455,9 @@ def _update_config_after_delete(huggingface_id: str, model_type: ModelType) -> N
         if huggingface_id in models_list:
             models_list.remove(huggingface_id)
             config_manager.update(model__whisper_models=models_list)
+    elif model_type in (ModelType.SUPER_RESOLUTION, ModelType.DENOISE):
+        # 增强模型删除后无需特殊配置更新
+        pass
 
 
 __all__ = [

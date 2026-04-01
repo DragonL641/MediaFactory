@@ -1,20 +1,14 @@
 /**
  * LLM 供应商配置对话框
  *
- * 支持添加和编辑 LLM 供应商配置
+ * 从 LLMConfig/ProviderDialog 迁移，支持添加和编辑 LLM 供应商配置
  */
 
-import React, { useEffect, useState } from "react";
-import {
-  Modal,
-  Form,
-  Input,
-  Select,
-  App,
-} from "antd";
+import React, { useEffect, useMemo } from "react";
+import { Modal, Form, Input, Select, App, theme } from "antd";
 import { useTranslation } from "react-i18next";
 import { useLLMPresetsQuery, useUpdateLLMPresetMutation } from "../../api/queries";
-import { isAxiosError } from "axios";
+import { getErrorDetail } from "../../api/client";
 import type { LLMPresetInfo } from "../../types";
 
 interface ProviderDialogProps {
@@ -32,22 +26,19 @@ const ProviderDialog: React.FC<ProviderDialogProps> = ({
 }) => {
   const [form] = Form.useForm();
   const { message } = App.useApp();
+  const { token } = theme.useToken();
   const { t } = useTranslation("llmConfig");
   const isEditing = !!editingPresetId;
 
   const { data: presets, isLoading: presetsLoading } = useLLMPresetsQuery();
   const updateMutation = useUpdateLLMPresetMutation();
 
-  // 预设选择变化时自动填充 base_url
   const handlePresetChange = (presetId: string) => {
     if (presets && presets[presetId]) {
-      form.setFieldsValue({
-        base_url: presets[presetId].base_url,
-      });
+      form.setFieldsValue({ base_url: presets[presetId].base_url });
     }
   };
 
-  // 编辑模式：初始化表单
   useEffect(() => {
     if (open && editingPresetId && presets) {
       const preset = presets[editingPresetId];
@@ -55,7 +46,7 @@ const ProviderDialog: React.FC<ProviderDialogProps> = ({
         form.setFieldsValue({
           preset_id: editingPresetId,
           base_url: preset.base_url,
-          api_key: "", // 不回填 API Key
+          api_key: "",
           model: preset.model || "",
         });
       }
@@ -67,7 +58,6 @@ const ProviderDialog: React.FC<ProviderDialogProps> = ({
   const handleSubmit = async () => {
     try {
       const values = await form.validateFields();
-
       updateMutation.mutate(
         {
           presetId: values.preset_id,
@@ -78,19 +68,14 @@ const ProviderDialog: React.FC<ProviderDialogProps> = ({
         {
           onSuccess: () => {
             message.success(
-              isEditing
-                ? t("llmConfig:messages.providerUpdated")
-                : t("llmConfig:messages.providerAdded")
+              isEditing ? t("messages.providerUpdated") : t("messages.providerAdded")
             );
             onSuccess();
             onClose();
             form.resetFields();
           },
           onError: (error: unknown) => {
-            const detail = isAxiosError(error) ? error.response?.data?.detail : undefined;
-            message.error(
-              detail || t("llmConfig:messages.saveFailed")
-            );
+            message.error(getErrorDetail(error) || t("messages.saveFailed"));
           },
         }
       );
@@ -99,31 +84,32 @@ const ProviderDialog: React.FC<ProviderDialogProps> = ({
     }
   };
 
-  // 构建预设选项（排除 custom，编辑模式禁用选择）
-  const presetOptions = (Object.entries(presets || {}) as [string, LLMPresetInfo][])
-    .filter(([id]) => id !== "custom")
-    .map(([id, info]) => ({
-      value: id,
-      label: info.display_name,
-    }));
+  const presetOptions = useMemo(() => {
+    return (Object.entries(presets || {}) as [string, LLMPresetInfo][]).map(
+      ([id, info]) => ({ value: id, label: info.display_name })
+    );
+  }, [presets]);
+
+  const selectedProvider = Form.useWatch("preset_id", form);
 
   return (
     <Modal
-      title={isEditing ? t("llmConfig:dialog.editTitle") : t("llmConfig:dialog.addTitle")}
+      title={isEditing ? t("dialog.editTitle") : t("dialog.addTitle")}
       open={open}
       onOk={handleSubmit}
       onCancel={onClose}
       confirmLoading={updateMutation.isPending}
       destroyOnHidden
+      width={420}
     >
       <Form form={form} layout="vertical" style={{ marginTop: 16 }}>
         <Form.Item
           name="preset_id"
-          label={t("llmConfig:dialog.provider")}
-          rules={[{ required: true, message: t("llmConfig:dialog.providerRequired") }]}
+          label={t("dialog.provider")}
+          rules={[{ required: true, message: t("dialog.providerRequired") }]}
         >
           <Select
-            placeholder={t("llmConfig:dialog.selectProvider")}
+            placeholder={t("dialog.selectProvider")}
             disabled={isEditing}
             onChange={handlePresetChange}
             loading={presetsLoading}
@@ -133,24 +119,48 @@ const ProviderDialog: React.FC<ProviderDialogProps> = ({
 
         <Form.Item
           name="base_url"
-          label={t("llmConfig:dialog.baseUrl")}
-          rules={[{ required: true, message: t("llmConfig:dialog.baseUrlRequired") }]}
+          label={t("dialog.baseUrl")}
+          rules={[{ required: true, message: t("dialog.baseUrlRequired") }]}
         >
-          <Input placeholder="https://api.example.com/v1" />
+          <Input
+            placeholder={
+              selectedProvider === "custom"
+                ? "http://localhost:11434/v1"
+                : "https://api.example.com/v1"
+            }
+          />
         </Form.Item>
 
         <Form.Item
           name="api_key"
-          label={t("llmConfig:dialog.apiKey")}
-          rules={[{ required: true, message: t("llmConfig:dialog.apiKeyRequired") }]}
+          label={t("dialog.apiKey")}
+          rules={[
+            {
+              required: selectedProvider !== "custom",
+              message: t("dialog.apiKeyRequired"),
+            },
+          ]}
         >
-          <Input.Password placeholder="sk-..." />
+          <>
+            <Input.Password
+              placeholder={
+                selectedProvider === "custom"
+                  ? t("dialog.apiKeyOptional")
+                  : "sk-..."
+              }
+            />
+            {selectedProvider === "custom" && (
+              <span style={{ fontSize: 12, color: token.colorTextSecondary }}>
+                {t("dialog.localLlmNoApiKey")}
+              </span>
+            )}
+          </>
         </Form.Item>
 
         <Form.Item
           name="model"
-          label={t("llmConfig:dialog.model")}
-          rules={[{ required: true, message: t("llmConfig:dialog.modelRequired") }]}
+          label={t("dialog.model")}
+          rules={[{ required: true, message: t("dialog.modelRequired") }]}
         >
           <Input placeholder="e.g., gpt-4o-mini, deepseek-chat" />
         </Form.Item>

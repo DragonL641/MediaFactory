@@ -1,12 +1,14 @@
 /**
  * 两步任务创建对话框
  *
- * Step 1: 选择任务类型
- * Step 2: 配置任务参数（根据类型显示不同表单）
+ * Step 1: 选择任务类型（5 个选项卡片）
+ * Step 2: 配置任务参数（带步骤指示器）
+ * Soft Bento 风格：圆角 Modal，pill 步骤指示器
  */
 
 import React, { useState } from "react";
-import { Modal, Steps, App, Form, Button } from "antd";
+import { Modal, App, Form, Button } from "antd";
+import { CheckOutlined, ArrowRightOutlined } from "@ant-design/icons";
 import { useTranslation } from "react-i18next";
 import TaskTypeSelector, { useTaskTypes } from "./TaskTypeSelector";
 import SubtitleForm from "./forms/SubtitleForm";
@@ -28,7 +30,7 @@ interface CreateTaskDialogProps {
 }
 
 /**
- * Step 1 表单区域，拥有 form 实例（仅在 Step 1 渲染，避免 useForm 未连接警告）
+ * Step 2 表单区域
  */
 const TaskConfigStep: React.FC<{
   selectedType: string;
@@ -73,7 +75,7 @@ const TaskConfigStep: React.FC<{
 
       mutations[selectedType]?.mutate(values, {
         onSuccess: () => {
-          message.success(t("tasks:createDialog.created"));
+          message.success(t("createDialog.created"));
           onSuccess();
         },
       });
@@ -107,15 +109,17 @@ const TaskConfigStep: React.FC<{
 
   return (
     <>
-      <Steps
-        current={1}
-        size="small"
-        style={{ marginBottom: 24 }}
-        items={[
-          { title: t("tasks:createDialog.steps.selectType") },
-          { title: selectedTypeInfo?.title || t("tasks:createDialog.steps.configure") },
-        ]}
-      />
+      {/* 步骤指示器 pills */}
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
+        <span className="step-pill step-pill-completed">
+          <CheckOutlined style={{ fontSize: 10 }} />
+          {t("createDialog.steps.selectType")}
+        </span>
+        <ArrowRightOutlined style={{ color: "var(--mf-text-muted, #999)", fontSize: 12 }} />
+        <span className="step-pill step-pill-active">
+          {selectedTypeInfo?.title || t("createDialog.steps.configure")}
+        </span>
+      </div>
       {renderForm()}
     </>
   );
@@ -142,10 +146,10 @@ const CreateTaskDialog: React.FC<CreateTaskDialogProps> = ({ open, onClose }) =>
 
   return (
     <Modal
-      title={t("tasks:createDialog.title")}
+      title={t("createDialog.title")}
       open={open}
       onCancel={handleClose}
-      width={640}
+      width={520}
       footer={
         currentStep === 0
           ? null
@@ -153,6 +157,7 @@ const CreateTaskDialog: React.FC<CreateTaskDialogProps> = ({ open, onClose }) =>
               <Button
                 key="back"
                 onClick={() => setCurrentStep(0)}
+                style={{ borderRadius: 8, padding: "8px 16px" }}
               >
                 {t("common:actions.back")}
               </Button>,
@@ -161,13 +166,21 @@ const CreateTaskDialog: React.FC<CreateTaskDialogProps> = ({ open, onClose }) =>
                 type="primary"
                 onClick={handleSubmit}
                 disabled={isSubmitting}
+                style={{ borderRadius: 8, padding: "8px 20px" }}
               >
-                {isSubmitting ? t("common:actions.creating") : t("tasks:createDialog.create")}
+                {isSubmitting ? t("common:actions.creating") : t("createDialog.create")}
               </Button>,
             ]
       }
       destroyOnHidden
     >
+      {/* Step 1: 副标题 */}
+      {currentStep === 0 && (
+        <p style={{ color: "var(--mf-text-secondary, #666)", fontSize: 13, marginBottom: 12 }}>
+          {t("createDialog.subtitle")}
+        </p>
+      )}
+
       {currentStep === 0 ? (
         <TaskTypeSelector onSelect={(key) => { setSelectedType(key); setCurrentStep(1); }} />
       ) : selectedType ? (

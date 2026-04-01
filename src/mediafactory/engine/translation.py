@@ -3,6 +3,7 @@
 统一接口，内部实现本地翻译和 LLM 翻译。
 """
 
+import copy
 import threading
 from typing import Dict, List, Any, Optional, TYPE_CHECKING
 
@@ -115,6 +116,8 @@ class TranslationEngine:
                         return self._translate_with_llm(
                             result, actual_src_lang, tgt_lang, progress
                         )
+                    except OperationCancelledError:
+                        raise
                     except ProcessingError as e:
                         log_warning(
                             f"LLM translation failed ({e.message}), "
@@ -225,7 +228,7 @@ class TranslationEngine:
         log_info(
             f"[TranslationEngine] Loading translation model for {src_lang} -> {tgt_lang}..."
         )
-        log_info(f"[TranslationEngine] This may take a while for large models (e.g., MADLAD400-3B)")
+        log_info(f"[TranslationEngine] This may take a while for large models (e.g., M2M100-1.2B)")
         log_debug(f"[TranslationEngine] Calling progress.update(5, 'Loading translation model...')")
         progress.update(5, t("progress.loadingTranslationModel"))
 
@@ -297,14 +300,14 @@ class TranslationEngine:
 
             original_text = segment["text"].strip()
             if not original_text:
-                translated_segments.append(segment.copy())
+                translated_segments.append(copy.deepcopy(segment))
                 continue
 
             translated_text = self._perform_multilingual_translation(
                 original_text, src_code, tgt_code, model_callable
             )
 
-            new_segment = segment.copy()
+            new_segment = copy.deepcopy(segment)
             new_segment["original_text"] = original_text
             new_segment["text"] = translated_text
             translated_segments.append(new_segment)
@@ -374,9 +377,6 @@ class TranslationEngine:
 
         backend_type = type(self.llm_backend).__name__
         model_name = self.llm_backend.get_model_name
-
-        # 测试 API 连接
-        self._test_api_connection()
 
         log_step(
             f"Using {backend_type} ({model_name}) API to translate from "
@@ -453,7 +453,7 @@ class TranslationEngine:
         if isinstance(translated_text, str):
             # 单个字符串，只更新第一个 segment
             for i, seg in enumerate(segments):
-                new_seg = seg.copy()
+                new_seg = copy.deepcopy(seg)
                 new_seg["original_text"] = seg.get("text", "")
                 if i == 0:
                     new_seg["text"] = translated_text
@@ -461,14 +461,14 @@ class TranslationEngine:
         elif isinstance(translated_text, list):
             # 列表，按索引更新
             for i, seg in enumerate(segments):
-                new_seg = seg.copy()
+                new_seg = copy.deepcopy(seg)
                 new_seg["original_text"] = seg.get("text", "")
                 if i < len(translated_text):
                     new_seg["text"] = translated_text[i]
                 translated_segments.append(new_seg)
         else:
             # 未知类型，保留原文
-            translated_segments = [seg.copy() for seg in segments]
+            translated_segments = [copy.deepcopy(seg) for seg in segments]
 
         return translated_segments
 

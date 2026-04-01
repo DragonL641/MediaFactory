@@ -2,10 +2,11 @@
  * 任务类型选择器
  *
  * Step 1：选择任务类型（5种）
+ * Soft Bento 风格：圆角选项卡片，hover 变色
  */
 
 import React from "react";
-import { Card, Row, Col, Typography, theme } from "antd";
+import { Typography } from "antd";
 import {
   AudioOutlined,
   SoundOutlined,
@@ -27,34 +28,34 @@ export const useTaskTypes = (): TaskTypeOption[] => {
   const { t } = useTranslation("tasks");
   return [
     {
-      key: "subtitle",
-      title: t("tasks:typeOptions.subtitle.title"),
-      description: t("tasks:typeOptions.subtitle.description"),
-      icon: <SoundOutlined style={{ fontSize: 32 }} />,
-    },
-    {
       key: "audio",
-      title: t("tasks:typeOptions.audio.title"),
-      description: t("tasks:typeOptions.audio.description"),
-      icon: <AudioOutlined style={{ fontSize: 32 }} />,
+      title: t("typeOptions.audio.title"),
+      description: t("typeOptions.audio.description"),
+      icon: <AudioOutlined style={{ fontSize: 20 }} />,
     },
     {
       key: "transcribe",
-      title: t("tasks:typeOptions.transcribe.title"),
-      description: t("tasks:typeOptions.transcribe.description"),
-      icon: <SoundOutlined style={{ fontSize: 32 }} />,
+      title: t("typeOptions.transcribe.title"),
+      description: t("typeOptions.transcribe.description"),
+      icon: <SoundOutlined style={{ fontSize: 20 }} />,
     },
     {
       key: "translate",
-      title: t("tasks:typeOptions.translate.title"),
-      description: t("tasks:typeOptions.translate.description"),
-      icon: <TranslationOutlined style={{ fontSize: 32 }} />,
+      title: t("typeOptions.translate.title"),
+      description: t("typeOptions.translate.description"),
+      icon: <TranslationOutlined style={{ fontSize: 20 }} />,
+    },
+    {
+      key: "subtitle",
+      title: t("typeOptions.subtitle.title"),
+      description: t("typeOptions.subtitle.description"),
+      icon: <SoundOutlined style={{ fontSize: 20 }} />,
     },
     {
       key: "enhance",
-      title: t("tasks:typeOptions.enhance.title"),
-      description: t("tasks:typeOptions.enhance.description"),
-      icon: <VideoCameraOutlined style={{ fontSize: 32 }} />,
+      title: t("typeOptions.enhance.title"),
+      description: t("typeOptions.enhance.description"),
+      icon: <VideoCameraOutlined style={{ fontSize: 20 }} />,
     },
   ];
 };
@@ -64,37 +65,57 @@ interface TaskTypeSelectorProps {
 }
 
 const TaskTypeSelector: React.FC<TaskTypeSelectorProps> = ({ onSelect }) => {
-  const { token } = theme.useToken();
   const taskTypes = useTaskTypes();
 
   return (
-    <Row gutter={[16, 16]} justify="center">
+    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
       {taskTypes.map((type) => (
-        <Col xs={24} sm={12} md={8} key={type.key}>
-          <Card
-            hoverable
-            onClick={() => onSelect(type.key)}
-            style={{ textAlign: "center", height: 140 }}
-            styles={{
-              body: {
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "center",
-                justifyContent: "center",
-                height: "100%",
-              },
-            }}
-          >
-            <div style={{ marginBottom: 12, color: token.colorPrimary }}>{type.icon}</div>
-            <Text strong>{type.title}</Text>
+        <div
+          key={type.key}
+          role="button"
+          tabIndex={0}
+          onClick={() => onSelect(type.key)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              onSelect(type.key);
+            }
+          }}
+          className="task-type-option"
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 16,
+            padding: "12px 16px",
+            borderRadius: 10,
+            border: "1px solid var(--mf-border, #E5E2DD)",
+            cursor: "pointer",
+            transition: "all 0.2s",
+            background: "var(--mf-surface-secondary, #FFFFFF)",
+          }}
+        >
+          <div style={{
+            color: "var(--mf-primary, #8F5A3C)",
+            display: "flex",
+            alignItems: "center",
+            width: 36,
+            height: 36,
+            borderRadius: 8,
+            background: "var(--mf-primary-bg, #FDF8F5)",
+            justifyContent: "center",
+          }}>
+            {type.icon}
+          </div>
+          <div style={{ flex: 1 }}>
+            <Text strong style={{ fontSize: 14 }}>{type.title}</Text>
             <br />
-            <Text type="secondary" style={{ fontSize: token.fontSizeSM }}>
+            <Text type="secondary" style={{ fontSize: 12 }}>
               {type.description}
             </Text>
-          </Card>
-        </Col>
+          </div>
+        </div>
       ))}
-    </Row>
+    </div>
   );
 };
 

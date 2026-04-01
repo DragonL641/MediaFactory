@@ -12,7 +12,7 @@ import uuid
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Optional
 
-from mediafactory.api.schemas import TaskConfig, TaskProgress, TaskResult, TaskStatus
+from mediafactory.api.schemas import TaskConfig, TaskProgress, TaskResult, TaskStatus, TaskType
 from mediafactory.api.websocket import manager as ws_manager
 from mediafactory.core.tool import CancellationToken
 from mediafactory.api.error_handler import sanitize_error
@@ -28,6 +28,7 @@ STAGE_RANGES = {
     "translation": (70.0, 95.0),
     "srt_generation": (95.0, 100.0),
     "video_enhancement": (0.0, 100.0),
+    "download": (0.0, 100.0),
 }
 
 
@@ -61,7 +62,6 @@ class TaskManager:
         self._queue: List[str] = []  # 待执行任务队列
         self._is_processing_queue: bool = False
         self._lock = asyncio.Lock()
-        self._cleanup_task: Optional[asyncio.Task] = None
 
     async def create_task(self, config: TaskConfig, name: Optional[str] = None) -> str:
         """创建新任务（不自动启动，保持 PENDING 状态）"""
@@ -313,6 +313,48 @@ class TaskManager:
             file_index=task.file_index,
             total_files=task.total_files,
         )
+        await ws_manager.broadcast_task_complete(
+            task_id=task_id,
+            success=False,
+            error=t("task.cancelled"),
+        )
+        return True
+
+    async def update_task_status(
+        self,
+        task_id: str,
+        status: TaskStatus,
+        progress: Optional[float] = None,
+        stage: Optional[str] = None,
+        result: Optional[TaskResult] = None,
+    ) -> bool:
+        """更新任务状态（供 API 路由使用，替代直接访问 _tasks）。
+
+        Args:
+            task_id: 任务 ID
+            status: 新状态
+            progress: 可选进度值
+            stage: 可选阶段名称
+            result: 可选任务结果
+
+        Returns:
+            True 如果任务存在且已更新
+        """
+        task = self._tasks.get(task_id)
+        if not task:
+            return False
+
+        task.status = status
+        if progress is not None:
+            task.progress = progress
+        if stage is not None:
+            task.stage = stage
+        if result is not None:
+            task.result = result
+        if status == TaskStatus.RUNNING and task.started_at is None:
+            task.started_at = time.time()
+        if status in (TaskStatus.COMPLETED, TaskStatus.FAILED, TaskStatus.CANCELLED):
+            task.completed_at = time.time()
         return True
 
     async def update_task_config(
@@ -364,8 +406,17 @@ class TaskManager:
         }
         return result
 
-    async def get_all_tasks(self) -> list[Dict[str, Any]]:
-        """获取所有任务状态（包含前端需要的完整字段）"""
+    async def get_all_tasks(
+        self, exclude_types: Optional[list[TaskType]] = None
+    ) -> list[Dict[str, Any]]:
+        """获取所有任务状态（包含前端需要的完整字段）
+
+        Args:
+            exclude_types: 要排除的任务类型列表
+        """
+        tasks = self._tasks.values()
+        if exclude_types:
+            tasks = [t for t in tasks if t.config.task_type not in exclude_types]
         return [
             {
                 "id": task.id,
@@ -379,7 +430,7 @@ class TaskManager:
                 "error": task.result.error if task.result else None,
                 "stage": task.stage,
             }
-            for task in self._tasks.values()
+            for task in tasks
         ]
 
     async def remove_task(self, task_id: str) -> bool:
@@ -395,31 +446,6 @@ class TaskManager:
                 del self._tasks[task_id]
                 return True
         return False
-
-    async def cleanup_loop(self):
-        """定期清理已完成任务（保留1小时）"""
-        while True:
-            await asyncio.sleep(300)  # 5分钟清理一次
-            try:
-                now = time.time()
-                to_remove = []
-                for task_id, task in self._tasks.items():
-                    if (
-                        task.status
-                        in (TaskStatus.COMPLETED, TaskStatus.FAILED, TaskStatus.CANCELLED)
-                        and task.completed_at
-                        and (now - task.completed_at) > 3600  # 1小时
-                    ):
-                        to_remove.append(task_id)
-
-                for task_id in to_remove:
-                    await self.remove_task(task_id)
-
-                if to_remove:
-                    logger.info(f"Cleaned up {len(to_remove)} old tasks")
-
-            except Exception as e:
-                logger.error(f"Cleanup error: {e}")
 
     async def shutdown(self):
         """关闭时取消所有运行中的任务"""

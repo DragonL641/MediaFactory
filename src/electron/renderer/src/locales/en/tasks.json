@@ -45,8 +45,12 @@
     "cancel": "Cancel",
     "start": "Start",
     "edit": "Edit",
+    "retry": "Retry",
     "started": "Task started",
-    "startFailed": "Failed to start task"
+    "startFailed": "Failed to start task",
+    "retried": "Task retried",
+    "retryFailed": "Failed to retry task",
+    "confirmDelete": "Are you sure you want to delete this task?"
   },
   "typeLabels": {
     "subtitle": "Subtitle Generation",
@@ -64,9 +68,10 @@
   },
   "createDialog": {
     "title": "Create Task",
+    "subtitle": "Select a task type to get started",
     "steps": {
-      "selectType": "Select Type",
-      "configure": "Configure"
+      "selectType": "Type",
+      "configure": "Config"
     },
     "create": "Create",
     "created": "Task created"

@@ -12,7 +12,7 @@
 - 自定义 OpenAI 兼容服务
 
 降级策略:
-LLM API 批量翻译 → 纠正 → 分批 → 逐句 → 本地模型 (M2M100-418M)
+LLM API 批量翻译 → 纠正重试 → 二分（仅一次）→ 记录失败位置 → 末尾本地翻译 (M2M100-1.2B)
 """
 
 from typing import Optional
@@ -90,6 +90,11 @@ def initialize_llm_backend(
             "api_key": preset_config.api_key,
             "base_url": base_url,
             "model": model,
+            "batch_size": config.llm_api.batch_size,
+            "split_threshold": config.llm_api.split_threshold,
+            "timeout": config.llm_api.timeout,
+            "max_retries": config.llm_api.max_retries,
+            "temperature": config.llm_api.temperature,
         }
 
         log_debug(
@@ -100,10 +105,6 @@ def initialize_llm_backend(
 
         # Create backend instance directly
         backend = OpenAICompatibleBackend(**backend_config)
-
-        if backend is None:
-            log_error("OpenAICompatibleBackend 创建失败")
-            return None
 
         # Check backend availability (skip for connection testing)
         if not skip_availability_check:

@@ -61,14 +61,14 @@ Choose from 6+ LLM providers for translation: OpenAI, DeepSeek, GLM (智谱AI), 
 
 ```bash
 # 1. Clone the repository
-git clone https://github.com/Dragon/MediaFactory.git
+git clone https://github.com/DragonL641/MediaFactory.git
 cd MediaFactory
 
 # 2. Install dependencies (includes PyTorch with CUDA 12.8)
 uv sync --group core
 
 # 3. Download models (required before first run)
-uv run python scripts/utils/download_model.py google/madlad400-3b-mt
+uv run python scripts/utils/download_model.py facebook/m2m100_1.2B
 
 # 4. Run the application
 uv run mediafactory
@@ -124,7 +124,7 @@ AI video tools often force you to choose between quality and speed, or between c
 
 - **Python**: 3.11, 3.12, or 3.13 (3.12 recommended)
 - **uv**: Modern Python package manager ([install uv](https://docs.astral.sh/uv/))
-- **Node.js**: ≥18.0.0 (for Electron GUI, optional)
+- **Node.js**: ≥18.0.0 (for Electron GUI development)
 - **FFmpeg**: Included via imageio-ffmpeg (no manual installation needed)
 
 ---
@@ -142,7 +142,7 @@ AI video tools often force you to choose between quality and speed, or between c
 uv run python scripts/utils/download_model.py --list
 
 # Download translation model
-uv run python scripts/utils/download_model.py google/madlad400-3b-mt
+uv run python scripts/utils/download_model.py facebook/m2m100_1.2B
 ```
 
 **Log files**: All logs are written to `logs/LOG-YYYY-MM-DD-HHMM.log` in the application directory.

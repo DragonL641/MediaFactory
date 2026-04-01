@@ -234,9 +234,9 @@ class BackendConfigMapping:
             "model_examples": ["moonshot-v1-8k", "moonshot-v1-32k"],
         },
         "custom": {
-            "display_name": "Custom",
+            "display_name": "Custom / Local LLM",
             "base_url": "",
-            "model_examples": [],
+            "model_examples": ["qwen2.5:7b", "llama3.1:8b", "mistral:7b"],
         },
     }
 
@@ -292,8 +292,8 @@ class BackendConfigMapping:
         result["timeout"] = config.llm_api.timeout
         result["max_retries"] = config.llm_api.max_retries
 
-        if config.llm_api.rate_limit_enabled:
-            result["rate_limit"] = config.llm_api.rate_limit_per_second
+        # 速率限制（写死为保护机制）
+        result["rate_limit"] = 5.0
 
         return result
 

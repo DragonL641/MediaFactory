@@ -80,7 +80,7 @@ class ModelStatusService:
             )
 
             return ModelStatusInfo(
-                name="MADLAD-400",
+                name="M2M100-1.2B",
                 loaded=available,
                 available=available,
                 enabled=True,
@@ -88,7 +88,7 @@ class ModelStatusService:
         except Exception as e:
             log_error(f"Failed to get translation status: {e}")
             return ModelStatusInfo(
-                name="MADLAD-400",
+                name="M2M100-1.2B",
                 loaded=False,
                 available=False,
                 enabled=True,
@@ -121,9 +121,11 @@ class ModelStatusService:
             models.append({
                 "id": model_id,
                 "name": info.display_name,
+                "purpose": info.purpose or info.display_name,
                 "tier": tier,
-                "memory": f"~{info.runtime_memory_gb:.0f}GB",
-                "size": f"~{info.model_size_mb // 1024} GB",
+                "memory": f"{info.runtime_memory_gb:.0f} GB",
+                "size": f"{info.model_size_mb // 1024} GB",
+                "vram": f"{info.runtime_vram_gb:.0f} GB" if info.runtime_vram_mb else "",
                 "downloaded": downloaded,
                 "complete": complete,
             })

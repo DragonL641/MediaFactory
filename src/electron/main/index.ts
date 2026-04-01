@@ -39,7 +39,7 @@ async function createWindow(): Promise<void> {
 
   // 注册 IPC 处理器（只注册一次）
   if (!ipcHandlersRegistered && pythonManager) {
-    registerIpcHandlers(pythonManager);
+    registerIpcHandlers(pythonManager, mainWindow);
     ipcHandlersRegistered = true;
   }
 
@@ -110,8 +110,14 @@ app.on("before-quit", async (event) => {
 });
 
 // macOS 激活应用
-app.on("activate", () => {
+app.on("activate", async () => {
   if (mainWindow === null) {
-    createWindow();
+    // Python 后端可能已停止（window-all-closed 时会停止），需重启
+    if (!pythonManager?.isRunning) {
+      pythonManager = new PythonManager();
+      await pythonManager.start();
+    }
+    await createWindow();
+    mainWindow?.show();
   }
 });

@@ -51,7 +51,6 @@ async def lifespan(app: FastAPI):
 
     # 启动时：初始化任务管理器
     task_manager = get_task_manager()
-    asyncio.create_task(task_manager.cleanup_loop())
 
     yield
 
@@ -132,8 +131,12 @@ def get_app() -> FastAPI:
     return _app
 
 
-def start_server():
-    """启动 API 服务器（命令行入口点）"""
+def start_server(port: int = 8765):
+    """启动 API 服务器（命令行入口点）
+
+    Args:
+        port: 服务端口，默认 8765
+    """
     import multiprocessing
     import uvicorn
 
@@ -152,11 +155,11 @@ def start_server():
     )
 
     # 启动服务器
-    logger.info("Starting MediaFactory API server on http://127.0.0.1:8765")
+    logger.info(f"Starting MediaFactory API server on http://127.0.0.1:{port}")
     uvicorn.run(
         "mediafactory.api.main:get_app",
         host="127.0.0.1",
-        port=8765,
+        port=port,
         factory=True,
         log_level="info",
     )

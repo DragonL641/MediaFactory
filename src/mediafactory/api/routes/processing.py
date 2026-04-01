@@ -218,6 +218,41 @@ async def cancel_task(task_id: str):
     )
 
 
+@router.post("/retry/{task_id}")
+async def retry_task(task_id: str):
+    """重试失败/取消的任务（创建同配置新任务）"""
+    task_manager = _get_task_manager()
+
+    # 获取原任务配置
+    config_dict = await task_manager.get_task_config(task_id)
+    if not config_dict:
+        raise HTTPException(status_code=404, detail=t("error.taskNotFound"))
+
+    # 检查原任务状态
+    status_info = await task_manager.get_task_status(task_id)
+    if not status_info:
+        raise HTTPException(status_code=404, detail=t("error.taskNotFound"))
+
+    if status_info["status"] not in ("failed", "cancelled"):
+        raise HTTPException(
+            status_code=400, detail=t("error.canOnlyRetryFailed")
+        )
+
+    # 用相同配置创建新任务
+    from mediafactory.api.schemas import TaskConfig
+
+    new_config = TaskConfig(**config_dict)
+    new_task_id = await task_manager.create_task(
+        new_config, name=status_info.get("name", f"Retry: {task_id}")
+    )
+
+    return TaskResponse(
+        task_id=new_task_id,
+        status=TaskStatus.PENDING,
+        message=t("task.retried"),
+    )
+
+
 @router.get("/status/{task_id}")
 async def get_task_status(task_id: str):
     """获取任务状态"""
@@ -232,9 +267,11 @@ async def get_task_status(task_id: str):
 
 @router.get("/tasks")
 async def list_tasks():
-    """列出所有任务"""
+    """列出所有任务（排除下载任务）"""
+    from mediafactory.api.schemas import TaskType
+
     task_manager = _get_task_manager()
-    return await task_manager.get_all_tasks()
+    return await task_manager.get_all_tasks(exclude_types=[TaskType.DOWNLOAD])
 
 
 @router.delete("/tasks/{task_id}")

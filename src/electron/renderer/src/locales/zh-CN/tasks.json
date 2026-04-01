@@ -45,8 +45,12 @@
     "cancel": "取消",
     "start": "开始",
     "edit": "编辑",
+    "retry": "重试",
     "started": "任务已启动",
-    "startFailed": "启动任务失败"
+    "startFailed": "启动任务失败",
+    "retried": "任务已重试",
+    "retryFailed": "重试任务失败",
+    "confirmDelete": "确定要删除此任务吗？"
   },
   "typeLabels": {
     "subtitle": "字幕生成",
@@ -64,6 +68,7 @@
   },
   "createDialog": {
     "title": "创建任务",
+    "subtitle": "选择一个任务类型开始",
     "steps": {
       "selectType": "选择类型",
       "configure": "配置参数"

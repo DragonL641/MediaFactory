@@ -138,8 +138,8 @@ class RecognitionEngine:
             "language": whisper_lang,
             "task": "transcribe",
             "beam_size": config.whisper.beam_size,
-            "patience": config.whisper.patience,
-            "length_penalty": config.whisper.length_penalty,
+            "patience": 1.0,  # Beam search 标准值
+            "length_penalty": 1.0,  # Whisper 官方推荐
             "no_speech_threshold": config.whisper.no_speech_threshold,
             "condition_on_previous_text": config.whisper.condition_on_previous_text,
             "initial_prompt": None,
@@ -153,7 +153,7 @@ class RecognitionEngine:
                 "threshold": config.whisper.vad_threshold,
                 "min_speech_duration_ms": config.whisper.vad_min_speech_duration_ms,
                 "min_silence_duration_ms": config.whisper.vad_min_silence_duration_ms,
-                "speech_pad_ms": config.whisper.vad_speech_pad_ms,
+                "speech_pad_ms": 200,  # Silero VAD 推荐值
             }
             log_info(f"VAD enabled: threshold={config.whisper.vad_threshold}")
 

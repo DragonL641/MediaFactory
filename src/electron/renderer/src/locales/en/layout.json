@@ -1,8 +1,6 @@
 {
-  "menu": {
+  "tabs": {
     "tasks": "Tasks",
-    "models": "Models",
-    "llmConfig": "LLM Config",
     "settings": "Settings"
   },
   "brand": {

@@ -11,7 +11,6 @@ import {
   Space,
   Popconfirm,
   App,
-  Result,
 } from "antd";
 import {
   PlusOutlined,
@@ -25,13 +24,14 @@ import {
   useTasksQuery,
   useCancelTaskMutation,
   useDeleteTaskMutation,
+  useRetryTaskMutation,
   useBatchStartMutation,
   useBatchCancelMutation,
   useBatchClearMutation,
 } from "../../api/queries";
-import type { Task, BatchOperationResponse } from "../../types";
+import { TaskStatus, type Task, type BatchOperationResponse } from "../../types";
 import PageHeader from "../../components/Layout/PageHeader";
-import { EmptyState, PageSkeleton } from "../../components/common";
+import { EmptyState, PageSkeleton, ErrorPage } from "../../components/common";
 import TaskCard from "./TaskCard";
 import CreateTaskDialog from "./CreateTaskDialog";
 import EditTaskDialog from "./EditTaskDialog";
@@ -48,6 +48,7 @@ const TasksPage: React.FC = () => {
   const batchStartMutation = useBatchStartMutation();
   const batchCancelMutation = useBatchCancelMutation();
   const batchClearMutation = useBatchClearMutation();
+  const retryMutation = useRetryTaskMutation();
 
   const handleCancel = (taskId: string) => {
     cancelMutation.mutate(taskId);
@@ -55,6 +56,17 @@ const TasksPage: React.FC = () => {
 
   const handleDelete = (taskId: string) => {
     deleteMutation.mutate(taskId);
+  };
+
+  const handleRetry = (taskId: string) => {
+    retryMutation.mutate(taskId, {
+      onSuccess: () => {
+        message.success(t("tasks:card.retried"));
+      },
+      onError: () => {
+        message.error(t("tasks:card.retryFailed"));
+      },
+    });
   };
 
   const handleBatchStart = () => {
@@ -86,27 +98,14 @@ const TasksPage: React.FC = () => {
   }
 
   if (isError) {
-    return (
-      <div style={{ padding: 48 }}>
-        <Result
-          status="error"
-          title={t("tasks:error.loadFailed")}
-          subTitle={t("common:error.connectFailed")}
-          extra={
-            <Button type="primary" onClick={() => refetch()}>
-              {t("common:error.retry")}
-            </Button>
-          }
-        />
-      </div>
-    );
+    return <ErrorPage title={t("tasks:error.loadFailed")} onRetry={() => refetch()} />;
   }
 
   const taskList = Array.isArray(tasks) ? tasks : [];
-  const hasPendingTasks = taskList.some((t: Task) => t.status === "pending");
-  const hasRunningTasks = taskList.some((t: Task) => t.status === "running");
+  const hasPendingTasks = taskList.some((t: Task) => t.status === TaskStatus.PENDING);
+  const hasRunningTasks = taskList.some((t: Task) => t.status === TaskStatus.RUNNING);
   const hasClearedTasks = taskList.some((t: Task) =>
-    ["completed", "failed", "cancelled"].includes(t.status)
+    [TaskStatus.COMPLETED, TaskStatus.FAILED, TaskStatus.CANCELLED].includes(t.status)
   );
 
   return (
@@ -185,6 +184,7 @@ const TasksPage: React.FC = () => {
               task={task}
               onCancel={() => handleCancel(task.id)}
               onDelete={() => handleDelete(task.id)}
+              onRetry={() => handleRetry(task.id)}
               onEdit={() => setEditTaskId(task.id)}
             />
           ))}

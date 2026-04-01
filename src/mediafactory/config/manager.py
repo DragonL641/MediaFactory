@@ -176,6 +176,15 @@ class AppConfigManager:
                         elif info.model_type == ModelType.WHISPER:
                             whisper_models.append(huggingface_id)
 
+        has_translation_changed = set(translation_models) != set(
+            self._config.model.available_translation_models
+        )
+        has_whisper_changed = set(whisper_models) != set(
+            self._config.model.whisper_models
+        )
+        if not has_translation_changed and not has_whisper_changed:
+            return
+
         self.update(
             model__available_translation_models=translation_models,
             model__whisper_models=whisper_models,

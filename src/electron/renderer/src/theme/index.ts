@@ -1,45 +1,52 @@
 /**
- * 应用主题配置
+ * 应用主题配置 — Soft Bento 设计系统
  *
- * 基于 Ant Design 5 Design Token 系统，统一管理颜色、间距、圆角等设计规范
- * UI风格：简洁高级、颜色协调、重点突出
+ * 暖色混凝土色系，圆角卡片，清晰层次
+ * 基于 Ant Design 5 Design Token 系统
  */
 
 import type { ThemeConfig } from "antd";
 
-// 设计 Token 常量 - 便于全局复用
+// Soft Bento 设计 Token
 export const designTokens = {
-  // 品牌色系 - 偏冷蓝，更高级
-  colorPrimary: "#2563EB",
-  colorPrimaryHover: "#3B82F6",
-  colorPrimaryActive: "#1D4ED8",
+  // 品牌色 - 温暖棕色
+  colorPrimary: "#8F5A3C",
+  colorPrimaryHover: "#A06B4D",
+  colorPrimaryActive: "#7D4E33",
+  colorPrimaryBg: "#FDF8F5",
 
-  // 语义色 - 柔和不刺眼
+  // 功能色
   colorSuccess: "#16A34A",
+  colorSuccessBg: "#F0FDF4",
   colorWarning: "#EA580C",
+  colorWarningBg: "#FFF7ED",
   colorError: "#DC2626",
-  colorInfo: "#0EA5E9",
+  colorErrorBg: "#FEF2F2",
+  colorInfo: "#2563EB",
+  colorInfoBg: "#EFF6FF",
 
   // 文字色阶
-  colorTextHeading: "#111827",
-  colorText: "#374151",
-  colorTextSecondary: "#6B7280",
-  colorTextTertiary: "#9CA3AF",
-  colorTextQuaternary: "#D1D5DB",
+  colorTextHeading: "#1A1A1A",
+  colorText: "#1A1A1A",
+  colorTextSecondary: "#666666",
+  colorTextTertiary: "#999999",
+  colorTextQuaternary: "#CCCCCC",
 
-  // 背景色
-  colorBgLayout: "#F8FAFC",
+  // 表面色
+  colorBgLayout: "#F5F3F0",
   colorBgContainer: "#FFFFFF",
   colorBgElevated: "#FFFFFF",
-  colorBgSpotlight: "#F1F5F9",
+  colorBgSpotlight: "#EEECEA",
+  colorBgInverse: "#1A1A1A",
+  colorTextInverse: "#FFFFFF",
 
-  // 边框
-  colorBorder: "#E5E7EB",
-  colorBorderSecondary: "#F3F4F6",
+  // 边框色
+  colorBorder: "#E5E2DD",
+  colorBorderSecondary: "#EEECEA",
 
   // 圆角
   borderRadius: 8,
-  borderRadiusLG: 12,
+  borderRadiusLG: 16,
   borderRadiusSM: 6,
   borderRadiusXS: 4,
 
@@ -49,11 +56,10 @@ export const designTokens = {
   paddingSM: 12,
   paddingXS: 8,
 
-  // 阴影 - 更轻更柔和
-  boxShadow:
-    "0 1px 3px 0 rgba(0, 0, 0, 0.05), 0 1px 2px -1px rgba(0, 0, 0, 0.05)",
-  boxShadowSecondary:
-    "0 4px 6px -1px rgba(0, 0, 0, 0.07), 0 2px 4px -2px rgba(0, 0, 0, 0.05)",
+  // 阴影 - 柔和
+  boxShadow: "0 1px 2px 0 rgba(0, 0, 0, 0.04)",
+  boxShadowSecondary: "0 4px 6px -1px rgba(0, 0, 0, 0.06)",
+  boxShadowCard: "0 1px 2px 0 rgba(0, 0, 0, 0.04)",
 };
 
 export const appTheme: ThemeConfig = {
@@ -85,33 +91,31 @@ export const appTheme: ThemeConfig = {
     boxShadowSecondary: designTokens.boxShadowSecondary,
 
     fontFamily:
-      '-apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, "Helvetica Neue", sans-serif',
+      '"Inter", -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, "Helvetica Neue", sans-serif',
+    fontFamilyCode: '"Geist Mono", "SF Mono", "Fira Code", monospace',
 
     motionDurationSlow: "0.3s",
     motionDurationMid: "0.2s",
     motionDurationFast: "0.1s",
+
+    fontSize: 14,
+    fontSizeHeading1: 24,
+    fontSizeHeading2: 20,
+    fontSizeHeading3: 16,
+    lineHeight: 1.5,
   },
   components: {
     Layout: {
-      siderBg: "#FFFFFF",
-      headerBg: "#FFFFFF",
+      headerBg: designTokens.colorBgInverse,
       bodyBg: designTokens.colorBgLayout,
-    },
-    Menu: {
-      itemBg: "transparent",
-      itemSelectedBg: `${designTokens.colorPrimary}08`,
-      itemSelectedColor: designTokens.colorPrimary,
-      itemHoverBg: "rgba(0, 0, 0, 0.03)",
-      itemMarginInline: 8,
-      itemBorderRadius: 8,
     },
     Card: {
       paddingLG: 20,
-      borderRadiusLG: 12,
-      boxShadowTertiary: designTokens.boxShadow,
+      borderRadiusLG: 16,
+      boxShadowTertiary: designTokens.boxShadowCard,
     },
     Button: {
-      primaryShadow: "0 1px 2px 0 rgba(37, 99, 235, 0.2)",
+      primaryShadow: "0 1px 2px 0 rgba(143, 90, 60, 0.2)",
       defaultBorderColor: designTokens.colorBorder,
       borderRadius: 8,
       controlHeight: 36,
@@ -132,8 +136,28 @@ export const appTheme: ThemeConfig = {
     Switch: {
       colorPrimary: designTokens.colorPrimary,
     },
+    Select: {
+      borderRadius: 8,
+      controlHeight: 36,
+    },
+    Tooltip: {
+      colorBgSpotlight: "#1A1A1A",
+    },
     Empty: {
       colorTextDescription: designTokens.colorTextTertiary,
+    },
+    Modal: {
+      borderRadiusLG: 16,
+    },
+    Progress: {
+      remainingColor: designTokens.colorBorderSecondary,
+    },
+    Tabs: {
+      horizontalItemPadding: "6px 16px",
+      horizontalItemPaddingLG: "6px 16px",
+      inkBarColor: designTokens.colorPrimary,
+      itemSelectedColor: designTokens.colorText,
+      itemColor: designTokens.colorTextSecondary,
     },
   },
 };

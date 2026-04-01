@@ -1,7 +1,7 @@
 """MediaFactory model utilities subpackage.
 
 This module provides model selection, loading, and management utilities.
-All translation models use MADLAD400 architecture with 400+ language support.
+All translation models use M2M100 architecture with 100+ language support.
 """
 
 from .model_registry import (

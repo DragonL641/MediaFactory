@@ -1,11 +1,15 @@
 /**
  * Python 进程管理器
  *
- * 负责 Python 后端进程的生命周期管理
+ * 负责 Python 后端进程的生命周期管理。
+ *
+ * 开发模式：通过 .venv/bin/python 启动 uvicorn
+ * 生产模式：直接启动 PyInstaller 打包的二进制文件
  */
 
 import { app } from "electron";
 import { ChildProcess, spawn } from "child_process";
+import * as fs from "fs";
 import * as path from "path";
 import * as http from "http";
 
@@ -14,7 +18,10 @@ export class PythonManager {
   private port: number = 8765;
   private baseUrl: string = "";
   private isReady: boolean = false;
-  private maxRetries: number = 3;
+
+  get isRunning(): boolean {
+    return this.isReady;
+  }
   private healthCheckTimeout: number = 30000; // 30 seconds
 
   /**
@@ -25,25 +32,30 @@ export class PythonManager {
     const port = await this.findAvailablePort();
 
     console.log(`[PythonManager] Starting Python backend on port ${port}...`);
-    console.log(`[PythonManager] Python executable: ${pythonExe}`);
+    console.log(`[PythonManager] Executable: ${pythonExe}`);
 
     this.port = port;
     this.baseUrl = `http://127.0.0.1:${port}`;
 
-    const args = [
-      "-m",
-      "uvicorn",
-      "mediafactory.api.main:get_app",
-      "--factory",
-      "--host",
-      "127.0.0.1",
-      "--port",
-      port.toString(),
-    ];
-
-    // 开发模式添加 reload
-    if (!app.isPackaged) {
-      args.push("--reload");
+    let args: string[];
+    if (app.isPackaged) {
+      // 生产模式：直接运行 PyInstaller 二进制，传 --port
+      args = ["--port", port.toString()];
+    } else {
+      // 开发模式：通过 python -m uvicorn 启动
+      args = [
+        "-m",
+        "uvicorn",
+        "mediafactory.api.main:get_app",
+        "--factory",
+        "--host",
+        "127.0.0.1",
+        "--port",
+        port.toString(),
+        "--reload",
+        "--reload-dir",
+        "src/mediafactory",
+      ];
     }
 
     return new Promise((resolve, reject) => {
@@ -147,23 +159,19 @@ export class PythonManager {
   }
 
   /**
-   * 获取 Python 可执行文件路径
+   * 获取后端可执行文件路径
+   *
+   * 生产模式：返回 PyInstaller 打包的二进制 (extraResources/python/MediaFactory)
+   * 开发模式：返回 .venv/bin/python
    */
   private getPythonExecutable(): string {
     if (app.isPackaged) {
-      // 生产模式：使用打包的 Python
-      const appPath = app.getAppPath();
-      if (process.platform === "darwin") {
-        return path.join(appPath, "Contents/MacOS/python/bin/python");
-      } else if (process.platform === "win32") {
-        return path.join(appPath, "python/python.exe");
-      }
+      const binaryName = process.platform === "win32" ? "MediaFactory.exe" : "MediaFactory";
+      return path.join(process.resourcesPath, "python", binaryName);
     }
 
-    // 开发模式：使用系统 Python 或虚拟环境
-    // 优先使用虚拟环境
-    const venvPython = path.join(process.cwd(), ".venv/bin/python");
-    const fs = require("fs");
+    // 开发模式：优先使用虚拟环境
+    const venvPython = path.join(process.cwd(), ".venv", "bin", "python");
     if (fs.existsSync(venvPython)) {
       return venvPython;
     }
@@ -177,7 +185,10 @@ export class PythonManager {
    */
   private getAppRoot(): string {
     if (app.isPackaged) {
-      return path.dirname(app.getAppPath());
+      // PyInstaller 二进制需要从包含 config.toml 等资源的目录运行
+      // macOS: MediaFactory.app/Contents/
+      // Windows: MediaFactory/
+      return path.join(process.resourcesPath, "..");
     }
     return process.cwd();
   }

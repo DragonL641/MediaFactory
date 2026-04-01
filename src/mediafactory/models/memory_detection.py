@@ -114,12 +114,12 @@ def get_translation_model_recommendations(
     recommendations = []
     for model_info in all_models:
         can_run = memory_info.can_run_model(model_info.runtime_memory_gb)
-        is_downloaded = model_info.model_id in downloaded_models
-        is_recommended = model_info.model_id == best_model
+        is_downloaded = model_info.huggingface_id in downloaded_models
+        is_recommended = model_info.huggingface_id == best_model
 
         recommendations.append(
             ModelRecommendation(
-                model_id=model_info.model_id,
+                model_id=model_info.huggingface_id,
                 display_name=model_info.display_name,
                 runtime_memory_gb=model_info.runtime_memory_gb,
                 recommended_system_gb=model_info.recommended_system_gb,

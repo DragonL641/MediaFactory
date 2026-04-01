@@ -1,31 +1,54 @@
 {
   "pageHeader": {
     "title": "Settings",
-    "description": "Configure default behavior of MediaFactory"
+    "description": "Configure models, providers and processing parameters"
+  },
+  "sections": {
+    "speechRecognition": "Speech Recognition",
+    "localTranslation": "Local Translation Models",
+    "remoteLLM": "Remote LLM Providers",
+    "videoEnhancement": "Video Enhancement",
+    "general": "General"
+  },
+  "subSections": {
+    "superResolution": "Super Resolution Models",
+    "videoDenoising": "Video Denoising"
   },
   "whisper": {
     "title": "Whisper Transcription",
     "beamSize": "Beam Size",
     "beamSizeTooltip": "Higher values improve accuracy but slow down transcription",
-    "vadThreshold": "VAD Threshold",
-    "vadThresholdTooltip": "Threshold for voice detection (0-1)",
     "vadFilter": "VAD Filter",
-    "vadFilterTooltip": "Voice Activity Detection - filters out silence",
-    "wordTimestamps": "Word-level Timestamps",
-    "wordTimestampsTooltip": "Generate timestamps for each word"
+    "vadFilterTooltip": "Voice Activity Detection - filters out silence"
+  },
+  "llmApi": {
+    "title": "LLM Translation",
+    "timeout": "Timeout",
+    "timeoutTooltip": "Timeout for each LLM API request in seconds",
+    "temperature": "Temperature",
+    "temperatureTooltip": "Controls translation creativity. Lower = more deterministic, Higher = more varied"
+  },
+  "model": {
+    "downloadSource": "Download Source",
+    "downloadSourceTooltip": "Model download mirror. Use hf-mirror.com in China, huggingface.co otherwise"
   },
   "actions": {
     "reload": "Reload",
-    "saveToDisk": "Save to Disk",
     "apply": "Apply"
   },
   "messages": {
     "configUpdated": "Configuration updated",
     "configReloaded": "Configuration reloaded",
-    "savedToDisk": "Saved to disk",
     "updateFailed": "Failed to update config"
   },
   "error": {
     "loadFailed": "Failed to load settings"
+  },
+  "general": {
+    "downloadTimeout": "Download Timeout",
+    "downloadTimeoutTooltip": "Timeout for model download requests in seconds",
+    "logRetention": "Log Retention",
+    "logRetentionTooltip": "Automatically delete logs older than this many days",
+    "days": "days"
   }
 }

@@ -3,7 +3,7 @@
 This module manages both Whisper and translation models using the unified model registry.
 Supports:
 - Whisper models for speech recognition
-- MADLAD400 translation models with Apache 2.0 license for commercial use
+- M2M100 translation models with MIT license for commercial use
 """
 
 import gc
@@ -33,7 +33,7 @@ class LocalModelManager:
     This class provides model discovery, loading, and management using
     the unified model registry. Supports both:
     - Whisper models (speech recognition)
-    - Translation models (MADLAD400 with Apache 2.0 license)
+    - Translation models (M2M100 with MIT license)
     """
 
     def __init__(self):
@@ -146,7 +146,7 @@ class LocalModelManager:
         """Get model from local storage.
 
         Args:
-            huggingface_id: HuggingFace 模型 ID（如 "google/madlad400-3b-mt"）
+            huggingface_id: HuggingFace 模型 ID（如 "facebook/m2m100_1.2B"）
             device: Device to load model on ("cpu", "cuda", etc.)
             src_lang: Source language code
             tgt_lang: Target language code
@@ -155,6 +155,18 @@ class LocalModelManager:
         Returns:
             Tuple of (translation_callable, is_local_flag), or (None, False) if not found
         """
+        # 检查已加载的模型是否可复用（避免重复加载）
+        with self._models_lock:
+            if huggingface_id in self._loaded_models:
+                cached_model, cached_tokenizer = self._loaded_models[huggingface_id]
+                if cached_model is not None and cached_tokenizer is not None:
+                    log_info(f"[LocalModelManager] 模型已加载，直接复用: {huggingface_id}")
+                    translate_callable = self._create_translate_callable(
+                        cached_model, cached_tokenizer, huggingface_id,
+                        src_lang, tgt_lang,
+                    )
+                    return translate_callable, True
+
         # Lazy import ML dependencies (not bundled in PyInstaller)
         import torch
 
@@ -249,7 +261,7 @@ class LocalModelManager:
             start_time = time.time()
             try:
                 model = AutoModelForSeq2SeqLM.from_pretrained(
-                    local_path, torch_dtype=torch_dtype
+                    local_path, dtype=torch_dtype
                 )
             finally:
                 # Always stop heartbeat, even if loading fails
@@ -278,114 +290,15 @@ class LocalModelManager:
             else:
                 log_info(f"[LocalModelManager] Using CPU device")
 
-            # 使用弱引用避免循环引用（闭包捕获模型对象）
-            model_ref = weakref.ref(model)
-            tokenizer_ref = weakref.ref(tokenizer)
-
             # 记录已加载的模型，用于卸载
             with self._models_lock:
                 self._loaded_models[huggingface_id] = (model, tokenizer)
             log_debug(f"[LocalModelManager] Model tracked for cleanup: {huggingface_id}")
 
-            # Create a translation callable
-            def translate_callable(
-                text: str,
-                max_length: int = 512,
-                truncation: bool = True,
-                **kwargs,
-            ):
-                """Translation callable compatible with pipeline interface."""
-                # 通过弱引用访问模型，避免循环引用
-                m = model_ref()
-                t = tokenizer_ref()
-                if m is None or t is None:
-                    raise RuntimeError(
-                        f"Translation model '{huggingface_id}' has been released. "
-                        "Please reload the model before translating."
-                    )
-
-                log_debug(
-                    f"[Translation] Input: {text[:80]}..."
-                    if len(text) > 80
-                    else f"[Translation] Input: {text}"
-                )
-
-                # Check if this is an M2M100 model
-                is_m2m100 = self._is_m2m100_model(huggingface_id)
-
-                if is_m2m100:
-                    # M2M100 翻译方式
-                    # 需要设置源语言，并使用 forced_bos_token_id 指定目标语言
-                    src_code = self._get_m2m100_lang_code(src_lang) if src_lang else "en"
-                    tgt_code = self._get_m2m100_lang_code(tgt_lang) if tgt_lang else "en"
-
-                    if src_code is None:
-                        log_warning(f"Unsupported source language for M2M100: {src_lang}, using 'en'")
-                        src_code = "en"
-                    if tgt_code is None:
-                        log_warning(f"Unsupported target language for M2M100: {tgt_lang}, using 'en'")
-                        tgt_code = "en"
-
-                    log_debug(f"[Translation] M2M100: {src_code} -> {tgt_code}")
-
-                    # 设置源语言
-                    t.src_lang = src_code
-
-                    # 编码输入
-                    inputs = t(
-                        text,
-                        return_tensors="pt",
-                        truncation=truncation,
-                        max_length=max_length,
-                    )
-
-                    # Move inputs to same device as model
-                    inputs = {k: v.to(m.device) for k, v in inputs.items()}
-
-                    # 生成翻译，使用 forced_bos_token_id 指定目标语言
-                    forced_bos_token_id = t.get_lang_id(tgt_code)
-                    gen_kwargs = {
-                        "max_length": max_length,
-                        "forced_bos_token_id": forced_bos_token_id,
-                    }
-                else:
-                    # MADLAD400 翻译方式
-                    # 在输入文本前添加目标语言标签，格式: "<2xx> 原文本"
-                    input_text = text
-                    if tgt_lang:
-                        tgt_token = self._get_target_language_token(
-                            huggingface_id, tgt_lang
-                        )
-                        if tgt_token:
-                            input_text = f"{tgt_token} {text}"
-                            log_debug(f"[Translation] Target language token: {tgt_token}")
-
-                    inputs = t(
-                        input_text,
-                        return_tensors="pt",
-                        truncation=truncation,
-                        max_length=max_length,
-                    )
-
-                    # Move inputs to same device as model
-                    inputs = {k: v.to(m.device) for k, v in inputs.items()}
-
-                    # Generate translation
-                    gen_kwargs = {"max_length": max_length}
-
-                with torch.no_grad():
-                    translated = m.generate(**inputs, **gen_kwargs)
-
-                # Decode and return in pipeline-compatible format
-                translated_text = t.decode(
-                    translated[0], skip_special_tokens=True
-                )
-                log_debug(
-                    f"[Translation] Output: {translated_text[:80]}..."
-                    if len(translated_text) > 80
-                    else f"[Translation] Output: {translated_text}"
-                )
-                return [{"translation_text": translated_text}]
+            # 使用预解析语言代码的 callable
+            translate_callable = self._create_translate_callable(
+                model, tokenizer, huggingface_id, src_lang, tgt_lang,
+            )
 
             if progress:
                 progress.update(15, "Model loaded successfully")
@@ -396,57 +309,8 @@ class LocalModelManager:
             log_error(f"Failed to load model {huggingface_id} from {local_path}: {e}")
             return None, False
 
-    def _get_target_language_token(
-        self, huggingface_id: str, tgt_lang: str
-    ) -> Optional[str]:
-        """Get the target language token for a model.
-
-        Args:
-            huggingface_id: HuggingFace 模型 ID
-            tgt_lang: Target language code
-
-        Returns:
-            Language token string, or None if not applicable
-        """
-        # MADLAD400 使用 ISO 639-1 格式的语言 token: "<2xx>"
-        # 参考: https://huggingface.co/google/madlad400-3b-mt
-        lang_code_map = {
-            "zh": "<2zh>",
-            "en": "<2en>",
-            "ja": "<2ja>",
-            "ko": "<2ko>",
-            "fr": "<2fr>",
-            "de": "<2de>",
-            "es": "<2es>",
-            "ru": "<2ru>",
-            "it": "<2it>",
-            "pt": "<2pt>",
-            "nl": "<2nl>",
-            "ar": "<2ar>",
-            "hi": "<2hi>",
-            "vi": "<2vi>",
-            "th": "<2th>",
-            "tr": "<2tr>",
-            "pl": "<2pl>",
-            "uk": "<2uk>",
-            "id": "<2id>",
-            "ms": "<2ms>",
-        }
-        return lang_code_map.get(tgt_lang.lower())
-
-    def _is_m2m100_model(self, huggingface_id: str) -> bool:
-        """Check if the model is an M2M100 variant.
-
-        Args:
-            huggingface_id: HuggingFace 模型 ID
-
-        Returns:
-            True if the model is M2M100, False otherwise
-        """
-        return "m2m100" in huggingface_id.lower()
-
-    def _get_m2m100_lang_code(self, lang: str) -> Optional[str]:
-        """Get M2M100 language code.
+    def _get_lang_code(self, lang: str) -> Optional[str]:
+        """Get language code for M2M100.
 
         M2M100 uses ISO 639-1 codes directly.
 
@@ -457,7 +321,7 @@ class LocalModelManager:
             M2M100 language code, or None if not supported
         """
         # M2M100 支持的语言代码（ISO 639-1）
-        # 参考: https://huggingface.co/facebook/m2m100_418M
+        # 参考: https://huggingface.co/facebook/m2m100_1.2B
         m2m100_supported = {
             "zh", "en", "ja", "ko", "fr", "de", "es", "ru", "it", "pt",
             "nl", "ar", "hi", "vi", "th", "tr", "pl", "uk", "id", "ms",
@@ -467,8 +331,9 @@ class LocalModelManager:
             "eu", "gl", "ka", "kk", "km", "ky", "lo", "mk", "mn", "my",
             "ps", "sq", "tg", "tk", "uz", "xh", "yo", "zu"
         }
-        lang_lower = lang.lower()
-        return lang_lower if lang_lower in m2m100_supported else None
+        # 提取主语言代码，忽略 locale 标签（如 zh-CN → zh）
+        primary = lang.lower().split("-")[0].split("_")[0]
+        return primary if primary in m2m100_supported else None
 
     def _log_model_not_found_error(self, huggingface_id: str) -> None:
         """Log error when model is not found locally.
@@ -498,7 +363,7 @@ class LocalModelManager:
         """Map generic language codes to model-specific language codes.
 
         This method is kept for backward compatibility.
-        All MADLAD400 models use the same language token format.
+        M2M100 uses ISO 639-1 language codes directly.
 
         Args:
             lang: Generic language code (e.g., "zh", "en")
@@ -507,14 +372,98 @@ class LocalModelManager:
         Returns:
             Model-specific language code
         """
-        # MADLAD400 使用统一的语言代码
         return lang
+
+    def _create_translate_callable(
+        self,
+        model,
+        tokenizer,
+        huggingface_id: str,
+        src_lang: Optional[str],
+        tgt_lang: Optional[str],
+    ):
+        """创建翻译 callable，复用已加载的模型和 tokenizer。
+
+        语言代码在创建时解析一次，避免每次翻译调用时重复解析。
+
+        """
+        import torch
+
+        # 创建时预解析语言代码
+        src_code = self._get_lang_code(src_lang) if src_lang else "en"
+        if src_code is None:
+            log_warning(f"Unsupported source language for M2M100: {src_lang}, using 'en'")
+            src_code = "en"
+        tgt_code = self._get_lang_code(tgt_lang) if tgt_lang else "en"
+        if tgt_code is None:
+            log_warning(f"Unsupported target language for M2M100: {tgt_lang}, using 'en'")
+            tgt_code = "en"
+
+        # 使用弱引用避免循环引用
+        model_ref = weakref.ref(model)
+        tokenizer_ref = weakref.ref(tokenizer)
+        # 闭包捕获预解析的值
+        _src_code = src_code
+        _tgt_code = tgt_code
+
+        forced_bos_token_id = tokenizer.get_lang_id(tgt_code)
+
+        def translate_callable(
+            text: str,
+            max_length: int = 512,
+            truncation: bool = True,
+            **kwargs,
+        ):
+            m = model_ref()
+            t = tokenizer_ref()
+            if m is None or t is None:
+                raise RuntimeError(
+                    f"Translation model '{huggingface_id}' has been released. "
+                    "Please reload the model before translating."
+                )
+
+            log_debug(
+                f"[Translation] Input: {text[:80]}..."
+                if len(text) > 80
+                else f"[Translation] Input: {text}"
+            )
+
+            log_debug(f"[Translation] M2M100: {_src_code} -> {_tgt_code}")
+
+            t.src_lang = _src_code
+            inputs = t(
+                text,
+                return_tensors="pt",
+                truncation=truncation,
+                max_length=max_length,
+            )
+            inputs = {k: v.to(m.device) for k, v in inputs.items()}
+
+            gen_kwargs = {
+                "max_length": max_length,
+                "forced_bos_token_id": forced_bos_token_id,
+            }
+
+            with torch.no_grad():
+                translated = m.generate(**inputs, **gen_kwargs)
+
+            translated_text = t.decode(
+                translated[0], skip_special_tokens=True
+            )
+            log_debug(
+                f"[Translation] Output: {translated_text[:80]}..."
+                if len(translated_text) > 80
+                else f"[Translation] Output: {translated_text}"
+            )
+            return [{"translation_text": translated_text}]
+
+        return translate_callable
 
     def unload_translation_model(self, huggingface_id: str) -> bool:
         """卸载指定的翻译模型以释放内存。
 
         Args:
-            huggingface_id: HuggingFace 模型 ID（如 "google/madlad400-3b-mt"）
+            huggingface_id: HuggingFace 模型 ID（如 "facebook/m2m100_1.2B"）
 
         Returns:
             True 如果模型成功卸载，False 如果模型未加载

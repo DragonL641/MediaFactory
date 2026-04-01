@@ -8,7 +8,7 @@ Uses the unified model registry with huggingface_id as identifier.
 Usage:
     python download_model.py <huggingface_id> [options]
     python download_model.py Systran/faster-whisper-large-v3
-    python download_model.py google/madlad400-3b-mt --source=https://hf-mirror.com
+    python download_model.py facebook/m2m100_1.2B --source=https://hf-mirror.com
 
 This is a CLI wrapper around the core download functionality in
 src/mediafactory/models/model_download.py

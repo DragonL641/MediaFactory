@@ -12,7 +12,7 @@ from mediafactory.engine.srt import SRTEngine
 from mediafactory.llm import initialize_llm_backend
 from mediafactory.pipeline import Pipeline
 from mediafactory.pipeline.context import ProcessingContext, ProcessingResult
-from mediafactory.logging import log_info, log_error, log_error_with_context
+from mediafactory.logging import log_info, log_error, log_error_with_context, log_warning
 from mediafactory.core.progress_protocol import ProgressCallback, NO_OP_PROGRESS
 from mediafactory.api.error_handler import sanitize_error
 
@@ -33,6 +33,15 @@ class TranslationService:
         if self._local_engine is None:
             self._local_engine = TranslationEngine()
         return self._local_engine
+
+    async def _translate_locally(self, text: str, target_lang: str) -> str:
+        """使用本地引擎翻译单条文本。"""
+        loop = asyncio.get_running_loop()
+        wrapped = {"segments": [{"text": text}]}
+        result = await loop.run_in_executor(
+            None, self.local_engine.translate, wrapped, "auto", target_lang
+        )
+        return result["segments"][0]["text"]
 
     async def translate_text(
         self,
@@ -60,22 +69,28 @@ class TranslationService:
             if use_llm:
                 backend = initialize_llm_backend(self.config, preset=llm_preset)
                 if backend and backend.is_available:
-                    loop = asyncio.get_event_loop()
-                    result = await loop.run_in_executor(
-                        None, lambda: backend.translate(text, target_lang)
-                    )
-                    translated_text = result.translated_text
+                    try:
+                        from mediafactory.llm import TranslationRequest
+
+                        loop = asyncio.get_running_loop()
+                        request = TranslationRequest(
+                            text=text, src_lang="auto", tgt_lang=target_lang
+                        )
+                        result = await loop.run_in_executor(
+                            None, backend.translate, request
+                        )
+                        if result.success:
+                            translated_text = result.translated_text
+                        else:
+                            raise Exception(result.error_message or "LLM translation failed")
+                    except Exception as e:
+                        log_warning(f"LLM text translation failed: {e}, falling back to local model")
+                        translated_text = await self._translate_locally(text, target_lang)
                 else:
                     log_error("LLM backend 不可用，回退到本地模型")
-                    loop = asyncio.get_event_loop()
-                    translated_text = await loop.run_in_executor(
-                        None, lambda: self.local_engine.translate(text, target_lang)
-                    )
+                    translated_text = await self._translate_locally(text, target_lang)
             else:
-                loop = asyncio.get_event_loop()
-                translated_text = await loop.run_in_executor(
-                    None, lambda: self.local_engine.translate(text, target_lang)
-                )
+                translated_text = await self._translate_locally(text, target_lang)
 
             progress.update(100, "Translation completed")
 
@@ -166,7 +181,7 @@ class TranslationService:
             # 创建并执行 Pipeline（Translation → SRT Generation）
             pipeline = Pipeline.create_translation_only(translation_engine, srt_engine)
 
-            loop = asyncio.get_event_loop()
+            loop = asyncio.get_running_loop()
             result = await loop.run_in_executor(None, pipeline.execute, context)
 
             if not result.success:

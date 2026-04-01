@@ -4,10 +4,13 @@
  * 处理渲染进程与主进程之间的通信
  */
 
-import { app, dialog, ipcMain, shell } from "electron";
+import { app, BrowserWindow, dialog, ipcMain, shell } from "electron";
 import { PythonManager } from "./pythonManager";
 
-export function registerIpcHandlers(pythonManager: PythonManager): void {
+export function registerIpcHandlers(
+  pythonManager: PythonManager,
+  mainWindow: BrowserWindow | null,
+): void {
   // 获取 API URL
   ipcMain.handle("get-api-url", () => {
     return pythonManager.getBaseUrl();
@@ -89,6 +92,27 @@ export function registerIpcHandlers(pythonManager: PythonManager): void {
       isWindows: process.platform === "win32",
       isLinux: process.platform === "linux",
     };
+  });
+
+  // 窗口控制（Windows 无边框窗口需要）
+  ipcMain.handle("window-minimize", () => {
+    mainWindow?.minimize();
+  });
+
+  ipcMain.handle("window-maximize", () => {
+    if (mainWindow?.isMaximized()) {
+      mainWindow.unmaximize();
+    } else {
+      mainWindow?.maximize();
+    }
+  });
+
+  ipcMain.handle("window-close", () => {
+    mainWindow?.close();
+  });
+
+  ipcMain.handle("window-is-maximized", () => {
+    return mainWindow?.isMaximized() ?? false;
   });
 
   console.log("[IPC] Handlers registered");

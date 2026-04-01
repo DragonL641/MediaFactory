@@ -160,7 +160,7 @@ class TranslationStage(SkipableStage):
                         log_info(f"Available models: {', '.join(downloaded_models)}")
                     else:
                         log_info(
-                            "Please run: python scripts/utils/download_model.py google/madlad400-3b-mt"
+                            "Please run: python scripts/utils/download_model.py facebook/m2m100_1.2B"
                         )
             elif not downloaded_models:
                 log_warning(
@@ -168,7 +168,7 @@ class TranslationStage(SkipableStage):
                     f"{get_language_name(src_lang)} -> {get_language_name(ctx.tgt_lang)}."
                 )
                 log_info(
-                    "Please run: python scripts/utils/download_model.py google/madlad400-3b-mt"
+                    "Please run: python scripts/utils/download_model.py facebook/m2m100_1.2B"
                 )
 
         # 里程碑进度：开始语言检测

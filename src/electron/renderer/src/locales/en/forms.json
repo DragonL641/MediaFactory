@@ -8,7 +8,12 @@
     "french": "French",
     "german": "German",
     "spanish": "Spanish",
-    "russian": "Russian"
+    "russian": "Russian",
+    "arabic": "Arabic",
+    "hindi": "Hindi",
+    "italian": "Italian",
+    "portuguese": "Portuguese",
+    "dutch": "Dutch"
   },
   "outputFormat": {
     "srt": "SRT Subtitles",

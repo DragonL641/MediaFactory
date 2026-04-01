@@ -29,6 +29,12 @@ export interface ElectronAPI {
   quitApp: () => Promise<void>;
   restartApp: () => Promise<void>;
 
+  // 窗口控制
+  windowMinimize: () => Promise<void>;
+  windowMaximize: () => Promise<void>;
+  windowClose: () => Promise<void>;
+  windowIsMaximized: () => Promise<boolean>;
+
   // 事件监听
   onUpdateAvailable: (callback: (version: string) => void) => void;
   onPythonError: (callback: (error: string) => void) => void;
@@ -85,6 +91,12 @@ const electronAPI: ElectronAPI = {
   // 应用控制
   quitApp: () => ipcRenderer.invoke("quit-app"),
   restartApp: () => ipcRenderer.invoke("restart-app"),
+
+  // 窗口控制
+  windowMinimize: () => ipcRenderer.invoke("window-minimize"),
+  windowMaximize: () => ipcRenderer.invoke("window-maximize"),
+  windowClose: () => ipcRenderer.invoke("window-close"),
+  windowIsMaximized: () => ipcRenderer.invoke("window-is-maximized"),
 
   // 事件监听
   onUpdateAvailable: (callback) => {

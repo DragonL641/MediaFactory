@@ -38,7 +38,7 @@ def _invalidate_models_status_cache():
 
 class DownloadRequest(BaseModel):
     """下载请求"""
-    source: str = "official"  # official, mirror
+    pass
 
 
 class LLMTestRequest(BaseModel):
@@ -116,94 +116,55 @@ async def get_models_status() -> Dict[str, Any]:
     return result
 
 
+def _get_model_statuses_by_type(model_type) -> List[Dict[str, Any]]:
+    """从 MODEL_REGISTRY 获取指定类型模型的状态列表"""
+    from mediafactory.models.model_registry import (
+        MODEL_REGISTRY,
+        ModelType,
+        is_model_downloaded,
+        is_model_complete,
+    )
+
+    def _format_size(mb: int) -> str:
+        if mb >= 1024:
+            return f"{mb // 1024} GB"
+        return f"{mb} MB"
+
+    result = []
+    for model_id, info in MODEL_REGISTRY.items():
+        if info.model_type != model_type:
+            continue
+        downloaded = is_model_downloaded(model_id)
+        result.append({
+            "id": model_id,
+            "name": info.display_name,
+            "purpose": info.purpose or info.display_name,
+            "size": _format_size(info.model_size_mb),
+            "memory": _format_size(info.runtime_memory_mb),
+            "vram": _format_size(info.runtime_vram_mb) if info.runtime_vram_mb else "",
+            "description": info.description or "",
+            "downloaded": downloaded,
+            "complete": is_model_complete(model_id) if downloaded else False,
+        })
+    return result
+
+
 def _get_whisper_model_statuses() -> List[Dict[str, Any]]:
     """获取 Whisper 模型状态列表"""
-    from mediafactory.models.model_registry import is_model_downloaded, is_model_complete
-
-    whisper_models = [
-        {
-            "id": "Systran/faster-whisper-large-v3",
-            "name": "Whisper Large V3",
-            "size": "~3 GB",
-            "memory": "~6 GB",
-            "description": "Best quality for speech recognition",
-            "downloaded": False,
-            "complete": False,
-        },
-    ]
-
-    for model in whisper_models:
-        model["downloaded"] = is_model_downloaded(model["id"])
-        if model["downloaded"]:
-            model["complete"] = is_model_complete(model["id"])
-
-    return whisper_models
+    from mediafactory.models.model_registry import ModelType
+    return _get_model_statuses_by_type(ModelType.WHISPER)
 
 
 def _get_enhancement_model_statuses(config) -> List[Dict[str, Any]]:
     """获取 Real-ESRGAN 增强模型状态"""
-    from mediafactory.models.model_registry import is_model_downloaded, is_model_complete
-
-    enhancement_models = [
-        {
-            "id": "RealESRGAN_x2plus",
-            "name": "Real-ESRGAN x2plus",
-            "size": "~64 MB",
-            "memory": "~1.2 GB",
-            "description": "2x general super resolution",
-            "downloaded": False,
-            "complete": False,
-        },
-        {
-            "id": "RealESRGAN_x4plus",
-            "name": "Real-ESRGAN x4plus",
-            "size": "~67 MB",
-            "memory": "~2.4 GB",
-            "description": "4x general super resolution",
-            "downloaded": False,
-            "complete": False,
-        },
-        {
-            "id": "RealESRGAN_x4plus_anime_6B",
-            "name": "Real-ESRGAN x4plus Anime",
-            "size": "~18 MB",
-            "memory": "~2.4 GB",
-            "description": "4x anime super resolution",
-            "downloaded": False,
-            "complete": False,
-        },
-    ]
-
-    for model in enhancement_models:
-        model["downloaded"] = is_model_downloaded(model["id"])
-        if model["downloaded"]:
-            model["complete"] = is_model_complete(model["id"])
-
-    return enhancement_models
+    from mediafactory.models.model_registry import ModelType
+    return _get_model_statuses_by_type(ModelType.SUPER_RESOLUTION)
 
 
 def _get_denoise_model_statuses(config) -> List[Dict[str, Any]]:
     """获取 NAFNet 降噪模型状态"""
-    from mediafactory.models.model_registry import is_model_downloaded, is_model_complete
-
-    denoise_models = [
-        {
-            "id": "NAFNet-GoPro-width64",
-            "name": "NAFNet Width64",
-            "size": "~260 MB",
-            "memory": "~1.5 GB",
-            "description": "Real image denoising",
-            "downloaded": False,
-            "complete": False,
-        },
-    ]
-
-    for model in denoise_models:
-        model["downloaded"] = is_model_downloaded(model["id"])
-        if model["downloaded"]:
-            model["complete"] = is_model_complete(model["id"])
-
-    return denoise_models
+    from mediafactory.models.model_registry import ModelType
+    return _get_model_statuses_by_type(ModelType.DENOISE)
 
 
 @router.get("/whisper")
@@ -246,7 +207,7 @@ async def get_llm_status() -> Dict[str, Any]:
     }
 
 
-@router.post("/download/{model_id}")
+@router.post("/download/{model_id:path}")
 async def start_model_download(
     model_id: str,
     request: DownloadRequest = DownloadRequest(),
@@ -260,10 +221,11 @@ async def start_model_download(
     from mediafactory.api.schemas import TaskConfig, TaskType
     from mediafactory.api.websocket import manager as ws_manager
 
-    # 选择下载源
-    endpoint = None
-    if request.source == "mirror":
-        endpoint = "https://hf-mirror.com"
+    # 从配置读取下载源
+    from mediafactory.config import get_config
+    download_config = get_config()
+    download_source = download_config.model.download_source
+    endpoint = None if download_source == "https://huggingface.co" else download_source
 
     # 启动下载任务
     task_manager = get_task_manager()
@@ -281,6 +243,12 @@ async def start_model_download(
     async def _execute_download_task():
         """执行模型下载任务"""
         from mediafactory.models.model_download import download_model
+        from mediafactory.api.schemas import TaskStatus as TS, TaskResult as TR
+
+        loop = asyncio.get_running_loop()
+
+        # 更新任务状态为 RUNNING
+        await task_manager.update_task_status(task_id, TS.RUNNING)
 
         async def _progress_callback(progress: float, msg: str = ""):
             await ws_manager.broadcast_progress(
@@ -293,7 +261,10 @@ async def start_model_download(
 
         try:
             def sync_progress(p: float, m: str = ""):
-                asyncio.run(_progress_callback(p, m))
+                # 从轮询线程安全地调度到主事件循环
+                loop.call_soon_threadsafe(
+                    lambda: asyncio.ensure_future(_progress_callback(p, m))
+                )
 
             download_model(
                 model_id,
@@ -303,6 +274,13 @@ async def start_model_download(
 
             _invalidate_models_status_cache()
 
+            # 更新任务状态为 COMPLETED
+            await task_manager.update_task_status(
+                task_id, TS.COMPLETED,
+                progress=100, stage="download",
+                result=TR(task_id=task_id, success=True, output_path=f"models/{model_id}"),
+            )
+
             await ws_manager.broadcast_task_complete(
                 task_id=task_id,
                 success=True,
@@ -311,6 +289,14 @@ async def start_model_download(
 
         except Exception as e:
             logger.exception(f"Download failed: {e}")
+            # 更新任务状态为 FAILED
+            await task_manager.update_task_status(
+                task_id, TS.FAILED, stage="download",
+                result=TR(
+                    task_id=task_id, success=False, error=sanitize_error(e),
+                    error_type=type(e).__name__,
+                ),
+            )
             await ws_manager.broadcast_task_complete(
                 task_id=task_id,
                 success=False,
@@ -327,7 +313,7 @@ async def start_model_download(
     }
 
 
-@router.delete("/{model_id}")
+@router.delete("/{model_id:path}")
 async def delete_model(model_id: str):
     """删除模型"""
     from mediafactory.models.model_download import delete_model as delete_model_func

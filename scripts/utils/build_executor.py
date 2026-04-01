@@ -180,6 +180,14 @@ def build_macos(version: Optional[str] = None) -> int:
         log_error("PyInstaller 失败")
         return 1
 
+    # 复制 PyInstaller COLLECT 产物到 dist/python/（electron-builder 需要）
+    project_root = get_project_root()
+    python_dist = project_root / "dist" / "python"
+    if python_dist.exists():
+        shutil.rmtree(python_dist)
+    shutil.copytree(project_root / "dist" / PROJECT_NAME, python_dist)
+    log_info(f"已复制到 {python_dist}（用于 Electron 打包）")
+
     if not create_zip_archive(version):
         log_error("ZIP 创建失败")
         return 1
