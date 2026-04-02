@@ -142,7 +142,7 @@ class AppConfigManager:
             - 模型删除后
             - 手动刷新时
         """
-        from ..models.model_download import is_model_complete
+        from ..models.model_registry import is_model_complete
         from ..models.model_registry import MODEL_REGISTRY, ModelType
         from .defaults import get_app_root_dir
 

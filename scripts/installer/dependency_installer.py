@@ -164,8 +164,8 @@ def detect_cuda() -> Tuple[bool, Optional[str]]:
             timeout=10
         )
         if result.returncode == 0 and result.stdout.strip():
-            # nvidia-smi -L 能运行，说明有 GPU，统一使用 cu124
-            return True, "12.4"
+            # nvidia-smi -L 能运行，说明有 GPU，统一使用 cu128
+            return True, "12.8"
     except (FileNotFoundError, subprocess.TimeoutExpired):
         pass
     except Exception:
@@ -203,18 +203,18 @@ def check_disk_space(required_gb: float = 15) -> Tuple[bool, float]:
 
 
 def get_recommended_torch_version(cuda_version: Optional[str]) -> str:
-    """根据 CUDA 版本推荐 PyTorch 版本（固定 cu124）
+    """根据 CUDA 版本推荐 PyTorch 版本（固定 cu128）
 
     Args:
         cuda_version: CUDA 版本或 None
 
     Returns:
-        推荐的 PyTorch 版本标识 (cu124 或 cpu)
+        推荐的 PyTorch 版本标识 (cu128 或 cpu)
     """
     if not cuda_version:
         return "cpu"
-    # 统一使用 CUDA 12.4 (cu124)
-    return "cu124"
+    # 统一使用 CUDA 12.8 (cu128)
+    return "cu128"
 
 
 class DependencyInstaller:
@@ -234,7 +234,7 @@ class DependencyInstaller:
     # - torch>=2.5.0: PyTorch 2.5.x 系列，支持 CUDA 12.4
     # - faster-whisper>=1.0.0: Whisper 语音识别
     # - gguf>=0.10.0: GGUF 模型加载支持
-    # - transformers>=4.46.0,<5.0.0: Transformers 4.46.x
+    # - transformers>=4.52.1,<5.0.0: Transformers 4.52.1+（修复 CVE-2025-3933）
     # - sentencepiece>=0.1.99: 分词器支持
     # - accelerate>=1.0.0: 加速库支持
     # - spandrel>=0.4.0: 统一模型加载库（视频增强）
@@ -243,7 +243,7 @@ class DependencyInstaller:
         "torch>=2.5.0",
         "faster-whisper>=1.0.0",
         "gguf>=0.10.0",
-        "transformers>=4.46.0,<5.0.0",
+        "transformers>=4.52.1,<5.0.0",
         "sentencepiece>=0.1.99",
         "accelerate>=1.0.0",
         "spandrel>=0.4.0",

@@ -16,6 +16,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from mediafactory.api.routes import config, models, processing
 from mediafactory.api.websocket import manager as ws_manager
+from mediafactory._version import get_version
 
 logger = logging.getLogger(__name__)
 
@@ -67,7 +68,7 @@ def create_app() -> FastAPI:
     app = FastAPI(
         title="MediaFactory API",
         description="多媒体处理平台 API",
-        version="0.2.1",
+        version=get_version(),
         lifespan=lifespan,
     )
 

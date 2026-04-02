@@ -14,7 +14,8 @@ from typing import Any, Optional, Tuple
 # NOTE: torch is imported lazily inside functions to allow the application
 # to start without ML dependencies (they are installed via Setup Wizard)
 
-from .model_download import get_models_dir, is_model_complete, is_model_downloaded
+from .model_download import get_models_dir
+from .model_registry import is_model_complete, is_model_downloaded
 from .model_registry import (
     MODEL_REGISTRY,
     ModelType,

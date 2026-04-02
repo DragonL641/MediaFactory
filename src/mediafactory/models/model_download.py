@@ -5,7 +5,6 @@
 """
 
 import shutil
-import threading
 import time
 from pathlib import Path
 from typing import Optional, Callable, Tuple
@@ -93,104 +92,55 @@ def get_downloaded_size(model_path: Path) -> int:
     return total_size
 
 
-# 模型文件最小大小阈值（1MB），用于检测不完整下载
-MIN_MODEL_FILE_SIZE = 1_000_000
+def _patch_hf_tqdm(callback):
+    """上下文管理器：临时替换 huggingface_hub 下载模块的进度条，将字节级进度转发到 callback。
 
-
-def is_model_complete(huggingface_id: str) -> bool:
-    """验证模型是否完整下载。
-
-    检查模型目录是否存在，关键文件是否存在，以及文件大小是否合理。
-
-    Args:
-        huggingface_id: HuggingFace 模型 ID
-
-    Returns:
-        True 如果模型完整，否则 False
+    hf_hub_download 在 v0.36 不支持 tqdm_class 参数，
+    通过 monkey-patch _get_progress_bar_context 来捕获下载进度。
     """
-    model_path = get_models_dir() / huggingface_id
+    from contextlib import nullcontext
 
-    # 目录必须存在
-    if not model_path.exists():
-        return False
+    if callback is None:
+        return nullcontext()
 
-    # 根据模型类型检查关键文件
-    model_info = get_model_info(huggingface_id)
-    if model_info is None:
-        # 未知模型，只检查目录存在
-        log_info(f"Unknown model {huggingface_id}, skipping completeness check")
-        return True
+    import huggingface_hub.file_download as _fd
+    from huggingface_hub.utils.tqdm import tqdm as _hf_tqdm
+    import io as _io
 
-    # 检查 config.json 是否存在（所有模型都需要）
-    if not (model_path / "config.json").exists():
-        log_info(f"Model {huggingface_id} incomplete: missing config.json")
-        return False
+    _original_fn = _fd._get_progress_bar_context
 
-    if model_info.model_type == ModelType.WHISPER:
-        # Whisper 模型：需要 model.bin 或 model.safetensors
-        model_bin = model_path / "model.bin"
-        model_safetensors = model_path / "model.safetensors"
+    class _ProgressTqdm(_hf_tqdm):
+        """自定义 tqdm，每次 update 时通过 callback 上报下载进度。"""
+        def update(self, n=1):
+            result = super().update(n)
+            if self.total and self.total > 0:
+                pct = min(self.n / self.total, 0.99)
+                msg = f"{self.n >> 20} MB / {self.total >> 20} MB"
+                callback(pct, msg)
+            return result
 
-        if model_bin.exists():
-            size = model_bin.stat().st_size
-            if size < MIN_MODEL_FILE_SIZE:
-                log_info(f"Model {huggingface_id} incomplete: model.bin too small ({size} bytes)")
-                return False
-            return True
-
-        if model_safetensors.exists():
-            size = model_safetensors.stat().st_size
-            if size < MIN_MODEL_FILE_SIZE:
-                log_info(f"Model {huggingface_id} incomplete: model.safetensors too small ({size} bytes)")
-                return False
-            return True
-
-        log_info(f"Model {huggingface_id} incomplete: missing model file")
-        return False
-    else:
-        # 翻译模型：需要 model.safetensors 或 pytorch_model.bin
-        # 检查 safetensors 文件（可能分片，如 model-00001-of-00002.safetensors）
-        safetensors_files = (
-            list(model_path.glob("*.safetensors"))
-            or list(model_path.glob("model*.safetensors"))
+    def _patched_get_ctx(
+        *, desc, log_level, total=None, initial=0,
+        unit="B", unit_scale=True, name=None, _tqdm_bar=None,
+    ):
+        if _tqdm_bar is not None:
+            return nullcontext(_tqdm_bar)
+        return _ProgressTqdm(
+            unit=unit, unit_scale=unit_scale, total=total,
+            initial=initial, desc=desc, name=name,
+            disable=False,
+            file=_io.StringIO(),  # 抑制终端输出
         )
-        pytorch_model = model_path / "pytorch_model.bin"
 
-        if safetensors_files:
-            # 检查 safetensors 文件大小
-            total_size = sum(f.stat().st_size for f in safetensors_files)
-            if total_size < MIN_MODEL_FILE_SIZE:
-                log_info(f"Model {huggingface_id} incomplete: safetensors too small ({total_size} bytes)")
-                return False
-            return True
+    _fd._get_progress_bar_context = _patched_get_ctx
 
-        if pytorch_model.exists():
-            size = pytorch_model.stat().st_size
-            if size < MIN_MODEL_FILE_SIZE:
-                log_info(f"Model {huggingface_id} incomplete: pytorch_model.bin too small ({size} bytes)")
-                return False
-            return True
+    class _Patcher:
+        def __enter__(self):
+            return self
+        def __exit__(self, *args):
+            _fd._get_progress_bar_context = _original_fn
 
-        log_info(f"Model {huggingface_id} incomplete: missing model file (safetensors or pytorch_model.bin)")
-        return False
-
-
-def is_model_downloaded(huggingface_id: str) -> bool:
-    """检查模型是否已下载。
-
-    使用嵌套目录结构（如 models/Systran/faster-whisper-large-v3/）。
-
-    Args:
-        huggingface_id: HuggingFace 模型 ID
-
-    Returns:
-        True 如果模型已下载
-    """
-    models_dir = get_models_dir()
-    # 直接使用 huggingface_id 作为路径（保留斜杠）
-    model_path = models_dir / huggingface_id
-
-    return model_path.exists()
+    return _Patcher()
 
 
 def download_model(
@@ -219,6 +169,7 @@ def download_model(
         raise ValueError(f"Unknown model ID '{huggingface_id}'")
 
     is_file_mode = model_info.download_mode == DownloadMode.FILE
+    log_info(f"Starting download: {huggingface_id} ({'file' if is_file_mode else 'repo'} mode)...")
 
     # 确定本地保存路径
     if custom_path is not None:
@@ -236,45 +187,9 @@ def download_model(
     # 处理下载源
     endpoint = None if download_source == "https://huggingface.co" else download_source
 
-    # 根据模型类型设置文件过滤规则
-    allow_patterns = None
-    ignore_patterns = None
-
-    # 进度轮询：在后台线程中扫描本地目录大小，估算下载进度
-    # huggingface_hub 的 snapshot_download 不提供字节级进度回调，只能通过轮询实现
-    _stop_polling = threading.Event()
-    _total_size_bytes = model_info.model_size_mb * 1024 * 1024
-
-    def _poll_download_progress():
-        """后台轮询已下载字节数，通过 progress_callback 上报进度"""
-        while not _stop_polling.is_set():
-            _stop_polling.wait(2.0)  # 2 秒间隔
-            if _stop_polling.is_set():
-                break
-            if progress_callback is None:
-                continue
-            try:
-                downloaded = get_downloaded_size(local_path)
-                if _total_size_bytes > 0:
-                    percentage = min(downloaded / _total_size_bytes, 0.99)
-                    downloaded_mb = downloaded / (1024 * 1024)
-                    total_mb = _total_size_bytes / (1024 * 1024)
-                    msg = f"{downloaded_mb:.0f} MB / {total_mb:.0f} MB"
-                    progress_callback(percentage, msg)
-            except Exception:
-                pass  # 轮询错误不影响下载
-
-    # 启动轮询线程（仅在有回调和已知模型大小时）
-    _poller = None
-    if progress_callback is not None and _total_size_bytes > 0:
-        _poller = threading.Thread(
-            target=_poll_download_progress, daemon=True, name="download-progress-poller"
-        )
-        _poller.start()
-
-    # 带重试机制的下载
+    # 带重试机制的下载（在 tqdm monkey-patch 作用域内执行）
     last_error = None
-    try:
+    with _patch_hf_tqdm(progress_callback):
         for attempt in range(MAX_RETRIES):
             if attempt > 0:
                 log_info(f"Retrying download ({attempt + 1}/{MAX_RETRIES}) for {huggingface_id}...")
@@ -299,15 +214,14 @@ def download_model(
                         repo_id=huggingface_id,
                         local_dir=str(local_path),
                         endpoint=endpoint,
-                        allow_patterns=allow_patterns,
-                        ignore_patterns=ignore_patterns,
                         max_workers=4,
                     )
 
-                # 下载成功，停止轮询并通知完成
-                _stop_polling.set()
+                # 下载成功，通知完成
                 if progress_callback is not None:
                     progress_callback(1.0, "Download complete")
+
+                log_info(f"Download complete: {huggingface_id}")
 
                 # 下载成功后更新配置文件
                 _update_config_after_download(huggingface_id, model_info.model_type)
@@ -321,9 +235,6 @@ def download_model(
                 # 非最后一次重试，继续尝试
                 if attempt < MAX_RETRIES - 1:
                     continue
-    finally:
-        # 确保轮询线程停止
-        _stop_polling.set()
 
     # 所有重试都失败，抛出异常
     raise Exception(f"Download failed after {MAX_RETRIES} retries: {last_error}")
@@ -407,18 +318,6 @@ def delete_model(huggingface_id: str) -> Tuple[bool, str]:
     return False, "Unknown error"
 
 
-def get_all_model_statuses() -> dict[str, bool]:
-    """获取所有模型的下载状态。
-
-    Returns:
-        {huggingface_id: is_downloaded} 字典
-    """
-    statuses = {}
-    for huggingface_id, model_info in MODEL_REGISTRY.items():
-        statuses[huggingface_id] = is_model_downloaded(huggingface_id)
-    return statuses
-
-
 def _update_config_after_download(huggingface_id: str, model_type: ModelType) -> None:
     """下载成功后更新配置文件中的模型列表。"""
     from ..config import get_config_manager
@@ -464,9 +363,6 @@ __all__ = [
     "get_models_dir",
     "get_model_total_size",
     "get_downloaded_size",
-    "is_model_complete",
-    "is_model_downloaded",
     "download_model",
     "delete_model",
-    "get_all_model_statuses",
 ]

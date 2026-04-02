@@ -16,10 +16,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **单一包**：`src/mediafactory/` 包含所有后端代码（API、服务、流水线、引擎）
 - 使用 **Faster Whisper** 而非 OpenAI Whisper，转录速度快 4-6 倍
 - LLM 翻译使用**逐句顺序翻译**，每句添加上下文参考以提高翻译质量
-- 项目采用**"无模型"构建策略** - 翻译模型（2GB+）不捆绑在包中
-- 所有模型必须通过 `scripts/utils/download_model.py` 单独下载
+- 构建产物**包含所有 ML 依赖**（torch, transformers, faster-whisper 等），开箱即用
+- 翻译模型文件（2GB+）不捆绑在包中，用户在设置页面自行下载
 - **基于 TOML 的配置**，使用 Pydantic v2 模型
-- **首次启动向导**：自动检测硬件环境并引导用户完成初始化设置
+- **模型按需下载**：用户在设置页面自行下载所需模型（语音识别、翻译模型等）
 
 ### 架构层次
 
@@ -96,7 +96,7 @@ MediaFactory 使用 `dependency-groups` 进行依赖分组：
 
 | 组名 | 内容 | 命令 |
 |------|------|------|
-| **bundle** | 打包依赖（不含 ML） | `uv sync --group bundle` |
+| **bundle** | 打包依赖（含 ML，开箱即用） | `uv sync --group bundle` |
 | **core** | 核心依赖（所有功能，含 ML） | `uv sync --group core` |
 | **dev** | 开发依赖（开发工具） | `uv sync --group dev` |
 
@@ -129,9 +129,9 @@ uv run mypy src/                                          # 类型检查
 ### 构建可执行文件
 
 ```bash
-# Python 后端构建
-pyinstaller scripts/pyinstaller/installer_simple.spec
-rm -rf build/ dist/ && pyinstaller scripts/pyinstaller/installer_simple.spec
+# Python 后端构建（通过入口脚本，内部调用 PyInstaller）
+uv run python scripts/build/build_darwin.py          # macOS
+uv run python scripts/build/build_win.py              # Windows
 
 # Electron 前端构建（需要 Node.js）
 cd src/electron && npm run build
@@ -143,11 +143,14 @@ rm -rf build/ dist/ release/
 ### 版本管理
 
 项目使用 **pyproject.toml 作为单一真相源** 管理版本号：
-- 版本定义：`pyproject.toml` 中的 `project.version`
-- 代码读取：`from mediafactory._version import get_version`
+- **版本定义**：`pyproject.toml` 中的 `project.version`
+- **统一读取**：`_version.py` 是唯一的版本读取器（支持 tomli/tomllib 解析 + importlib.metadata 回退 + 简单解析器 fallback）
+- **所有消费者**通过 `_version.py` 获取版本：`from mediafactory._version import get_version`
+- **跨栈同步**：`sync_version.py` 将版本同步到 `package.json` 和 `BUILD.md`
 
 ```bash
-python src/mediafactory/_version.py  # 输出版本号
+python scripts/utils/sync_version.py --check     # 检查版本一致性
+python scripts/utils/sync_version.py 0.3.0       # 更新所有文件版本号
 ```
 
 ### 模型管理（运行前必需）
@@ -277,7 +280,7 @@ save_config()
 
 ### 模型管理
 
-- **"无模型"构建策略** - 翻译模型（2GB+）不捆绑在包中
+- 翻译模型文件（2GB+）不捆绑在包中，用户在设置页面自行下载
 - 模型从 `./models` 目录加载，启动时自动扫描并写入 `config.toml`
 - `ModelResourceManager`：单例模式，`whisper_model()` 上下文管理器确保正确释放
 - 硬件自动检测：CUDA (NVIDIA GPU, float16) / CPU (int8 量化)；**Faster Whisper 不支持 MPS**
@@ -285,8 +288,7 @@ save_config()
 ### 构建系统
 
 **PyInstaller**（`scripts/pyinstaller/installer_simple.spec`）：
-- 不含 ML 依赖（torch, transformers, faster-whisper）
-- 首次启动通过 Setup Wizard 引导初始化
+- 完整打包所有依赖（含 ML：torch, transformers, faster-whisper 等），开箱即用
 - 自定义钩子在 `scripts/pyinstaller/hooks/`
 
 **Electron**（`src/electron/`）：

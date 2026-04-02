@@ -101,7 +101,6 @@ const ProviderDialog: React.FC<ProviderDialogProps> = ({
       onOk={handleSubmit}
       onCancel={onClose}
       confirmLoading={updateMutation.isPending}
-      destroyOnHidden
       width={420}
     >
       <Form form={form} layout="vertical" style={{ marginTop: 16 }}>

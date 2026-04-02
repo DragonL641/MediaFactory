@@ -9,7 +9,8 @@ from pathlib import Path
 from typing import Optional
 
 from .model_registry import WHISPER_MODEL_ID, get_whisper_model_info
-from .model_download import get_models_dir, is_model_complete
+from .model_download import get_models_dir
+from .model_registry import is_model_complete
 from ..logging import log_error, log_info, log_warning
 from ..exceptions import ProcessingError
 

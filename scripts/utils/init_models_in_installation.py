@@ -179,20 +179,18 @@ def download_whisper_model(
         return True
 
     try:
-        from scripts.utils.download_model import download_model
+        from mediafactory.models.model_download import download_model
 
-        def progress_callback(percent: int, message: str):
+        def progress_callback(percent: float, message: str = ""):
             # 映射到 0-50% 范围
-            adjusted_percent = int(percent / 2)
+            adjusted_percent = int(percent * 50)
             print_progress(adjusted_percent, message, quiet, progress_file)
 
         print_progress(0, f"正在下载 {model_config['display_name']}...", quiet, progress_file)
 
         download_model(
-            model_name=model_config["model_id"],
-            custom_path=str(model_path),
+            model_config["model_id"],
             download_source=source,
-            model_type="whisper",
             progress_callback=progress_callback,
         )
 
@@ -231,20 +229,18 @@ def download_translation_model(
         return True
 
     try:
-        from scripts.utils.download_model import download_model
+        from mediafactory.models.model_download import download_model
 
-        def progress_callback(percent: int, message: str):
+        def progress_callback(percent: float, message: str = ""):
             # 映射到 50-100% 范围
-            adjusted_percent = 50 + int(percent / 2)
+            adjusted_percent = 50 + int(percent * 50)
             print_progress(adjusted_percent, message, quiet, progress_file)
 
         print_progress(50, f"正在下载 {model_config['display_name']}...", quiet, progress_file)
 
         download_model(
-            model_name=model_config["model_id"],
-            custom_path=str(model_path),
+            model_config["model_id"],
             download_source=source,
-            model_type="translation",
             progress_callback=progress_callback,
         )
 

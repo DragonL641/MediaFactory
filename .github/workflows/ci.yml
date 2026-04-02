@@ -14,8 +14,8 @@ on:
 jobs:
   test:
     name: Test Suite
-    # 运行环境 - 使用最新的Ubuntu系统
-    runs-on: ubuntu-latest
+    # 运行环境 - 使用最新的 macOS 系统（项目支持 macOS/Windows）
+    runs-on: macos-latest
     # 策略配置 - 矩阵策略允许在多个Python版本上并行测试
     strategy:
       matrix:
@@ -54,7 +54,7 @@ jobs:
   # 代码质量检查作业
   lint:
     name: Code Quality Checks
-    runs-on: ubuntu-latest
+    runs-on: macos-latest
 
     steps:
     - uses: actions/checkout@v4
@@ -82,7 +82,7 @@ jobs:
   # 前端构建验证
   frontend:
     name: Frontend Build
-    runs-on: ubuntu-latest
+    runs-on: macos-latest
 
     steps:
     - uses: actions/checkout@v4
@@ -104,7 +104,7 @@ jobs:
   # 安全扫描作业 - 检测代码和依赖中的安全漏洞
   security:
     name: Security Scanning
-    runs-on: ubuntu-latest
+    runs-on: macos-latest
     
     steps:
     # 检出代码仓库
@@ -145,7 +145,7 @@ jobs:
   # 软件物料清单(SBOM)生成作业 - 创建项目依赖的软件清单
   sbom:
     name: Generate SBOM
-    runs-on: ubuntu-latest
+    runs-on: macos-latest
     
     steps:
     # 检出代码仓库

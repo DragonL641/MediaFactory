@@ -23,13 +23,13 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent / "src"))
 from mediafactory.models.model_download import (
     delete_model,
     download_model,
-    get_all_model_statuses,
-    is_model_downloaded,
 )
 from mediafactory.models.model_registry import (
     MODEL_REGISTRY,
+    get_all_model_statuses,
     get_display_name,
     get_model_info,
+    is_model_downloaded,
 )
 from mediafactory.config import get_config_manager
 

@@ -5,6 +5,7 @@
 """
 
 import asyncio
+import functools
 import logging
 import time
 from typing import Any, Dict, List
@@ -260,16 +261,29 @@ async def start_model_download(
             )
 
         try:
+            _last_progress_time = [0.0]  # 可变容器，供闭包修改
+            _PROGRESS_THROTTLE_SEC = 0.5  # 最小 500ms 间隔
+
             def sync_progress(p: float, m: str = ""):
-                # 从轮询线程安全地调度到主事件循环
+                # 从下载线程安全地调度到主事件循环
+                import time as _time
+                now = _time.monotonic()
+                # 节流：非 100% 进度时，限制最小间隔
+                if p < 0.99 and (now - _last_progress_time[0]) < _PROGRESS_THROTTLE_SEC:
+                    return
+                _last_progress_time[0] = now
                 loop.call_soon_threadsafe(
                     lambda: asyncio.ensure_future(_progress_callback(p, m))
                 )
 
-            download_model(
-                model_id,
-                download_source=endpoint,
-                progress_callback=sync_progress,
+            await loop.run_in_executor(
+                None,
+                functools.partial(
+                    download_model,
+                    model_id,
+                    download_source=endpoint,
+                    progress_callback=sync_progress,
+                ),
             )
 
             _invalidate_models_status_cache()

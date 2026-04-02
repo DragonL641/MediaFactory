@@ -31,6 +31,9 @@ ML_PACKAGES = [
     'faster_whisper',
     'accelerate',
     'safetensors',
+    'sentencepiece',
+    'spandrel',
+    'gguf',
 ]
 
 ml_datas = []
@@ -93,6 +96,7 @@ ICON_PATH = str(_icon_path) if _icon_path and _icon_path.exists() else None
 # =============================================================================
 
 datas = [
+    (str(BASE_DIR / "pyproject.toml"), "."),  # _version.py 需要读取版本号
     (str(BASE_DIR / "config.toml.example"), "."),
     (str(BASE_DIR / "src" / "mediafactory" / "resources"), "mediafactory/resources"),
     (str(BASE_DIR / "NOTICE.txt"), "."),

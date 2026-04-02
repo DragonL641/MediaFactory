@@ -4,6 +4,7 @@
 提供模型状态查询和管理功能。
 """
 
+import asyncio
 import time
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
@@ -47,7 +48,7 @@ class ModelStatusService:
     def get_whisper_status(self) -> ModelStatusInfo:
         """获取 Whisper 模型状态"""
         try:
-            from mediafactory.models.model_download import is_model_downloaded
+            from mediafactory.models.model_registry import is_model_downloaded
 
             available = is_model_downloaded("Systran/faster-whisper-large-v3")
 
@@ -217,17 +218,33 @@ class ModelStatusService:
             }
 
     async def test_all_llm_connections(self) -> Dict[str, Dict[str, Any]]:
-        """测试所有 LLM 预设连接"""
+        """测试所有 LLM 预设连接（并行）"""
         results = {}
 
         try:
-            llm_config = getattr(self.config, 'llm_api', None)
+            llm_config = getattr(self.config, 'openai_compatible', None)
             if not llm_config:
                 return {"error": "LLM config not found"}
 
-            presets = llm_config.presets or {}
-            for preset_name in presets.keys():
-                results[preset_name] = await self.test_llm_connection(preset_name)
+            preset_names = [
+                name for name in ("openai", "deepseek", "glm", "qwen", "moonshot", "custom")
+                if getattr(llm_config, name, None) and getattr(llm_config, name).api_key
+            ]
+            if not preset_names:
+                return results
+
+            # 并行测试所有配置了 API key 的预设
+            tasks = {
+                name: asyncio.create_task(self.test_llm_connection(name))
+                for name in preset_names
+            }
+            task_results = await asyncio.gather(*tasks.values(), return_exceptions=True)
+
+            for name, result in zip(tasks.keys(), task_results):
+                if isinstance(result, Exception):
+                    results[name] = {"success": False, "error": sanitize_error(result)}
+                else:
+                    results[name] = result
 
         except Exception as e:
             log_error(f"Failed to test all LLM connections: {e}")
