@@ -12,7 +12,7 @@ import argparse
 import multiprocessing
 import uvicorn
 
-from mediafactory.api.main import app
+from mediafactory.api.main import get_app
 
 
 def main():
@@ -39,7 +39,7 @@ def main():
     else:
         # 生产模式
         uvicorn.run(
-            app,
+            get_app(),
             host="127.0.0.1",
             port=args.port,
             log_level="info",

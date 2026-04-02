@@ -10,7 +10,7 @@ import platform
 import shutil
 import subprocess
 import sys
-import zipfile
+
 from datetime import datetime
 from pathlib import Path
 from typing import List, Optional
@@ -20,7 +20,6 @@ sys.path.insert(0, str(Path(__file__).parent))
 from build_common import (
     get_project_root,
     get_project_version,
-    format_file_size,
     log_info,
     log_warn,
     log_error,
@@ -60,77 +59,6 @@ def run_pyinstaller(version: str, extra_args: Optional[List[str]] = None) -> boo
 
     result = subprocess.run(cmd, env=env)
     return result.returncode == 0
-
-
-def create_zip_archive(version: str) -> bool:
-    """创建 .app.zip 分发包（macOS）。
-
-    Args:
-        version: 版本号
-
-    Returns:
-        是否成功
-    """
-    root = get_project_root()
-    dist_dir = root / "dist"
-    app_path = dist_dir / f"{PROJECT_NAME}.app"
-    zip_path = dist_dir / f"{PROJECT_NAME}-{version}.app.zip"
-
-    if not app_path.exists():
-        log_error(f".app 不存在: {app_path}")
-        return False
-
-    if zip_path.exists():
-        zip_path.unlink()
-
-    log_info("创建 ZIP 分发包...")
-    try:
-        with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zf:
-            for file in app_path.rglob('*'):
-                if file.is_file() and '__pycache__' not in str(file):
-                    zf.write(file, file.relative_to(app_path.parent))
-
-        size = zip_path.stat().st_size
-        log_info(f"ZIP: {zip_path.name} ({format_file_size(size)})")
-        return True
-    except Exception as e:
-        log_error(f"ZIP 创建失败: {e}")
-        return False
-
-
-def create_windows_zip(version: str) -> bool:
-    """创建 Windows ZIP 分发包。
-
-    Args:
-        version: 版本号
-
-    Returns:
-        是否成功
-    """
-    root = get_project_root()
-    dist_dir = root / "dist"
-    folder_path = dist_dir / PROJECT_NAME
-    zip_path = dist_dir / f"{PROJECT_NAME}-{version}-win64.zip"
-
-    if not folder_path.exists():
-        log_error(f"构建目录不存在: {folder_path}")
-        return False
-
-    if zip_path.exists():
-        zip_path.unlink()
-
-    log_info("创建 ZIP 分发包...")
-    try:
-        with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zf:
-            for file in folder_path.rglob('*'):
-                if file.is_file() and '__pycache__' not in str(file):
-                    zf.write(file, file.relative_to(folder_path))
-        size = zip_path.stat().st_size
-        log_info(f"ZIP: {zip_path.name} ({format_file_size(size)})")
-        return True
-    except Exception as e:
-        log_error(f"ZIP 创建失败: {e}")
-        return False
 
 
 def clean_build_artifacts(platform_name: str) -> None:
@@ -184,13 +112,8 @@ def build_macos(version: Optional[str] = None) -> int:
     shutil.copytree(project_root / "dist" / PROJECT_NAME, python_dist)
     log_info(f"已复制到 {python_dist}（用于 Electron 打包）")
 
-    if not create_zip_archive(version):
-        log_error("ZIP 创建失败")
-        return 1
-
     elapsed = (datetime.now() - start).total_seconds()
     log_success(f"构建完成! 耗时: {elapsed:.1f}秒")
-    log_info(f"输出: dist/{PROJECT_NAME}-{version}.app.zip")
 
     return 0
 
@@ -213,13 +136,16 @@ def build_windows(version: Optional[str] = None) -> int:
         log_error("PyInstaller 失败")
         return 1
 
-    if not create_windows_zip(version):
-        log_error("ZIP 创建失败")
-        return 1
+    # 复制 PyInstaller COLLECT 产物到 dist/python/（electron-builder 需要）
+    project_root = get_project_root()
+    python_dist = project_root / "dist" / "python"
+    if python_dist.exists():
+        shutil.rmtree(python_dist)
+    shutil.copytree(project_root / "dist" / PROJECT_NAME, python_dist)
+    log_info(f"已复制到 {python_dist}（用于 Electron 打包）")
 
     elapsed = (datetime.now() - start).total_seconds()
     log_success(f"构建完成! 耗时: {elapsed:.1f}秒")
-    log_info(f"输出: dist/{PROJECT_NAME}-{version}-win64.zip")
 
     return 0
 

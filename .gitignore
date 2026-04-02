@@ -165,7 +165,6 @@ temp_audio.wav
 /models/
 
 /True
-/CLAUDE.md
 build/          # PyInstaller 构建临时文件
 cache/
 src/cache/

@@ -41,22 +41,10 @@ mac:
 win:
   icon: src/electron/resources/icon.ico
   target:
-    - target: nsis
+    - target: zip
       arch:
         - x64
-  artifactName: ${productName}-${version}-${arch}-setup.${ext}
-
-nsis:
-  oneClick: false
-  allowToChangeInstallationDirectory: true
-  createDesktopShortcut: true
-  createStartMenuShortcut: true
-  installerIcon: src/electron/resources/icon.ico
-  uninstallerIcon: src/electron/resources/icon.ico
-  installerLanguages:
-    - en_US
-    - zh_CN
-  language: "1033"  # English (United States)
+  artifactName: ${productName}-${version}-${arch}-portable.${ext}
 
 linux:
   # 注意：Linux 暂不支持，此配置仅供未来参考
