@@ -181,7 +181,7 @@ python scripts/build/build_source.py --zip-only
 
 ```toml
 [project]
-version = "0.2.1"
+version = "0.3.0"
 ```
 
 构建脚本会自动读取此版本号。
@@ -224,19 +224,19 @@ cargo install git-cliff
 #    编辑 project.version 字段
 
 # 2. 生成 changelog（在打 tag 之前）
-git-cliff --tag v0.2.1 --unreleased --prepend CHANGELOG.md
+git-cliff --tag v0.3.0 --unreleased --prepend CHANGELOG.md
 
 # 3. 检查生成的 changelog，必要时手动调整
 
 # 4. 提交版本更新和 changelog
 git add pyproject.toml CHANGELOG.md
-git commit -m "chore: bump version to 0.2.1 and update changelog"
+git commit -m "chore: bump version to 0.3.0 and update changelog"
 
 # 5. 打 tag
-git tag v0.2.1
+git tag v0.3.0
 
 # 6. 推送提交和 tag
-git push && git push origin v0.2.1
+git push && git push origin v0.3.0
 
 # 7. 创建 GitHub Release（可选）
 #    tag 已包含完整的发布内容
@@ -249,13 +249,13 @@ git push && git push origin v0.2.1
 git-cliff --unreleased
 
 # 生成两个 tag 之间的变更
-git-cliff v0.1.0..v0.2.1
+git-cliff v0.1.0..v0.3.0
 
 # 追加到现有 CHANGELOG.md
-git-cliff --tag v0.2.1 --prepend CHANGELOG.md
+git-cliff --tag v0.3.0 --prepend CHANGELOG.md
 
 # 仅输出到标准输出
-git-cliff --tag v0.2.1 --unreleased
+git-cliff --tag v0.3.0 --unreleased
 ```
 
 ### Commit 规范

@@ -5,6 +5,42 @@ All notable changes to MediaFactory will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.0]
+
+
+### Added
+
+**i18n:** 添加多语言支持及相关国际化功能
+
+
+**api:** 支持字幕与翻译任务的LLM预设及双语样式配置
+
+
+
+### Changed
+
+优化构建系统和延迟加载 ML 依赖
+
+
+**core:** 迁移默认翻译模型到 M2M100-1.2B
+
+
+**build:** 重构构建脚本和公共工具模块
+
+
+
+### Fixed
+
+**download:** 修复 GUI 模式下 huggingface_hub 进度条导致的下载失败
+
+
+**download_worker:** 确保Windows下stdout和stderr有效避免崩溃
+
+
+**pyinstaller:** 修复跨平台 site-packages 路径处理及多进程支持
+
+
+
 ## [0.2.1] - 2026-03-17
 
 ### Added
