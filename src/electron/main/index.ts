@@ -29,12 +29,12 @@ async function createWindow(): Promise<void> {
       preload: path.join(__dirname, "../preload/index.js"),
       contextIsolation: true,
       nodeIntegration: false,
-      sandbox: false,
+      sandbox: true,
     },
     // macOS 特定样式
     titleBarStyle: process.platform === "darwin" ? "hiddenInset" : "default",
     frame: process.platform === "darwin" ? true : false,
-    trafficLightPosition: { x: 15, y: 10 },
+    windowButtonPosition: { x: 15, y: 10 },
   });
 
   // 注册 IPC 处理器（只注册一次）

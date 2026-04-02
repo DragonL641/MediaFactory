@@ -124,8 +124,9 @@ AI video tools often force you to choose between quality and speed, or between c
 
 - **Python**: 3.11, 3.12, or 3.13 (3.12 recommended)
 - **uv**: Modern Python package manager ([install uv](https://docs.astral.sh/uv/))
-- **Node.js**: ≥18.0.0 (for Electron GUI development)
+- **Node.js**: ≥20.19.0 (for Electron GUI development)
 - **FFmpeg**: Included via imageio-ffmpeg (no manual installation needed)
+- **macOS**: 12.0 (Monterey) or later
 
 ---
 

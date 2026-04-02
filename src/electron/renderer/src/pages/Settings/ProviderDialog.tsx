@@ -4,7 +4,7 @@
  * 从 LLMConfig/ProviderDialog 迁移，支持添加和编辑 LLM 供应商配置
  */
 
-import React, { useEffect, useMemo } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Modal, Form, Input, Select, App, theme } from "antd";
 import { useTranslation } from "react-i18next";
 import { useLLMPresetsQuery, useUpdateLLMPresetMutation } from "../../api/queries";
@@ -49,9 +49,11 @@ const ProviderDialog: React.FC<ProviderDialogProps> = ({
           api_key: "",
           model: preset.model || "",
         });
+        setSelectedProvider(editingPresetId);
       }
     } else if (open && !editingPresetId) {
       form.resetFields();
+      setSelectedProvider(undefined);
     }
   }, [open, editingPresetId, presets, form]);
 
@@ -90,7 +92,7 @@ const ProviderDialog: React.FC<ProviderDialogProps> = ({
     );
   }, [presets]);
 
-  const selectedProvider = Form.useWatch("preset_id", form);
+  const [selectedProvider, setSelectedProvider] = useState<string>();
 
   return (
     <Modal
@@ -111,7 +113,10 @@ const ProviderDialog: React.FC<ProviderDialogProps> = ({
           <Select
             placeholder={t("dialog.selectProvider")}
             disabled={isEditing}
-            onChange={handlePresetChange}
+            onChange={(val) => {
+              setSelectedProvider(val);
+              handlePresetChange(val);
+            }}
             loading={presetsLoading}
             options={presetOptions}
           />

@@ -2,11 +2,10 @@
 """
 MediaFactory 构建执行器模块
 
-封装 PyInstaller 调用的通用逻辑，减少 build_darwin.py 和 build_win.py 的代码重复。
+封装 PyInstaller 调用逻辑，供 build_darwin.py / build_win.py 调用。
 """
 
 import os
-import platform
 import shutil
 import subprocess
 import sys
@@ -21,7 +20,6 @@ from build_common import (
     get_project_root,
     get_project_version,
     log_info,
-    log_warn,
     log_error,
     log_success,
     log_step,
@@ -34,7 +32,7 @@ def run_pyinstaller(version: str, extra_args: Optional[List[str]] = None) -> boo
     """运行 PyInstaller 构建。
 
     Args:
-        version: 版本号（用于环境变量）
+        version: 版本号（通过环境变量传递给 spec 文件）
         extra_args: 额外的 PyInstaller 参数
 
     Returns:
@@ -61,42 +59,20 @@ def run_pyinstaller(version: str, extra_args: Optional[List[str]] = None) -> boo
     return result.returncode == 0
 
 
-def clean_build_artifacts(platform_name: str) -> None:
-    """清理构建产物。
+def build_backend(platform_name: str, version: Optional[str] = None) -> int:
+    """执行 Python 后端构建（通用，跨平台）。
+
+    流程：PyInstaller 打包 → 复制到 dist/python/（供 electron-builder 使用）
 
     Args:
-        platform_name: 平台名称 ("darwin" 或 "windows")
-    """
-    root = get_project_root()
-    dirs_to_clean = [
-        root / "dist" / PROJECT_NAME,
-    ]
-
-    if platform_name == "darwin":
-        dirs_to_clean.append(root / "dist" / f"{PROJECT_NAME}.app")
-    elif platform_name == "windows":
-        exe_path = root / "dist" / f"{PROJECT_NAME}.exe"
-        if exe_path.exists():
-            exe_path.unlink()
-            log_info(f"已清理: {exe_path}")
-
-    for d in dirs_to_clean:
-        if d.exists():
-            shutil.rmtree(d)
-            log_info(f"已清理: {d}")
-
-
-def build_macos(version: Optional[str] = None) -> int:
-    """执行 macOS 构建。
-
-    Args:
+        platform_name: 平台显示名称（如 "macOS"、"Windows"）
         version: 版本号（可选，默认从 pyproject.toml 读取）
 
     Returns:
         退出码（0 表示成功）
     """
     version = version or get_project_version()
-    log_step(f"开始构建 {PROJECT_NAME} v{version} (macOS)")
+    log_step(f"开始构建 {PROJECT_NAME} v{version} ({platform_name})")
 
     start = datetime.now()
 
@@ -116,67 +92,3 @@ def build_macos(version: Optional[str] = None) -> int:
     log_success(f"构建完成! 耗时: {elapsed:.1f}秒")
 
     return 0
-
-
-def build_windows(version: Optional[str] = None) -> int:
-    """执行 Windows 构建。
-
-    Args:
-        version: 版本号（可选，默认从 pyproject.toml 读取）
-
-    Returns:
-        退出码（0 表示成功）
-    """
-    version = version or get_project_version()
-    log_step(f"开始构建 {PROJECT_NAME} v{version} (Windows)")
-
-    start = datetime.now()
-
-    if not run_pyinstaller(version):
-        log_error("PyInstaller 失败")
-        return 1
-
-    # 复制 PyInstaller COLLECT 产物到 dist/python/（electron-builder 需要）
-    project_root = get_project_root()
-    python_dist = project_root / "dist" / "python"
-    if python_dist.exists():
-        shutil.rmtree(python_dist)
-    shutil.copytree(project_root / "dist" / PROJECT_NAME, python_dist)
-    log_info(f"已复制到 {python_dist}（用于 Electron 打包）")
-
-    elapsed = (datetime.now() - start).total_seconds()
-    log_success(f"构建完成! 耗时: {elapsed:.1f}秒")
-
-    return 0
-
-
-# ============================================================================
-# 主模块测试
-# ============================================================================
-
-if __name__ == "__main__":
-    import argparse
-
-    parser = argparse.ArgumentParser(description=f"{PROJECT_NAME} 构建执行器")
-    parser.add_argument("--version", default=None, help="版本号")
-    parser.add_argument("--clean", action="store_true", help="仅清理")
-    args = parser.parse_args()
-
-    if args.clean:
-        current_platform = platform.system().lower()
-        if current_platform == "darwin":
-            clean_build_artifacts("darwin")
-        elif current_platform == "windows":
-            clean_build_artifacts("windows")
-        else:
-            log_warn(f"不支持的平台: {current_platform}")
-        sys.exit(0)
-
-    # 根据平台执行构建
-    if platform.system() == "Darwin":
-        sys.exit(build_macos(args.version))
-    elif platform.system() == "Windows":
-        sys.exit(build_windows(args.version))
-    else:
-        log_error(f"不支持的平台: {platform.system()}")
-        sys.exit(1)

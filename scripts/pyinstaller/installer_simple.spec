@@ -3,15 +3,12 @@
 MediaFactory PyInstaller 配置
 
 完整打包所有依赖（包括 ML 依赖）。
-
-输出:
-- Windows: onedir 目录模式
-- macOS: app bundle
+输出: onedir 目录模式（macOS 额外生成 .app bundle）
 """
 
+import glob
 import os
 import platform
-import subprocess
 import sys
 from pathlib import Path
 
@@ -26,7 +23,6 @@ from PyInstaller.utils.hooks import (
 # 收集 ML 依赖
 # =============================================================================
 
-# 需要完整收集的 ML 包
 ML_PACKAGES = [
     'torch',
     'transformers',
@@ -37,7 +33,6 @@ ML_PACKAGES = [
     'safetensors',
 ]
 
-# 收集所有 ML 包的文件
 ml_datas = []
 ml_binaries = []
 ml_hiddenimports = []
@@ -55,7 +50,7 @@ for pkg in ML_PACKAGES:
     except Exception as e:
         print(f"[WARN] collect_all({pkg}) failed: {e}")
 
-    # 如果 collect_all 返回空结果，尝试备用方案
+    # collect_all 返回空结果时，尝试备用方案
     if not collected:
         try:
             pkg_datas = collect_data_files(pkg)
@@ -72,86 +67,47 @@ for pkg in ML_PACKAGES:
             print(f"[ERROR] Failed to collect {pkg}: {e}")
 
 # =============================================================================
-# 配置
+# 路径与版本
 # =============================================================================
 
-# Base paths
-BASE_DIR = Path(SPECPATH) / ".." / ".."
-BASE_DIR = BASE_DIR.resolve()
+BASE_DIR = (Path(SPECPATH) / ".." / "..").resolve()
 DIST_DIR = BASE_DIR / "dist"
-
-# Platform detection
 IS_MACOS = platform.system() == 'Darwin'
-IS_WINDOWS = platform.system() == 'Windows'
-IS_LINUX = platform.system() == 'Linux'
 
-# Version (from environment or _version.py)
-def _get_version_from_pyproject() -> str:
-    """从 _version.py 获取版本号（统一版本源）"""
-    version_script = BASE_DIR / "src" / "mediafactory" / "_version.py"
+# 版本号：优先环境变量，统一从 _version.py 获取
+sys.path.insert(0, str(BASE_DIR / "src"))
+from mediafactory._version import get_version
 
-    if version_script.exists():
-        try:
-            result = subprocess.run(
-                [sys.executable, str(version_script)],
-                capture_output=True,
-                text=True,
-                cwd=str(BASE_DIR),
-            )
-            if result.returncode == 0:
-                version = result.stdout.strip()
-                if version:
-                    return version
-        except Exception:
-            pass
-
-    # 回退：直接解析 pyproject.toml（最后手段）
-    pyproject_path = BASE_DIR / "pyproject.toml"
-    if pyproject_path.exists():
-        content = pyproject_path.read_text(encoding="utf-8")
-        for line in content.splitlines():
-            if line.startswith("version = "):
-                return line.split('"')[1]
-    return "0.2.1"  # 回退版本
-
-APP_VERSION = os.environ.get("APP_VERSION", _get_version_from_pyproject())
+APP_VERSION = os.environ.get("APP_VERSION", get_version())
 PROJECT_NAME = "MediaFactory"
 
-# Icon paths
-ICON_PATHS = {
+# Icon
+_icon_path = {
     "darwin": BASE_DIR / "src" / "mediafactory" / "resources" / "icon.icns",
     "windows": BASE_DIR / "src" / "mediafactory" / "resources" / "icon.ico",
-}
-ICON_PATH = str(ICON_PATHS.get(platform.system().lower())) if Path(ICON_PATHS.get(platform.system().lower(), "")).exists() else None
+}.get(platform.system().lower())
+ICON_PATH = str(_icon_path) if _icon_path and _icon_path.exists() else None
 
 # =============================================================================
 # 数据文件
 # =============================================================================
 
 datas = [
-    # 配置文件示例
     (str(BASE_DIR / "config.toml.example"), "."),
-    # 资源文件
     (str(BASE_DIR / "src" / "mediafactory" / "resources"), "mediafactory/resources"),
-    # 许可证文件（法律合规要求）
     (str(BASE_DIR / "NOTICE.txt"), "."),
     (str(BASE_DIR / "THIRD_PARTY_LICENSES.txt"), "."),
 ]
 
 # =============================================================================
-# 收集 mypyc 编译的模块
+# mypyc 编译模块
 # =============================================================================
 
-import glob
-
 binaries = []
-
-# 跨平台获取 site-packages 路径
-if IS_WINDOWS:
+if platform.system() == 'Windows':
     site_packages = Path(sys.prefix) / "Lib" / "site-packages"
     mypyc_pattern = "*__mypyc*.pyd"
 else:
-    # macOS/Linux: lib/pythonX.Y/site-packages
     python_version = f"python{sys.version_info.major}.{sys.version_info.minor}"
     site_packages = Path(sys.prefix) / "lib" / python_version / "site-packages"
     mypyc_pattern = "*__mypyc*.so"
@@ -208,7 +164,7 @@ hiddenimports = [
     'langdetect',
     # LLM API SDKs
     'openai',
-    # HuggingFace 生态（模型下载和运行）
+    # HuggingFace 生态
     'huggingface_hub',
     'huggingface_hub.utils',
     'huggingface_hub.file_download',
@@ -222,9 +178,9 @@ hiddenimports = [
     'faster_whisper',
     'faster_whisper.transcribe',
     'faster_whisper.download_model',
-    # PyTorch（faster-whisper 依赖）
+    # PyTorch
     'torch',
-    # pkg_resources（修复 pyi_rth_pkgres 错误）
+    # pkg_resources
     'importlib_metadata',
     'importlib_resources',
     'packaging',
@@ -236,19 +192,13 @@ hiddenimports = [
     'distutils',
 ]
 
-# =============================================================================
-# 排除的模块（仅开发工具）
-# =============================================================================
-
-DEV_EXCLUDES = [
+EXCLUDES = [
     'pytest', 'black', 'mypy', 'pylint', 'flake8', 'pre_commit',
     'pip', 'setuptools', 'wheel', 'build', 'twine',
 ]
 
-EXCLUDES = DEV_EXCLUDES
-
 # =============================================================================
-# 分析配置
+# 分析
 # =============================================================================
 
 a = Analysis(
@@ -271,82 +221,48 @@ a = Analysis(
 a.binaries = [x for x in a.binaries if '.DS_Store' not in str(x[0])]
 a.datas = [x for x in a.datas if '.DS_Store' not in str(x[0])]
 
-# Strip 符号（禁用 - Windows 上没有 strip 工具）
 strip = False
-
-# PYZ 加密
 pyz = PYZ(a.pure, a.zipped_data)
 
 # =============================================================================
-# 平台特定配置
+# 输出（所有平台共用 EXE + COLLECT，macOS 额外加 BUNDLE）
 # =============================================================================
 
-if IS_WINDOWS:
-    # Windows: onedir 目录模式
-    exe = EXE(
-        pyz,
-        a.scripts,
-        exclude_binaries=True,
-        name=PROJECT_NAME,
-        debug=False,
-        bootloader_ignore_signals=False,
-        strip=strip,
-        upx=False,
-        console=False,
-        disable_windowed_traceback=False,
-        argv_emulation=False,
-        target_arch=None,
-        codesign_identity=None,
-        entitlements_file=None,
-        icon=ICON_PATH,
-    )
+exe = EXE(
+    pyz,
+    a.scripts,
+    exclude_binaries=True,
+    name=PROJECT_NAME,
+    debug=False,
+    bootloader_ignore_signals=False,
+    strip=strip,
+    upx=False,
+    console=False,
+    disable_windowed_traceback=False,
+    argv_emulation=False,
+    target_arch=None,
+    codesign_identity=None,
+    entitlements_file=None,
+    icon=ICON_PATH,
+)
 
-    coll = COLLECT(
-        exe,
-        a.binaries,
-        a.datas,
-        strip=strip,
-        upx=False,
-        upx_exclude=[],
-        name=PROJECT_NAME,
-    )
+coll = COLLECT(
+    exe,
+    a.binaries,
+    a.datas,
+    strip=strip,
+    upx=False,
+    upx_exclude=[],
+    name=PROJECT_NAME,
+)
 
-elif IS_MACOS:
-    # macOS: app bundle
-    exe = EXE(
-        pyz,
-        a.scripts,
-        exclude_binaries=True,
-        name=PROJECT_NAME,
-        debug=False,
-        bootloader_ignore_signals=False,
-        strip=strip,
-        upx=False,
-        console=False,
-        disable_windowed_traceback=False,
-        argv_emulation=False,
-        target_arch=None,
-        codesign_identity=None,
-        entitlements_file=None,
-        icon=ICON_PATH,
-    )
-
-    coll = COLLECT(
-        exe,
-        a.binaries,
-        a.datas,
-        strip=strip,
-        upx=False,
-        upx_exclude=[],
-        name=PROJECT_NAME,
-    )
-
-    # 创建 app bundle
+# macOS: 额外创建 .app bundle
+if IS_MACOS:
     app = BUNDLE(
         coll,
         name=f"{PROJECT_NAME}.app",
         icon=ICON_PATH,
-        bundle_identifier=f"com.mediafactory.app",
+        bundle_identifier="com.mediafactory.app",
         info_plist={
             'CFBundleName': PROJECT_NAME,
             'CFBundleDisplayName': PROJECT_NAME,
@@ -355,34 +271,4 @@ elif IS_MACOS:
             'NSHighResolutionCapable': True,
             'LSMinimumSystemVersion': '10.13',
         },
-    )
-
-else:
-    # Linux: 目录输出
-    exe = EXE(
-        pyz,
-        a.scripts,
-        exclude_binaries=True,
-        name=PROJECT_NAME,
-        debug=False,
-        bootloader_ignore_signals=False,
-        strip=strip,
-        upx=False,
-        console=False,
-        disable_windowed_traceback=False,
-        argv_emulation=False,
-        target_arch=None,
-        codesign_identity=None,
-        entitlements_file=None,
-        icon=ICON_PATH,
-    )
-
-    coll = COLLECT(
-        exe,
-        a.binaries,
-        a.datas,
-        strip=strip,
-        upx=False,
-        upx_exclude=[],
-        name=PROJECT_NAME,
     )

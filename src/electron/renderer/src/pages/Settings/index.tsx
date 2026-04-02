@@ -357,7 +357,7 @@ const SettingsPage: React.FC = () => {
           {/* LLM API 参数 */}
           <div className="form-row">
             <Form.Item name={["llm_api", "timeout"]} label={t("settings:llmApi.timeout")} tooltip={t("settings:llmApi.timeoutTooltip")}>
-              <InputNumber min={1} max={300} style={{ width: "100%" }} addonAfter="s" />
+              <InputNumber min={1} max={300} style={{ width: "100%" }} suffix="s" />
             </Form.Item>
             <Form.Item name={["llm_api", "temperature"]} label={t("settings:llmApi.temperature")} tooltip={t("settings:llmApi.temperatureTooltip")}>
               <InputNumber min={0} max={2} step={0.1} style={{ width: "100%" }} />
@@ -432,13 +432,13 @@ const SettingsPage: React.FC = () => {
               />
             </Form.Item>
             <Form.Item name={["model", "download_timeout"]} label={t("settings:general.downloadTimeout")} tooltip={t("settings:general.downloadTimeoutTooltip")}>
-              <InputNumber min={10} max={600} style={{ width: "100%" }} addonAfter="s" />
+              <InputNumber min={10} max={600} style={{ width: "100%" }} suffix="s" />
             </Form.Item>
           </div>
 
           <div className="form-row">
             <Form.Item name={["logging", "retention_days"]} label={t("settings:general.logRetention")} tooltip={t("settings:general.logRetentionTooltip")}>
-              <InputNumber min={1} max={365} style={{ width: "100%" }} addonAfter={t("settings:general.days")} />
+              <InputNumber min={1} max={365} style={{ width: "100%" }} suffix={t("settings:general.days")} />
             </Form.Item>
           </div>
         </div>

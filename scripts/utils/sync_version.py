@@ -24,22 +24,10 @@ VERSION_FILES = {
         r'^version = "(\d+\.\d+\.\d+)"',
         'version = "{version}"',
     ),
-    "src/electron/package.json": (
+    "package.json": (
         r'"version":\s*"(\d+\.\d+\.\d+)"',
         '"version": "{version}"',
     ),
-    "README.md": [
-        (r'dist/MediaFactory-(\d+\.\d+\.\d+)\.dmg', 'dist/MediaFactory-{version}.dmg'),
-        (r'dist/MediaFactory-Setup-(\d+\.\d+\.\d+)\.exe', 'dist/MediaFactory-Setup-{version}.exe'),
-        (r'PRODUCT_VERSION = "(\d+\.\d+\.\d+)"', 'PRODUCT_VERSION = "{version}"'),
-        (r'#define AppVersion "(\d+\.\d+\.\d+)"', '#define AppVersion "{version}"'),
-    ],
-    "README_zh.md": [
-        (r'dist/MediaFactory-(\d+\.\d+\.\d+)\.dmg', 'dist/MediaFactory-{version}.dmg'),
-        (r'dist/MediaFactory-Setup-(\d+\.\d+\.\d+)\.exe', 'dist/MediaFactory-Setup-{version}.exe'),
-        (r'PRODUCT_VERSION = "(\d+\.\d+\.\d+)"', 'PRODUCT_VERSION = "{version}"'),
-        (r'#define AppVersion "(\d+\.\d+\.\d+)"', '#define AppVersion "{version}"'),
-    ],
     "BUILD.md": [
         (r'version = "(\d+\.\d+\.\d+)"', 'version = "{version}"'),
         (r'git-cliff --tag v(\d+\.\d+\.\d+) --unreleased', 'git-cliff --tag v{version} --unreleased'),
@@ -49,12 +37,6 @@ VERSION_FILES = {
         (r'git-cliff v[\d.]+\.\.v(\d+\.\d+\.\d+)', 'git-cliff v0.1.0..v{version}'),
         (r'git-cliff --tag v(\d+\.\d+\.\d+) --prepend', 'git-cliff --tag v{version} --prepend'),
         (r'git-cliff --tag v(\d+\.\d+\.\d+) --unreleased', 'git-cliff --tag v{version} --unreleased'),
-    ],
-    "scripts/pyinstaller/README_PYINSTALLER.md": [
-        (r'MediaFactory-(\d+\.\d+\.\d+)-\{platform\}\.zip', 'MediaFactory-{version}-{{platform}}.zip'),
-        (r'PRODUCT_VERSION = "(\d+\.\d+\.\d+)"', 'PRODUCT_VERSION = "{version}"'),
-        (r'MediaFactory-Installer-(\d+\.\d+\.\d+)\.pkg', 'MediaFactory-Installer-{version}.pkg'),
-        (r'MediaFactory-Setup-(\d+\.\d+\.\d+)\.exe', 'MediaFactory-Setup-{version}.exe'),
     ],
 }
 
