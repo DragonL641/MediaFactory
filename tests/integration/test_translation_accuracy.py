@@ -1,21 +1,30 @@
 import pytest
 import difflib
-import sys
-import os
 from pathlib import Path
 
-# 添加 src 到路径以便导入 videodub
-sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
-# 添加 tests 到路径以便导入 data
-sys.path.insert(0, str(Path(__file__).parent))
+from tests.data.ja_zh_test_data import TEST_DATA
 
-from mediafactory.engine.translation import TranslationEngine
-from mediafactory.models.local_models import local_model_manager
-from mediafactory.models.model_registry import get_model_info
-from .data.ja_zh_test_data import TEST_DATA
+pytestmark = [pytest.mark.integration, pytest.mark.slow, pytest.mark.requires_ml]
 
 # 测试模型类型配置
 MODEL_TYPE = "NLLB-200-Distilled-600M"    # 需要检查哪个模型的准确率，就写成哪个
+
+
+def _check_ml_available():
+    """检查 ML 依赖和翻译模型是否可用，collection 阶段安全处理。"""
+    try:
+        from mediafactory.models.local_models import local_model_manager
+        from mediafactory.models.model_registry import get_model_info
+        model_info = get_model_info(MODEL_TYPE)
+        if model_info:
+            return local_model_manager.is_model_available_locally(model_info.model_id)
+        return False
+    except ImportError:
+        return False
+
+
+_ml_available = _check_ml_available()
+
 
 def calculate_similarity(s1, s2):
     """计算两个字符串的相似度。"""
@@ -25,22 +34,15 @@ def calculate_similarity(s1, s2):
     s2 = re.sub(r'[^\w\s]', '', s2)
     return difflib.SequenceMatcher(None, s1, s2).ratio()
 
-def is_default_model_available():
-    """检查翻译模型是否在本地可用。"""
-    # 获取已下载的翻译模型列表
-    downloaded_models = local_model_manager.get_downloaded_translation_models()
-    # 检查 MODEL_TYPE 是否已下载
-    model_info = get_model_info(MODEL_TYPE)
-    if model_info:
-        return local_model_manager.is_model_available_locally(model_info.model_id)
-    return False
 
-@pytest.mark.skipif(not is_default_model_available(), reason="默认翻译模型本地不可用")
+@pytest.mark.skipif(not _ml_available, reason="ML 依赖或翻译模型不可用")
 def test_japanese_to_chinese_translation_accuracy():
     """
     测试日语到中文的翻译准确率。
     要求平均吻合率达到 90% 以上。
     """
+    from mediafactory.engine.translation import TranslationEngine
+
     engine = TranslationEngine(use_local_models_only=True, model_type=MODEL_TYPE)
 
     # 构建模拟的 Whisper 结果

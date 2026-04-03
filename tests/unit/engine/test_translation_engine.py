@@ -4,6 +4,8 @@ import pytest
 from pathlib import Path
 from unittest.mock import Mock, patch, MagicMock
 
+from tests.helpers.mock_backends import MockLLMBackend
+
 
 class TestTranslationEngine:
     """TranslationEngine 测试 — mock 模型加载和 API 调用。"""
@@ -21,31 +23,8 @@ class TestTranslationEngine:
     def test_engine_creation_llm_mode(self):
         """测试创建 LLM 翻译引擎。"""
         from mediafactory.engine import TranslationEngine
-        from mediafactory.llm.base import TranslationBackend
 
-        class MockBackend(TranslationBackend):
-            name = "mock"
-
-            @property
-            def is_available(self):
-                return True
-
-            @property
-            def get_model_name(self):
-                return "mock-model"
-
-            def translate(self, request):
-                from mediafactory.llm.base import TranslationResult
-                return TranslationResult(
-                    translated_text=request.text,
-                    backend_used="mock",
-                    success=True
-                )
-
-            def test_connection(self):
-                return {"success": True, "message": "OK"}
-
-        mock_backend = MockBackend()
+        mock_backend = MockLLMBackend()
         engine = TranslationEngine(
             use_llm_backend=True,
             llm_backend=mock_backend
@@ -67,7 +46,7 @@ class TestTranslationEngine:
         result = {"segments": segments, "language": "en"}
 
         # mock 内部模型调用，不 mock translate 本身
-        with patch.object(engine, "_translate_with_model", return_value=[
+        with patch.object(engine, "_translate_with_local", return_value=[
             {"start": 0.0, "end": 2.0, "text": "Hello"},
             {"start": 2.0, "end": 4.0, "text": "World"},
         ]):
@@ -84,7 +63,7 @@ class TestTranslationEngine:
 
         result = {"segments": [], "language": "en"}
 
-        with patch.object(engine, "_translate_with_model", return_value=[]):
+        with patch.object(engine, "_translate_with_local", return_value={"segments": [], "language": "en"}):
             translated = engine.translate(result, "en", "zh")
 
             assert len(translated["segments"]) == 0
@@ -153,3 +132,26 @@ class TestTranslationEngine:
         except Exception:
             # 如果 cleanup 需要特定状态，可接受
             pass
+
+    @pytest.mark.unit
+    def test_translation_engine_empty_segments(self):
+        """测试翻译引擎处理空分段的情况。（来自 test_engine_robustness）"""
+        from mediafactory.engine.translation import TranslationEngine
+
+        mock_backend = MockLLMBackend()
+        engine = TranslationEngine(
+            use_llm_backend=True,
+            llm_backend=mock_backend
+        )
+        result = {
+            "segments": [
+                {"text": "  ", "start": 0.0, "end": 1.0},
+                {"text": "", "start": 1.0, "end": 2.0}
+            ],
+            "language": "en"
+        }
+        # 即使模型不可用，也应该能处理空文本而不会崩溃
+        translated = engine.translate(result, src_lang="en", tgt_lang="zh")
+        assert len(translated["segments"]) == 2
+        assert translated["segments"][0]["text"].strip() == ""
+        assert translated["segments"][1]["text"].strip() == ""

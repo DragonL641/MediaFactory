@@ -5,6 +5,8 @@ Simple tests to verify logging module can be imported and basic functions work.
 
 import pytest
 
+pytestmark = [pytest.mark.unit]
+
 
 class TestLoggingBasic:
     """基础日志功能测试。"""

@@ -162,7 +162,12 @@ dev = [
 ##### Test Settings #####
 [tool.pytest.ini_options]
 minversion = "7.0"
-addopts = "-ra -q --cov=src/mediafactory --cov-report=html --cov-report=term-missing"
+addopts = [
+    "-ra",
+    "-q",
+    "--cov=src/mediafactory",
+    "--cov-report=term-missing",
+]
 testpaths = [
     "tests",
 ]
@@ -170,11 +175,11 @@ python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
 markers = [
-    "unit: Unit tests",
-    "integration: Integration tests",
-    "e2e: End-to-end tests",
-    "slow: Slow running tests",
-    "requires_network: Tests requiring network access"
+    "unit: Fast tests with all dependencies mocked",
+    "integration: Tests requiring real resources",
+    "slow: Tests taking more than 5 seconds",
+    "requires_ml: Tests requiring ML model files",
+    "requires_network: Tests making real network calls",
 ]
 
 [tool.coverage.run]

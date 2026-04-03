@@ -1,13 +1,11 @@
 """Pytest configuration and fixtures for MediaFactory tests.
 
 Test Structure:
-- tests/engine/  - 引擎层测试（Mock）
-- tests/llm/     - LLM 后端测试（Mock）
-- tests/tools/   - 工具层测试（Mock）
-- tests/data/    - 测试数据
-- tests/resources/ - 测试资源（sample.mp4 用于 FFmpeg 测试）
-
-For real model/API debugging, use scripts/debug/ scripts.
+- tests/unit/          - 单元测试（全 mock，CI 运行）
+- tests/integration/   - 集成测试（需要真实资源，本地按需运行）
+- tests/helpers/       - 共享 mock 工具
+- tests/data/          - 测试数据
+- tests/resources/     - 测试资源
 """
 
 import sys
@@ -21,9 +19,11 @@ sys.path.insert(0, str(src_path))
 
 def pytest_configure(config):
     """Configure pytest settings."""
-    config.addinivalue_line("markers", "unit: mark test as unit test")
-    config.addinivalue_line("markers", "integration: mark test as integration test")
-    config.addinivalue_line("markers", "slow: mark test as slow running")
+    config.addinivalue_line("markers", "unit: Fast tests with all dependencies mocked")
+    config.addinivalue_line("markers", "integration: Tests requiring real resources")
+    config.addinivalue_line("markers", "slow: Tests taking more than 5 seconds")
+    config.addinivalue_line("markers", "requires_ml: Tests requiring ML model files")
+    config.addinivalue_line("markers", "requires_network: Tests making real network calls")
 
 
 # ========== Singleton Reset Fixtures ==========
@@ -31,61 +31,29 @@ def pytest_configure(config):
 
 @pytest.fixture(autouse=True)
 def reset_singletons():
-    """自动重置所有单例实例，确保测试隔离。
-
-    此 fixture 会在每个测试前后自动执行，重置所有全局单例状态。
-    """
-    # 测试前不需要做任何事情
+    """自动重置所有单例实例，确保测试隔离。"""
     yield
 
-    # 测试后重置所有单例
     try:
         from mediafactory.config import reset_config_manager
-
         reset_config_manager()
     except ImportError:
         pass
 
     try:
         from mediafactory.models.local_models import reset_local_model_manager
-
         reset_local_model_manager()
     except ImportError:
         pass
 
     try:
         from mediafactory.resource_manager import reset_resource_manager
-
         reset_resource_manager()
     except ImportError:
         pass
 
 
-# ========== Resource Path Fixtures ==========
-
-
-@pytest.fixture(scope="session")
-def resources_path() -> Path:
-    """Provide the path to test resources directory."""
-    return Path(__file__).parent / "resources"
-
-
-@pytest.fixture(scope="session")
-def sample_video_path(resources_path: Path) -> Path:
-    """Provide a sample video path for FFmpeg testing.
-
-    Note: The actual video file must be added manually to tests/resources/
-    """
-    return resources_path / "sample.mp4"
-
-
 # ========== Temporary Directory Fixtures ==========
-
-
-@pytest.fixture(scope="session")
-def temp_directory(tmp_path_factory):
-    """Provide a temporary directory for tests."""
-    return tmp_path_factory.mktemp("mediafactory_test")
 
 
 @pytest.fixture

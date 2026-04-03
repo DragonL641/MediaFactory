@@ -67,6 +67,32 @@ class TestSRTEngine:
 
             assert result == str(output_path)
 
+    @pytest.mark.unit
+    def test_srt_timestamp_formatting(self):
+        """测试 SRT 时间戳格式化。（来自 test_engine_robustness）"""
+        from mediafactory.engine.srt import SRTEngine
+
+        engine = SRTEngine()
+        assert engine._format_timestamp(0) == "00:00:00,000"
+        assert engine._format_timestamp(3661.5) == "01:01:01,500"
+        assert engine._format_timestamp(59.999) == "00:00:59,999"
+
+    @pytest.mark.unit
+    def test_format_timestamp_method(self):
+        """测试时间戳格式化方法的详细场景。（来自 test_process_video）"""
+        from mediafactory.engine import SRTEngine
+
+        engine = SRTEngine()
+        # Test basic formatting
+        assert engine._format_timestamp(0) == "00:00:00,000"
+        assert engine._format_timestamp(1) == "00:00:01,000"
+        assert engine._format_timestamp(60) == "00:01:00,000"
+        assert engine._format_timestamp(3600) == "01:00:00,000"
+
+        # Test with fractional seconds
+        assert engine._format_timestamp(1.5) == "00:00:01,500"
+        assert engine._format_timestamp(61.25) == "00:01:01,250"
+
 
 class TestSRTFormatConstants:
     """SRT 格式常量测试。"""
