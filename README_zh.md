@@ -37,20 +37,12 @@
   <img src="docs/images/TaskBatchAdd.png" alt="批量添加" width="500"/>
 </p>
 
-### 🔒 支持本地模型
+### 🤖 统一模型管理
 
-使用开源模型完全本地运行。您的媒体文件不会离开电脑 — 完全隐私，配置完成后无需联网。
-
-<p align="center">
-  <img src="docs/images/LocalModelConfig.png" alt="本地模型配置" width="500"/>
-</p>
-
-### 🌐 灵活的 LLM 翻译
-
-选择 6+ 种 LLM 服务进行翻译：OpenAI、DeepSeek、智谱 GLM、通义千问、Moonshot，或添加自定义端点。全部通过 OpenAI 兼容 API 接入。
+在设置页面统一管理所有模型 — 下载并配置本地模型（Whisper、M2M100）实现完全离线处理，或接入 6+ 种 LLM 服务（OpenAI、DeepSeek、智谱 GLM、通义千问、Moonshot 或自定义端点）进行云端翻译。你的选择，你的隐私。
 
 <p align="center">
-  <img src="docs/images/LLM-API-Config.png" alt="LLM API 配置" width="500"/>
+  <img src="docs/images/ModelConfig.png" alt="模型配置" width="500"/>
 </p>
 
 ---

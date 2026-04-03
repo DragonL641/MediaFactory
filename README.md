@@ -26,7 +26,7 @@ A professional multimedia processing platform for subtitle generation and video-
 Support for 5 task types: Audio Extraction, Speech-to-Text, Subtitle Generation, Subtitle Translation, and Video Enhancement. Each task card shows status, progress, and estimated time remaining.
 
 <p align="center">
-  <img src="docs/images/TaskTypes.png" alt="Task Types" width="350"/>
+  <img src="docs/images/TaskTypes.png" alt="Task Types" width="500"/>
 </p>
 
 ### 📦 Batch Add Tasks
@@ -37,20 +37,12 @@ Drag and drop multiple files or entire folders. Set source/target languages and 
   <img src="docs/images/TaskBatchAdd.png" alt="Batch Add Tasks" width="500"/>
 </p>
 
-### 🔒 Local Model Support
+### 🤖 Unified Model Management
 
-Run everything locally with open-source models. Your media files never leave your computer — complete privacy, no internet required after setup.
-
-<p align="center">
-  <img src="docs/images/LocalModelConfig.png" alt="Local Model Config" width="500"/>
-</p>
-
-### 🌐 Flexible LLM Translation
-
-Choose from 6+ LLM providers for translation: OpenAI, DeepSeek, GLM (智谱AI), Qwen (通义千问), Moonshot, or add your own custom endpoint. All via OpenAI-compatible API.
+Manage all models in one place — the Settings page. Download and configure local models (Whisper, M2M100) for fully offline processing, or connect to 6+ LLM providers (OpenAI, DeepSeek, GLM, Qwen, Moonshot, or custom endpoints) for cloud-based translation. Your choice, your privacy.
 
 <p align="center">
-  <img src="docs/images/LLM-API-Config.png" alt="LLM API Config" width="500"/>
+  <img src="docs/images/ModelConfig.png" alt="Model Configuration" width="500"/>
 </p>
 
 ---
