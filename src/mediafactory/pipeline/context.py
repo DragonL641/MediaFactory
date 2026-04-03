@@ -110,6 +110,15 @@ class ProcessingContext:
             self._model_context = None
         self.whisper_model_instance = None
 
+        # 释放本地翻译模型缓存（2-4GB 内存）
+        try:
+            from ..models.local_models import get_local_model_manager
+            manager = get_local_model_manager()
+            for model_id in list(manager._loaded_models.keys()):
+                manager.unload_translation_model(model_id)
+        except Exception:
+            pass
+
 
 @dataclass
 class ProcessingResult:

@@ -12,49 +12,43 @@ on:
     branches: [ main ]
 
 jobs:
+  # 测试作业 - 在 macOS 和 Ubuntu 上运行，覆盖项目支持的平台
   test:
-    name: Test Suite
-    # 运行环境 - 使用最新的 macOS 系统（项目支持 macOS/Windows）
-    runs-on: macos-latest
-    # 策略配置 - 矩阵策略允许在多个Python版本上并行测试
+    name: Test Suite (${{ matrix.os }}, Python ${{ matrix.python-version }})
+    runs-on: ${{ matrix.os }}
     strategy:
       matrix:
+        os: [macos-latest, ubuntu-latest]
         python-version: ["3.11", "3.12", "3.13"]
 
     steps:
-    # 步骤1: 检出代码仓库
     - uses: actions/checkout@v4
-    
-    # 步骤2: 设置 Python 环境
+
     - name: Set up Python
       uses: actions/setup-python@v5
       with:
         python-version: ${{ matrix.python-version }}
-    
-    # 步骤3: 安装依赖
-    - name: Install dependencies
-      run: |
-        curl -LsSf https://astral.sh/uv/install.sh | sh
-        uv sync --group dev
 
-    # 步骤4: 运行测试并生成覆盖率报告
+    - name: Install uv
+      uses: astral-sh/setup-uv@v4
+
+    - name: Install dependencies
+      run: uv sync --group dev
+
     - name: Run tests with coverage
-      run: |
-        # 使用pytest运行测试，并生成XML格式的覆盖率报告
-        uv run pytest tests/ --cov=mediafactory --cov-report=xml
-    
-    # 步骤5: 将覆盖率报告上传到Codecov
+      run: uv run pytest tests/ --cov=mediafactory --cov-report=xml
+
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v5
       with:
         files: ./coverage.xml
         flags: unittests
-        name: codecov-umbrella
+        name: codecov-${{ matrix.os }}-py${{ matrix.python-version }}
 
   # 代码质量检查作业
   lint:
     name: Code Quality Checks
-    runs-on: macos-latest
+    runs-on: ubuntu-latest
 
     steps:
     - uses: actions/checkout@v4
@@ -65,11 +59,14 @@ jobs:
         python-version: "3.13"
 
     - name: Install uv
-      run: curl -LsSf https://astral.sh/uv/install.sh | sh
+      uses: astral-sh/setup-uv@v4
 
     - name: Install dependencies
-      run: |
-        uv sync --group dev
+      run: uv sync --group dev
+
+    # 检查版本号一致性（pyproject.toml / package.json / BUILD.md）
+    - name: Check version consistency
+      run: uv run python scripts/utils/sync_version.py --check
 
     # 使用Black检查代码格式是否符合规范 (仅警告，不中断)
     - name: Check code formatting with Black
@@ -79,10 +76,10 @@ jobs:
     - name: Check code style with Flake8
       run: uv run flake8 src/ --select=E9,F63,F7,F82 --ignore=F821
 
-  # 前端构建验证
+  # 前端构建验证 + 类型检查
   frontend:
-    name: Frontend Build
-    runs-on: macos-latest
+    name: Frontend Build & Typecheck
+    runs-on: ubuntu-latest
 
     steps:
     - uses: actions/checkout@v4
@@ -97,32 +94,31 @@ jobs:
     - name: Install dependencies
       run: npm ci
 
+    - name: Typecheck
+      run: npm run typecheck
+
     - name: Build
       run: npm run build
-
 
   # 安全扫描作业 - 检测代码和依赖中的安全漏洞
   security:
     name: Security Scanning
-    runs-on: macos-latest
-    
+    runs-on: ubuntu-latest
+
     steps:
-    # 检出代码仓库
     - uses: actions/checkout@v4
-    
-    # 设置Python环境
+
     - name: Set up Python
       uses: actions/setup-python@v5
       with:
         python-version: "3.13"
-    
-    # 安装 uv 和安全扫描工具
-    - name: Install uv and security tools
-      run: |
-        curl -LsSf https://astral.sh/uv/install.sh | sh
-        uv sync --group dev
-        uv pip install bandit safety
-    
+
+    - name: Install uv
+      uses: astral-sh/setup-uv@v4
+
+    - name: Install dependencies
+      run: uv sync --group dev
+
     # 运行Bandit安全扫描，递归扫描src目录，仅报告中高级风险
     - name: Run Bandit security scan
       continue-on-error: true
@@ -132,49 +128,40 @@ jobs:
     - name: Run Safety dependency check
       continue-on-error: true
       run: uv run safety scan --full-report || uv run safety check --full-report
-    
+
     # 将安全扫描结果作为工件存档保存
     - name: Archive security results
       uses: actions/upload-artifact@v4
       with:
-        # 工件名称
         name: security-results
-        # 要上传的文件路径
         path: bandit-results.json
 
   # 软件物料清单(SBOM)生成作业 - 创建项目依赖的软件清单
   sbom:
     name: Generate SBOM
-    runs-on: macos-latest
-    
+    runs-on: ubuntu-latest
+
     steps:
-    # 检出代码仓库
     - uses: actions/checkout@v4
-    
-    # 设置Python环境
+
     - name: Set up Python
       uses: actions/setup-python@v5
       with:
         python-version: "3.13"
 
     - name: Install uv
-      run: curl -LsSf https://astral.sh/uv/install.sh | sh
+      uses: astral-sh/setup-uv@v4
 
-    # 安装CycloneDX SBOM生成工具
-    - name: Install cyclonedx-bom
-      run: |
-        uv sync
-        uv pip install cyclonedx-bom
+    - name: Install dependencies
+      run: uv sync --group dev
 
     # 生成XML格式的SBOM文件
     - name: Generate SBOM
       run: uv run cyclonedx-py environment --output-format xml -o bom.xml
-    
+
     # 将生成的SBOM文件作为工件上传保存
     - name: Upload SBOM artifact
       uses: actions/upload-artifact@v4
       with:
-        # 工件名称
         name: software-bill-of-materials
-        # SBOM文件路径
         path: bom.xml

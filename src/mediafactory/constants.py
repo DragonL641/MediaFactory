@@ -167,6 +167,9 @@ class ModelTokenLimits:
     }    # 默认限制（未知模型使用保守值）
     DEFAULT_LIMIT = 4096
 
+    # 缓存排序后的前缀，避免每次调用重复排序
+    _SORTED_PREFIXES: list[str] = sorted(LIMITS.keys(), key=len, reverse=True)
+
 
 def get_model_max_tokens(model_name: str) -> int:
     """获取模型的最大输出 token 限制。
@@ -184,10 +187,7 @@ def get_model_max_tokens(model_name: str) -> int:
 
     model_lower = model_name.lower()
 
-    # 按前缀长度降序排列，确保更具体的匹配优先
-    sorted_prefixes = sorted(ModelTokenLimits.LIMITS.keys(), key=len, reverse=True)
-
-    for prefix in sorted_prefixes:
+    for prefix in ModelTokenLimits._SORTED_PREFIXES:
         if model_lower.startswith(prefix):
             return ModelTokenLimits.LIMITS[prefix]
 
@@ -239,63 +239,6 @@ class BackendConfigMapping:
             "model_examples": ["qwen2.5:7b", "llama3.1:8b", "mistral:7b"],
         },
     }
-
-    # 后端配置
-    SUPPORTED_BACKENDS = {
-        "openai_compatible": {
-            "display_name": "OpenAI Compatible",
-            "description": "支持所有 OpenAI 兼容的 API 服务",
-            "fields": ["preset", "api_key", "base_url", "model"],
-            "defaults": {
-                "preset": "openai",
-                "api_key": "",
-                "base_url": "https://api.openai.com/v1",
-                "model": "gpt-4o-mini",
-            },
-        },
-    }
-
-    @classmethod
-    def get_display_names(cls) -> dict[str, str]:
-        """获取后端显示名称映射。"""
-        return {k: v["display_name"] for k, v in cls.SUPPORTED_BACKENDS.items()}
-
-    @classmethod
-    def get_backend_fields(cls) -> dict[str, list[str]]:
-        """获取后端字段映射。"""
-        return {k: v["fields"] for k, v in cls.SUPPORTED_BACKENDS.items()}
-
-    @classmethod
-    def get_default_models(cls) -> dict[str, str]:
-        """获取默认模型映射。"""
-        return {k: v["defaults"]["model"] for k, v in cls.SUPPORTED_BACKENDS.items()}
-
-    @classmethod
-    def get_backend_config(cls, config: "AppConfig", backend_name: str) -> dict:
-        """获取后端配置。"""
-        from typing import Dict, Any
-
-        backend_info = cls.SUPPORTED_BACKENDS.get(backend_name)
-        if not backend_info:
-            return {}
-
-        result: Dict[str, Any] = {}
-        for field in backend_info["fields"]:
-            default_value = backend_info["defaults"].get(field, "")
-            backend_config = getattr(config, "openai_compatible", None)
-            if backend_config and hasattr(backend_config, field):
-                result[field] = getattr(backend_config, field)
-            else:
-                result[field] = default_value
-
-        # 添加通用配置
-        result["timeout"] = config.llm_api.timeout
-        result["max_retries"] = config.llm_api.max_retries
-
-        # 速率限制（写死为保护机制）
-        result["rate_limit"] = 5.0
-
-        return result
 
     @classmethod
     def get_preset_by_display_name(cls, display_name: str) -> dict:

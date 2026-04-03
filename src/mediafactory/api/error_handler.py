@@ -14,6 +14,8 @@ from mediafactory.exceptions import MediaFactoryError
 from mediafactory.i18n import t
 
 logger = logging.getLogger(__name__)
+# API 层使用标准 logging，通过 InterceptHandler 自动重定向到 loguru
+# 详见 mediafactory.logging.loguru_logger.setup_logging_intercept
 
 
 def sanitize_error(error: Exception) -> str:

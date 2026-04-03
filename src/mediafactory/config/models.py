@@ -347,7 +347,15 @@ class AppConfig(BaseModel):
         for section_name in self.model_fields:
             section = getattr(self, section_name)
             if hasattr(section, "model_dump"):
-                result[section_name] = section.model_dump(mode="json")
+                section_dict = section.model_dump(mode="json", exclude_none=True)
             else:
-                result[section_name] = section
+                section_dict = section
+
+            # Path 转字符串
+            for key, value in section_dict.items() if isinstance(section_dict, dict) else []:
+                if isinstance(value, Path):
+                    section_dict[key] = str(value)
+
+            if section_dict:
+                result[section_name] = section_dict
         return result

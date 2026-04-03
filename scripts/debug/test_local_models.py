@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Test script for local model functionality in VideoDub."""
+"""Debug script for local model functionality in MediaFactory."""
 
 import os
 import sys

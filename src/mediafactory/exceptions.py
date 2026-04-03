@@ -1,26 +1,10 @@
 """MediaFactory 自定义异常类。
 
 提供简洁的异常层次结构，便于错误处理和用户友好的错误提示。
-重试机制使用 tenacity 库实现。
 """
 
-from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Optional, Callable, TypeVar
-
-from tenacity import (
-    retry,
-    stop_after_attempt,
-    wait_exponential,
-    retry_if_exception_type,
-    before_sleep_log,
-    RetryCallState,
-)
-
-from mediafactory.logging import log_debug
-
-
-T = TypeVar("T")
+from typing import Any, Optional
 
 
 class ErrorSeverity(Enum):
@@ -31,10 +15,6 @@ class ErrorSeverity(Enum):
     WARNING = "warning"  # Continue with limitations
 
 
-# =============================================================================
-# Retry Mechanism (using tenacity)
-# =============================================================================
-
 # Exception types that are typically retryable
 RETRYABLE_EXCEPTIONS = (
     TimeoutError,
@@ -42,95 +22,6 @@ RETRYABLE_EXCEPTIONS = (
     ConnectionRefusedError,
     ConnectionResetError,
 )
-
-
-@dataclass
-class RetryConfig:
-    """Configuration for retry mechanism.
-
-    Attributes:
-        max_attempts: Maximum number of retry attempts
-        initial_delay: Initial delay in seconds before first retry
-        max_delay: Maximum delay between retries (cap)
-        on_retry: Optional callback called before each retry
-    """
-
-    max_attempts: int = 3
-    initial_delay: float = 1.0
-    max_delay: float = 60.0
-    on_retry: Optional[Callable[[int, Exception], None]] = None
-
-
-def _log_retry(retry_state: RetryCallState) -> None:
-    """Log retry attempt for debugging."""
-    exc = retry_state.outcome.exception() if retry_state.outcome else None
-    log_debug(
-        f"Retry: Attempt {retry_state.attempt_number} failed: {exc}. " f"Retrying..."
-    )
-
-
-def retry_on_api_error(
-    max_attempts: int = 3,
-    initial_delay: float = 1.0,
-    max_delay: float = 60.0,
-) -> Callable:
-    """Decorator for API calls with automatic retry using tenacity.
-
-    Retries on:
-    - TimeoutError
-    - ConnectionError
-    - Rate limit errors (detected in error message)
-
-    Args:
-        max_attempts: Maximum retry attempts
-        initial_delay: Initial delay in seconds
-        max_delay: Maximum delay between retries
-
-    Returns:
-        Decorator function
-
-    Example:
-        @retry_on_api_error(max_attempts=3)
-        def call_openai_api():
-            ...
-    """
-    return retry(
-        stop=stop_after_attempt(max_attempts),
-        wait=wait_exponential(multiplier=initial_delay, max=max_delay),
-        retry=retry_if_exception_type(RETRYABLE_EXCEPTIONS),
-        before_sleep=_log_retry,
-        reraise=True,
-    )
-
-
-def retry_on_network_error(
-    max_attempts: int = 5,
-    initial_delay: float = 2.0,
-    max_delay: float = 30.0,
-) -> Callable:
-    """Decorator for network operations with aggressive retry using tenacity.
-
-    Retries on:
-    - TimeoutError
-    - ConnectionError
-    - ConnectionRefusedError
-    - ConnectionResetError
-
-    Args:
-        max_attempts: Maximum retry attempts
-        initial_delay: Initial delay in seconds
-        max_delay: Maximum delay between retries
-
-    Returns:
-        Decorator function
-    """
-    return retry(
-        stop=stop_after_attempt(max_attempts),
-        wait=wait_exponential(multiplier=initial_delay, max=max_delay),
-        retry=retry_if_exception_type(RETRYABLE_EXCEPTIONS),
-        before_sleep=_log_retry,
-        reraise=True,
-    )
 
 
 def get_error_severity(exception: Exception) -> ErrorSeverity:
@@ -332,13 +223,10 @@ class OperationCancelledError(MediaFactoryError):
 __all__ = [
     # Error severity
     "ErrorSeverity",
-    # Retry mechanism (tenacity-based)
-    "RetryConfig",
+    # Retry classification
     "RETRYABLE_EXCEPTIONS",
     "get_error_severity",
     "is_retryable_error",
-    "retry_on_api_error",
-    "retry_on_network_error",
     # Base exception
     "MediaFactoryError",
     # Core exceptions (3 types)

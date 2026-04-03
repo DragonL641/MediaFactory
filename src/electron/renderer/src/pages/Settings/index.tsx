@@ -213,8 +213,23 @@ const SettingsPage: React.FC = () => {
   const isLoading = configLoading || modelsLoading;
   const isError = configError || modelsError;
 
-  if (isLoading) return <PageSkeleton type="settings" />;
-  if (isError) return <ErrorPage title={t("settings:error.loadFailed")} onRetry={() => { refetchConfig(); refetchModels(); }} />;
+  if (isLoading) {
+    return (
+      <>
+        <Form form={form} style={{ display: "none" }} />
+        <PageSkeleton type="settings" />
+      </>
+    );
+  }
+
+  if (isError) {
+    return (
+      <>
+        <Form form={form} style={{ display: "none" }} />
+        <ErrorPage title={t("settings:error.loadFailed")} onRetry={() => { refetchConfig(); refetchModels(); }} />
+      </>
+    );
+  }
 
   return (
     <div className="page-enter">

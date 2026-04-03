@@ -19,7 +19,6 @@ import tomli_w
 
 from .defaults import get_config_path, CONFIG_FILE_BACKUP_SUFFIX
 from .models import AppConfig
-from ..constants import BackendConfigMapping
 
 
 class AppConfigManager:
@@ -89,6 +88,7 @@ class AppConfigManager:
         """更新配置值并保存
 
         使用双下划线表示法进行嵌套访问。
+        先在副本上验证，通过后再应用到实际配置。
 
         Args:
             **changes: 键值对，键使用双下划线表示嵌套访问
@@ -100,8 +100,14 @@ class AppConfigManager:
                 openai_compatible__api_key="sk-...",
             )
         """
+        import copy
+        # 先在深拷贝上验证所有更新
+        config_copy = copy.deepcopy(self._config)
+        self._apply_updates(config_copy, changes)
+        config_copy.model_validate(config_copy.model_dump())
+
+        # 验证通过，应用到实际配置
         field_changes = self._apply_updates(self._config, changes)
-        self._config.model_validate(self._config.model_dump())
         self._save(self._config)
 
         # 审计日志：记录配置变更
@@ -121,10 +127,6 @@ class AppConfigManager:
     def set(self, section: str, key: str, value: Any) -> None:
         """设置配置值"""
         self.update(**{f"{section}__{key}": value})
-
-    def get_backend_config(self, backend: str) -> Dict[str, Any]:
-        """获取后端配置"""
-        return BackendConfigMapping.get_backend_config(self.config, backend)
 
     def has_available_models(self) -> bool:
         """检查是否有可用的翻译模型"""
@@ -222,7 +224,7 @@ class AppConfigManager:
             except OSError:
                 pass
 
-        toml_data = self._config_to_toml(config)
+        toml_data = config.to_toml_dict()
         self._config_path.parent.mkdir(parents=True, exist_ok=True)
 
         with open(self._config_path, "wb") as f:
@@ -305,25 +307,6 @@ class AppConfigManager:
                 else:
                     model_section[new_name] = []
 
-    def _config_to_toml(self, config: AppConfig) -> Dict[str, Any]:
-        """将 AppConfig 转换为 TOML 兼容的字典"""
-        toml_data = {}
-
-        for section_name in config.model_fields:
-            section = getattr(config, section_name)
-            if hasattr(section, "model_dump"):
-                section_dict = section.model_dump(mode="json", exclude_none=True)
-            else:
-                section_dict = section
-
-            for key, value in section_dict.items():
-                if isinstance(value, Path):
-                    section_dict[key] = str(value)
-
-            if section_dict:
-                toml_data[section_name] = section_dict
-
-        return toml_data
 
 
 # ==================== 单例管理 ====================

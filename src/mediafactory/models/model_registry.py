@@ -687,16 +687,12 @@ def is_model_complete(model_id: str) -> bool:
         if not config_file.exists():
             return False
         
-        # 检查模型文件
-        model_files = list(path.glob("*.bin")) + list(path.glob("*.safetensors")) + list(path.glob("*.gguf"))
-        if not model_files:
-            return False
-        
-        # 检查文件大小（至少 1MB）
-        for model_file in model_files:
-            if model_file.stat().st_size >= 1_000_000:
+        # 单次扫描目录，过滤模型文件后缀
+        valid_suffixes = {".bin", ".safetensors", ".gguf"}
+        for entry in path.iterdir():
+            if entry.is_file() and entry.suffix in valid_suffixes and entry.stat().st_size >= 1_000_000:
                 return True
-        
+
         return False
 
 

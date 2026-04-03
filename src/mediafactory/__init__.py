@@ -84,21 +84,18 @@ __all__ = [
     "RecognitionEngine",
     "TranslationEngine",
     "SRTEngine",
-    # GUI entry point
-    "launch_gui",
+    # Server entry point
+    "launch_server",
 ]
 
 
-def launch_gui():
+def launch_server():
     """启动 MediaFactory API 服务器
 
     这是推荐的应用启动方式，支持：
-    - from mediafactory import launch_gui; launch_gui()
+    - from mediafactory import launch_server; launch_server()
     - python -m mediafactory
     - mediafactory (命令行)
-
-    注意：GUI 功能已迁移到 Electron 前端。
-    此函数现在启动 FastAPI 后端服务。
     """
     from mediafactory.api.main import start_server
 

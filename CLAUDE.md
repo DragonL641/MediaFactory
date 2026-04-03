@@ -92,12 +92,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ### 开发
 
-MediaFactory 使用 `dependency-groups` 进行依赖分组：
+MediaFactory 使用 `dependency-groups` + `include-group` 进行依赖分组，层级关系：
+`runtime`（基础）→ `bundle`（= runtime）→ `core`（runtime + ML）→ `dev`（工具）
 
 | 组名 | 内容 | 命令 |
 |------|------|------|
-| **bundle** | 打包依赖（含 ML，开箱即用） | `uv sync --group bundle` |
-| **core** | 核心依赖（所有功能，含 ML） | `uv sync --group core` |
+| **runtime** | 基础运行时（与 `[project.dependencies]` 同步） | — |
+| **bundle** | 打包依赖（= runtime，用于 PyInstaller 验证） | `uv sync --group bundle` |
+| **core** | 核心依赖（runtime + ML） | `uv sync --group core` |
 | **dev** | 开发依赖（开发工具） | `uv sync --group dev` |
 
 ```bash
@@ -203,7 +205,7 @@ result = await loop.run_in_executor(None, pipeline.execute, context)
 
 **核心框架**（`src/mediafactory/core/`）：
 - `exception_wrapper.py`：自动转换标准 Python 异常（`wrap_exceptions` 上下文管理器）
-- `progress_protocol.py`：`ProgressCallback` 协议、`SimpleProgressCallback`、`NoOpProgressCallback`
+- `progress_protocol.py`：`ProgressCallback` 协议、`NoOpProgressCallback`
 - `resource_protocol.py`：`ResourceCleanupProtocol` 资源清理协议
 - `tool.py`：`CancellationToken`（协作式取消）
 
@@ -216,7 +218,7 @@ result = await loop.run_in_executor(None, pipeline.execute, context)
 **引擎层**（`src/mediafactory/engine/`）：
 - `AudioEngine`：ffmpeg 音频提取（48000Hz 立体声，语音增强滤波器）
 - `RecognitionEngine`：Faster Whisper 语音识别
-- `TranslationEngine`（基类）、`LocalTranslationEngine`、`LLMTranslationEngine`
+- `TranslationEngine`：统一翻译引擎，通过 `use_local_models_only` 和 `use_llm_backend` 参数切换本地翻译/LLM API 模式
 - `SRTEngine`、`ASSEngine`：字幕文件生成
 - `VideoComposer`：视频合成
 - `VideoEnhancementEngine`：视频画质增强
@@ -236,7 +238,7 @@ result = await loop.run_in_executor(None, pipeline.execute, context)
 - `resource_manager.py`：Whisper 模型资源管理（单例，上下文管理器）
 - `utils/`：transformers 配置、视频扫描器、prompt 加载器
 - `resources/prompts/`：LLM 提示模板（Markdown + `${variable}` 语法）
-- `batch.py`：`BatchProcessor` 批处理
+- `resource_manager.py`：Whisper 模型资源管理
 
 ### 进度系统
 
@@ -252,7 +254,7 @@ result = await loop.run_in_executor(None, pipeline.execute, context)
 
 - `MediaFactoryError`：基类（`message`、`context`、`severity`）
   - `ErrorSeverity`：FATAL、RECOVERABLE、WARNING
-- 核心类型：`ProcessingError`、`ConfigurationError`、`ValidationError`、`ModelError`、`APIError`、`NetworkError`、`AuthenticationError`、`RateLimitError`、`OperationCancelledError`
+- 核心类型：`ProcessingError`（默认 RECOVERABLE）、`ConfigurationError`（默认 FATAL）、`OperationCancelledError`（默认 WARNING）
 - `exception_wrapper.py`：`wrap_exceptions` 上下文管理器自动转换标准异常
 
 ### 配置系统（`src/mediafactory/config/`）
@@ -272,10 +274,13 @@ save_config()
 ### 日志系统
 
 所有日志写入 `logs/LOG-YYYY-MM-DD-HHMM.log`，基于 loguru：
-- **统一导入**：`from mediafactory.logging import log_info, log_error, log_error_with_context`
+
+- **双日志模式（重要约定）**：
+  - **API 层**（`api/` 目录）：使用 `logging.getLogger(__name__)`，通过 `InterceptHandler` 自动重定向到 loguru
+  - **Service/Engine/Pipeline 层**：使用 `from mediafactory.logging import log_info, log_error` 直接调用 loguru
+  - **不要**在 API 层文件中直接导入 loguru，**不要**在 Service/Engine 层使用标准 logging
 - **自动初始化**：首次导入时自动初始化
 - **日志清理**：每次启动自动清理，保留最近 30 天或最多 20 个文件
-- **API 日志桥接**：`setup_logging_intercept()` 将 API 层标准 logging 重定向到 loguru
 - **审计日志**：配置变更自动记录，`api_key`/`password`/`secret`/`token` 等敏感字段自动脱敏
 
 ### 模型管理

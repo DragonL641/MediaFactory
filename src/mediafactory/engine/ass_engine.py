@@ -25,9 +25,13 @@ class ASSEngine:
     """处理 ASS/SSA 字幕文件的生成。"""
 
     # 默认样式配置
+    # 平台感知默认字体
+    import sys
+    _DEFAULT_FONT = "PingFang SC" if sys.platform == "darwin" else "Microsoft YaHei"
+
     DEFAULT_STYLE = {
         "Name": "Default",
-        "Fontname": "Microsoft YaHei",
+        "Fontname": _DEFAULT_FONT,
         "Fontsize": "44",
         "PrimaryColour": "&H00FFFFFF",  # 白色 (BGR格式)
         "SecondaryColour": "&H000000FF",

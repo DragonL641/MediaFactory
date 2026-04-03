@@ -54,27 +54,6 @@ def reset_singletons():
         pass
 
     try:
-        from mediafactory.gui.flet.state import reset_state
-
-        reset_state()
-    except ImportError:
-        pass
-
-    try:
-        from mediafactory.core.events import reset_event_bus
-
-        reset_event_bus()
-    except ImportError:
-        pass
-
-    try:
-        from mediafactory.gui.flet.theme import reset_theme
-
-        reset_theme()
-    except ImportError:
-        pass
-
-    try:
         from mediafactory.resource_manager import reset_resource_manager
 
         reset_resource_manager()

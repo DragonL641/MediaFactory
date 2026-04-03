@@ -48,6 +48,36 @@ class ProcessingStage(str, Enum):
 # ==================== 任务相关 ====================
 
 
+class AudioConfig(BaseModel):
+    """音频处理配置"""
+
+    sample_rate: int = Field(default=48000, ge=16000, le=96000)
+    channels: int = Field(default=2, ge=1, le=2)
+    filter_enabled: bool = True
+    highpass_freq: int = Field(default=200, ge=20, le=500)
+    lowpass_freq: int = Field(default=3000, ge=1000, le=16000)
+    volume: float = Field(default=1.0, ge=0.1, le=2.0)
+    output_format: str = "wav"
+
+
+class SubtitleConfig(BaseModel):
+    """字幕生成配置"""
+
+    output_format: str = "srt"  # srt, ass, txt
+    bilingual: bool = False
+    bilingual_layout: str = "translate_on_top"
+    style_preset: str = "default"
+
+
+class EnhancementConfig(BaseModel):
+    """视频增强配置"""
+
+    scale: int = Field(default=4, ge=2, le=4)
+    model: str = "general"
+    denoise: bool = False
+    temporal: bool = False
+
+
 class TaskConfig(BaseModel):
     """任务配置"""
 
@@ -64,26 +94,10 @@ class TaskConfig(BaseModel):
     use_llm: bool = False
     llm_preset: str = "openai"
 
-    # 音频设置
-    audio_sample_rate: int = 48000
-    audio_channels: int = 2
-    audio_filter_enabled: bool = True
-    audio_highpass_freq: int = 200
-    audio_lowpass_freq: int = 3000
-    audio_volume: float = 1.0
-    audio_output_format: str = "wav"
-
-    # 字幕设置
-    output_format: str = "srt"  # srt, ass, txt
-    bilingual: bool = False
-    bilingual_layout: str = "translate_on_top"
-    style_preset: str = "default"
-
-    # 视频增强设置
-    enhancement_scale: int = 4
-    enhancement_model: str = "general"
-    enhancement_denoise: bool = False
-    enhancement_temporal: bool = False
+    # 分类型配置（按任务类型使用）
+    audio_config: Optional[AudioConfig] = None
+    subtitle_config: Optional[SubtitleConfig] = None
+    enhancement_config: Optional[EnhancementConfig] = None
 
 
 class TaskProgress(BaseModel):
@@ -111,17 +125,6 @@ class TaskResult(BaseModel):
     metadata: Dict[str, Any] = Field(default_factory=dict)
 
 
-class TaskInfo(BaseModel):
-    """任务完整信息"""
-
-    id: str
-    name: str
-    config: TaskConfig
-    status: TaskStatus = TaskStatus.PENDING
-    progress: float = 0.0
-    message: str = ""
-    stage: Optional[ProcessingStage] = None
-    result: Optional[TaskResult] = None
 
 
 # ==================== 模型相关 ====================
@@ -272,26 +275,10 @@ class TaskConfigUpdateRequest(BaseModel):
     use_llm: Optional[bool] = None
     llm_preset: Optional[str] = None
 
-    # 音频设置
-    audio_sample_rate: Optional[int] = None
-    audio_channels: Optional[int] = None
-    audio_filter_enabled: Optional[bool] = None
-    audio_highpass_freq: Optional[int] = None
-    audio_lowpass_freq: Optional[int] = None
-    audio_volume: Optional[float] = None
-    audio_output_format: Optional[str] = None
-
-    # 字幕设置
-    output_format: Optional[str] = None
-    bilingual: Optional[bool] = None
-    bilingual_layout: Optional[str] = None
-    style_preset: Optional[str] = None
-
-    # 视频增强设置
-    enhancement_scale: Optional[int] = None
-    enhancement_model: Optional[str] = None
-    enhancement_denoise: Optional[bool] = None
-    enhancement_temporal: Optional[bool] = None
+    # 分类型配置更新
+    audio_config: Optional[AudioConfig] = None
+    subtitle_config: Optional[SubtitleConfig] = None
+    enhancement_config: Optional[EnhancementConfig] = None
 
 
 class TaskResponse(BaseModel):

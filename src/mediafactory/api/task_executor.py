@@ -8,11 +8,13 @@ import asyncio
 import logging
 from typing import Any, Callable, Coroutine, Dict, Optional
 
-from mediafactory.api.schemas import TaskConfig, TaskType
+from mediafactory.api.schemas import AudioConfig, EnhancementConfig, SubtitleConfig, TaskConfig, TaskType
 from mediafactory.core.progress_protocol import ProgressCallback
 from mediafactory.core.tool import CancellationToken
 
 logger = logging.getLogger(__name__)
+# API 层使用标准 logging，通过 InterceptHandler 自动重定向到 loguru
+# 详见 mediafactory.logging.loguru_logger.setup_logging_intercept
 
 
 class SimpleProgressAdapter(ProgressCallback):
@@ -65,6 +67,7 @@ def _make_result(result) -> Dict[str, Any]:
 async def _execute_subtitle_async(config: TaskConfig, progress: ProgressCallback) -> Dict[str, Any]:
     from mediafactory.services.subtitle import SubtitleService
 
+    sub = config.subtitle_config or SubtitleConfig()
     service = SubtitleService()
     result = await service.generate_subtitle(
         video_path=config.input_path,
@@ -72,10 +75,10 @@ async def _execute_subtitle_async(config: TaskConfig, progress: ProgressCallback
         target_lang=config.target_lang,
         use_llm=config.use_llm,
         llm_preset=config.llm_preset,
-        output_format=config.output_format,
-        bilingual=config.bilingual,
-        bilingual_layout=config.bilingual_layout,
-        style_preset=config.style_preset,
+        output_format=sub.output_format,
+        bilingual=sub.bilingual,
+        bilingual_layout=sub.bilingual_layout,
+        style_preset=sub.style_preset,
         progress=progress,
     )
     return _make_result(result)
@@ -84,18 +87,19 @@ async def _execute_subtitle_async(config: TaskConfig, progress: ProgressCallback
 async def _execute_audio_async(config: TaskConfig, progress: ProgressCallback) -> Dict[str, Any]:
     from mediafactory.services.audio import AudioService
 
+    audio = config.audio_config or AudioConfig()
     service = AudioService()
     result = await service.extract_audio(
         video_path=config.input_path,
         output_path=config.output_path,
         progress=progress,
-        sample_rate=config.audio_sample_rate,
-        channels=config.audio_channels,
-        filter_enabled=config.audio_filter_enabled,
-        highpass_freq=config.audio_highpass_freq,
-        lowpass_freq=config.audio_lowpass_freq,
-        volume=config.audio_volume,
-        output_format=config.audio_output_format,
+        sample_rate=audio.sample_rate,
+        channels=audio.channels,
+        filter_enabled=audio.filter_enabled,
+        highpass_freq=audio.highpass_freq,
+        lowpass_freq=audio.lowpass_freq,
+        volume=audio.volume,
+        output_format=audio.output_format,
     )
     return _make_result(result)
 
@@ -142,13 +146,14 @@ async def _execute_translate_async(config: TaskConfig, progress: ProgressCallbac
 async def _execute_enhance_async(config: TaskConfig, progress: ProgressCallback) -> Dict[str, Any]:
     from mediafactory.services.video_enhancement import VideoEnhancementService
 
+    enh = config.enhancement_config or EnhancementConfig()
     service = VideoEnhancementService()
     result = await service.enhance(
         video_path=config.input_path,
-        scale=config.enhancement_scale,
-        model_type=config.enhancement_model,
-        denoise=config.enhancement_denoise,
-        temporal=config.enhancement_temporal,
+        scale=enh.scale,
+        model_type=enh.model,
+        denoise=enh.denoise,
+        temporal=enh.temporal,
         output_path=config.output_path,
         progress=progress,
     )

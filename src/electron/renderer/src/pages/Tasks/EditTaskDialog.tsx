@@ -45,7 +45,27 @@ const EditTaskDialog: React.FC<EditTaskDialogProps> = ({
 
   useEffect(() => {
     if (config && open) {
-      form.setFieldsValue(config);
+      // 将嵌套子模型展平为表单字段
+      const flat: Record<string, unknown> = { ...config };
+      if (config.audio_config) {
+        Object.entries(config.audio_config).forEach(([k, v]) => {
+          flat[`audio_${k}`] = v;
+        });
+        delete flat.audio_config;
+      }
+      if (config.subtitle_config) {
+        Object.entries(config.subtitle_config).forEach(([k, v]) => {
+          flat[`subtitle_${k === "output_format" ? "output_format" : k}`] = v;
+        });
+        delete flat.subtitle_config;
+      }
+      if (config.enhancement_config) {
+        Object.entries(config.enhancement_config).forEach(([k, v]) => {
+          flat[`enhancement_${k === "model" ? "model_type" : k}`] = v;
+        });
+        delete flat.enhancement_config;
+      }
+      form.setFieldsValue(flat);
     }
   }, [config, form, open]);
 
@@ -58,9 +78,38 @@ const EditTaskDialog: React.FC<EditTaskDialogProps> = ({
   const handleOk = async () => {
     try {
       const values = await form.validateFields();
-      await updateMutation.mutateAsync({ taskId, config: values });
+      // 将展平的表单字段重新组装为嵌套结构
+      const nested: Record<string, unknown> = {};
+      const audioKeys = ["sample_rate", "channels", "filter_enabled", "highpass_freq", "lowpass_freq", "volume", "output_format"];
+      const subtitleKeys = ["output_format", "bilingual", "bilingual_layout", "style_preset"];
+      const enhancementKeys = ["scale", "model_type", "denoise", "temporal"];
+
+      Object.entries(values).forEach(([key, value]) => {
+        if (key.startsWith("audio_")) {
+          const subKey = key.replace("audio_", "");
+          if (!nested.audio_config) nested.audio_config = {};
+          (nested.audio_config as Record<string, unknown>)[subKey] = value;
+        } else if (key.startsWith("enhancement_")) {
+          const subKey = key.replace("enhancement_", "");
+          if (subKey === "model_type") {
+            if (!nested.enhancement_config) nested.enhancement_config = {};
+            (nested.enhancement_config as Record<string, unknown>).model = value;
+          } else {
+            if (!nested.enhancement_config) nested.enhancement_config = {};
+            (nested.enhancement_config as Record<string, unknown>)[subKey] = value;
+          }
+        } else if (subtitleKeys.includes(key)) {
+          // 字幕字段归入 subtitle_config
+          if (!nested.subtitle_config) nested.subtitle_config = {};
+          (nested.subtitle_config as Record<string, unknown>)[key] = value;
+        } else {
+          nested[key] = value;
+        }
+      });
+
+      await updateMutation.mutateAsync({ taskId, config: nested });
       message.success(t("editDialog.saved"));
-      onClose();
+      close();
     } catch (error: unknown) {
       const detail = getErrorDetail(error);
       if (detail) {

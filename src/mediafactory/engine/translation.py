@@ -36,6 +36,7 @@ class TranslationConstants:
     DEFAULT_MAX_LENGTH = 512  # 翻译模型最大序列长度
     ENABLE_TRUNCATION = True  # 启用长序列截断
     SEGMENT_NUMBER_OFFSET = 1  # 分段号从 1 开始
+    BATCH_SIZE = 8  # 本地翻译批量大小
 
 
 class TranslationEngine:
@@ -270,13 +271,12 @@ class TranslationEngine:
         model_callable: Any,
         progress: ProgressCallback,
     ) -> List[Dict[str, Any]]:
-        """本地模型分段翻译"""
+        """本地模型批量翻译"""
         from ..models.local_models import local_model_manager
 
         if not segments:
             return segments
 
-        translated_segments = []
         total_segments = len(segments)
 
         src_code = local_model_manager.get_lang_code(src_lang, self.model_type)
@@ -284,41 +284,129 @@ class TranslationEngine:
 
         log_debug(f"[LocalTranslation] src_lang={src_lang} -> src_code={src_code}")
         log_debug(f"[LocalTranslation] tgt_lang={tgt_lang} -> tgt_code={tgt_code}")
+        log_debug(
+            f"[LocalTranslation] Batch mode: size={TranslationConstants.BATCH_SIZE}, "
+            f"total={total_segments} segments"
+        )
 
-        for i, segment in enumerate(segments):
+        # 分批索引：记录每个 batch 对应的 segment 原始索引
+        translated_segments = [None] * total_segments
+        batch_size = TranslationConstants.BATCH_SIZE
+
+        batch_start = 0
+        while batch_start < total_segments:
             if progress.is_cancelled():
                 raise OperationCancelledError(
                     message=t("error.translationCancelled"),
-                    context={"model_type": self.model_type, "segment_index": i},
+                    context={"model_type": self.model_type, "segment_index": batch_start},
                 )
 
-            current_segment_num = i + TranslationConstants.SEGMENT_NUMBER_OFFSET
-            progress_value = (current_segment_num / total_segments) * 100
-            progress.update(
-                progress_value, t("progress.translatingSegment", current=current_segment_num, total=total_segments)
-            )
+            batch_end = min(batch_start + batch_size, total_segments)
 
-            original_text = segment["text"].strip()
-            if not original_text:
-                translated_segments.append(copy.deepcopy(segment))
-                continue
+            # 收集当前 batch 的非空文本及其索引
+            batch_indices = []
+            batch_texts = []
+            for idx in range(batch_start, batch_end):
+                text = segments[idx]["text"].strip()
+                if text:
+                    batch_indices.append(idx)
+                    batch_texts.append(text)
 
-            translated_text = self._perform_multilingual_translation(
-                original_text, src_code, tgt_code, model_callable
-            )
+            # 批量翻译非空文本
+            if batch_texts:
+                progress.update(
+                    ((batch_end) / total_segments) * 100,
+                    t(
+                        "progress.translatingSegment",
+                        current=batch_end,
+                        total=total_segments,
+                    ),
+                )
 
-            new_segment = copy.deepcopy(segment)
-            new_segment["original_text"] = original_text
-            new_segment["text"] = translated_text
-            translated_segments.append(new_segment)
+                translated_texts = self._perform_batch_translation(
+                    batch_texts, src_code, tgt_code, model_callable
+                )
+
+                for j, idx in enumerate(batch_indices):
+                    new_segment = copy.deepcopy(segments[idx])
+                    new_segment["original_text"] = batch_texts[j]
+                    new_segment["text"] = translated_texts[j]
+                    translated_segments[idx] = new_segment
+
+            # 空文本直接复制
+            for idx in range(batch_start, batch_end):
+                if translated_segments[idx] is None:
+                    translated_segments[idx] = copy.deepcopy(segments[idx])
+
+            batch_start = batch_end
 
         progress.update(100.0, t("progress.completed"))
         return translated_segments
 
+    def _perform_batch_translation(
+        self,
+        texts: List[str],
+        src_code: str,
+        tgt_code: str,
+        model_callable: Any,
+    ) -> List[str]:
+        """批量翻译，失败时回退逐句翻译"""
+        try:
+            translations = model_callable(
+                texts,
+                max_length=TranslationConstants.DEFAULT_MAX_LENGTH,
+                truncation=TranslationConstants.ENABLE_TRUNCATION,
+            )
+            if (
+                translations
+                and isinstance(translations, list)
+                and len(translations) == len(texts)
+                and all(
+                    isinstance(t, dict) and "translation_text" in t
+                    for t in translations
+                )
+            ):
+                return [t["translation_text"] for t in translations]
+
+            # 结果格式不符，回退逐句
+            log_warning(
+                "Batch translation returned unexpected format, "
+                "falling back to per-sentence"
+            )
+            return self._fallback_per_sentence(
+                texts, src_code, tgt_code, model_callable
+            )
+        except Exception as batch_err:
+            # 批量失败，逐句重试
+            log_warning(
+                f"Batch translation failed ({batch_err}), "
+                f"falling back to per-sentence"
+            )
+            return self._fallback_per_sentence(
+                texts, src_code, tgt_code, model_callable
+            )
+
+    def _fallback_per_sentence(
+        self,
+        texts: List[str],
+        src_code: str,
+        tgt_code: str,
+        model_callable: Any,
+    ) -> List[str]:
+        """逐句翻译回退"""
+        results = []
+        for text in texts:
+            results.append(
+                self._perform_multilingual_translation(
+                    text, src_code, tgt_code, model_callable
+                )
+            )
+        return results
+
     def _perform_multilingual_translation(
         self, text: str, src_code: str, tgt_code: str, model_callable: Any
     ) -> str:
-        """执行多语言翻译"""
+        """执行单条多语言翻译"""
         try:
             translation = model_callable(
                 text,

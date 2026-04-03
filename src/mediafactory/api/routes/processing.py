@@ -6,6 +6,7 @@
 """
 
 import logging
+import os
 
 from fastapi import APIRouter, HTTPException
 
@@ -23,6 +24,8 @@ from mediafactory.api.schemas import (
 from mediafactory.i18n import t
 
 logger = logging.getLogger(__name__)
+# API 层使用标准 logging，通过 InterceptHandler 自动重定向到 loguru
+# 详见 mediafactory.logging.loguru_logger.setup_logging_intercept
 
 router = APIRouter()
 
@@ -36,7 +39,7 @@ def _get_task_manager():
 @router.post("/subtitle", response_model=TaskResponse)
 async def create_subtitle_task(request: SubtitleRequest):
     """创建字幕生成任务（不自动启动）"""
-    from mediafactory.api.schemas import TaskConfig, TaskType
+    from mediafactory.api.schemas import SubtitleConfig, TaskConfig, TaskType
 
     config = TaskConfig(
         task_type=TaskType.SUBTITLE,
@@ -46,15 +49,17 @@ async def create_subtitle_task(request: SubtitleRequest):
         target_lang=request.target_lang,
         use_llm=request.use_llm,
         llm_preset=request.llm_preset,
-        output_format=request.output_format,
-        bilingual=request.bilingual,
-        bilingual_layout=request.bilingual_layout,
-        style_preset=request.style_preset,
+        subtitle_config=SubtitleConfig(
+            output_format=request.output_format,
+            bilingual=request.bilingual,
+            bilingual_layout=request.bilingual_layout,
+            style_preset=request.style_preset,
+        ),
     )
 
     task_manager = _get_task_manager()
     task_id = await task_manager.create_task(
-        config, name=f"Subtitle: {request.video_path.split('/')[-1]}"
+        config, name=f"Subtitle: {os.path.basename(request.video_path)}"
     )
 
     return TaskResponse(
@@ -67,24 +72,26 @@ async def create_subtitle_task(request: SubtitleRequest):
 @router.post("/audio", response_model=TaskResponse)
 async def create_audio_task(request: AudioRequest):
     """创建音频提取任务（不自动启动）"""
-    from mediafactory.api.schemas import TaskConfig, TaskType
+    from mediafactory.api.schemas import AudioConfig, TaskConfig, TaskType
 
     config = TaskConfig(
         task_type=TaskType.AUDIO,
         input_path=request.video_path,
         output_path=request.output_path,
-        audio_sample_rate=request.sample_rate,
-        audio_channels=request.channels,
-        audio_filter_enabled=request.filter_enabled,
-        audio_highpass_freq=request.highpass_freq,
-        audio_lowpass_freq=request.lowpass_freq,
-        audio_volume=request.volume,
-        audio_output_format=request.output_format,
+        audio_config=AudioConfig(
+            sample_rate=request.sample_rate,
+            channels=request.channels,
+            filter_enabled=request.filter_enabled,
+            highpass_freq=request.highpass_freq,
+            lowpass_freq=request.lowpass_freq,
+            volume=request.volume,
+            output_format=request.output_format,
+        ),
     )
 
     task_manager = _get_task_manager()
     task_id = await task_manager.create_task(
-        config, name=f"Audio: {request.video_path.split('/')[-1]}"
+        config, name=f"Audio: {os.path.basename(request.video_path)}"
     )
 
     return TaskResponse(
@@ -97,20 +104,22 @@ async def create_audio_task(request: AudioRequest):
 @router.post("/transcribe", response_model=TaskResponse)
 async def create_transcribe_task(request: TranscribeRequest):
     """创建音频转录任务（不自动启动）"""
-    from mediafactory.api.schemas import TaskConfig, TaskType
+    from mediafactory.api.schemas import SubtitleConfig, TaskConfig, TaskType
 
     config = TaskConfig(
         task_type=TaskType.TRANSCRIBE,
         input_path=request.audio_path,
         output_path=request.output_path,
         source_lang=request.source_lang,
-        output_format=request.output_format,
-        style_preset=request.style_preset,
+        subtitle_config=SubtitleConfig(
+            output_format=request.output_format,
+            style_preset=request.style_preset,
+        ),
     )
 
     task_manager = _get_task_manager()
     task_id = await task_manager.create_task(
-        config, name=f"Transcribe: {request.audio_path.split('/')[-1]}"
+        config, name=f"Transcribe: {os.path.basename(request.audio_path)}"
     )
 
     return TaskResponse(
@@ -153,21 +162,23 @@ async def create_translate_task(request: TranslateRequest):
 @router.post("/enhance", response_model=TaskResponse)
 async def create_enhance_task(request: EnhanceRequest):
     """创建视频增强任务（不自动启动）"""
-    from mediafactory.api.schemas import TaskConfig, TaskType
+    from mediafactory.api.schemas import EnhancementConfig, TaskConfig, TaskType
 
     config = TaskConfig(
         task_type=TaskType.ENHANCE,
         input_path=request.video_path,
         output_path=request.output_path,
-        enhancement_scale=request.scale,
-        enhancement_model=request.model_type,
-        enhancement_denoise=request.denoise,
-        enhancement_temporal=request.temporal,
+        enhancement_config=EnhancementConfig(
+            scale=request.scale,
+            model=request.model_type,
+            denoise=request.denoise,
+            temporal=request.temporal,
+        ),
     )
 
     task_manager = _get_task_manager()
     task_id = await task_manager.create_task(
-        config, name=f"Enhance: {request.video_path.split('/')[-1]}"
+        config, name=f"Enhance: {os.path.basename(request.video_path)}"
     )
 
     return TaskResponse(

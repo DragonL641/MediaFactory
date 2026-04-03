@@ -19,6 +19,8 @@ from mediafactory.api.websocket import manager as ws_manager
 from mediafactory._version import get_version
 
 logger = logging.getLogger(__name__)
+# API 层使用标准 logging，通过 InterceptHandler 自动重定向到 loguru
+# 详见 mediafactory.logging.loguru_logger.setup_logging_intercept
 
 # 全局任务管理器
 _task_manager: Optional[TaskManager] = None
@@ -43,14 +45,20 @@ async def lifespan(app: FastAPI):
     from mediafactory.i18n import init_i18n
     init_i18n()
 
-    # 启动时：同步本地模型列表到配置文件
+    # 启动时：后台异步同步本地模型列表到配置文件（避免阻塞启动）
+    import asyncio
     from mediafactory.config import get_config_manager
     config_manager = get_config_manager()
-    try:
-        config_manager.sync_models()
-        logger.info("Model sync completed on startup")
-    except Exception as e:
-        logger.warning(f"Model sync failed on startup (non-fatal): {e}")
+    loop = asyncio.get_event_loop()
+
+    async def _sync_models_background():
+        try:
+            await loop.run_in_executor(None, config_manager.sync_models)
+            logger.info("Model sync completed on startup")
+        except Exception as e:
+            logger.warning(f"Model sync failed on startup (non-fatal): {e}")
+
+    asyncio.create_task(_sync_models_background())
 
     # 启动时：初始化任务管理器
     task_manager = get_task_manager()

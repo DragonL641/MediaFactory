@@ -12,6 +12,8 @@ from typing import Any, Dict, Optional, Set
 from fastapi import WebSocket
 
 logger = logging.getLogger(__name__)
+# API 层使用标准 logging，通过 InterceptHandler 自动重定向到 loguru
+# 详见 mediafactory.logging.loguru_logger.setup_logging_intercept
 
 
 class ConnectionManager:
@@ -82,7 +84,7 @@ class ConnectionManager:
         stage: Optional[str] = None,
         **extra: Any,
     ):
-        """广播任务进度（发送给所有连接）"""
+        """广播任务进度（优先发送给订阅了该任务的连接）"""
         data = {
             "type": "progress",
             "task_id": task_id,
@@ -94,7 +96,7 @@ class ConnectionManager:
                 **extra,
             },
         }
-        await self.broadcast(data)
+        await self._send_to_task(task_id, data)
 
     async def broadcast_task_complete(
         self,
@@ -103,7 +105,7 @@ class ConnectionManager:
         output_path: Optional[str] = None,
         error: Optional[str] = None,
     ):
-        """广播任务完成（发送给所有连接）"""
+        """广播任务完成（优先发送给订阅了该任务的连接）"""
         data = {
             "type": "task_complete",
             "task_id": task_id,
@@ -113,7 +115,24 @@ class ConnectionManager:
                 "error": error,
             },
         }
-        await self.broadcast(data)
+        await self._send_to_task(task_id, data)
+
+    async def _send_to_task(self, task_id: str, message: Dict[str, Any]):
+        """发送消息给订阅了指定任务的连接，无订阅时退回全量广播"""
+        async with self._lock:
+            subscribers = self._task_subscriptions.get(task_id)
+            targets = set(subscribers) if subscribers else set(self._active_connections)
+
+        dead_connections = set()
+        for connection in targets:
+            try:
+                await connection.send_json(message)
+            except Exception as e:
+                logger.warning(f"Failed to send: {e}")
+                dead_connections.add(connection)
+
+        for conn in dead_connections:
+            self.disconnect(conn)
 
     async def broadcast(self, message: Dict[str, Any]):
         """广播消息给所有连接"""

@@ -22,6 +22,8 @@ from mediafactory.api.error_handler import sanitize_error
 from mediafactory.i18n import t
 
 logger = logging.getLogger(__name__)
+# API 层使用标准 logging，通过 InterceptHandler 自动重定向到 loguru
+# 详见 mediafactory.logging.loguru_logger.setup_logging_intercept
 
 # stage 进度到全局进度的映射范围
 STAGE_RANGES = {
@@ -375,9 +377,31 @@ class TaskManager:
             )
             return False
 
-        # 更新可变字段
+        # 处理嵌套子模型更新
+        sub_model_keys = {"audio_config", "subtitle_config", "enhancement_config"}
         for key, value in update_data.items():
-            if hasattr(task.config, key):
+            if key in sub_model_keys and isinstance(value, dict):
+                sub_model = getattr(task.config, key)
+                if sub_model is None:
+                    # 实例化新的子模型
+                    from mediafactory.api.schemas import (
+                        AudioConfig,
+                        EnhancementConfig,
+                        SubtitleConfig,
+                    )
+
+                    sub_model_class = {
+                        "audio_config": AudioConfig,
+                        "subtitle_config": SubtitleConfig,
+                        "enhancement_config": EnhancementConfig,
+                    }[key]
+                    sub_model = sub_model_class(**value)
+                    setattr(task.config, key, sub_model)
+                else:
+                    # 更新已有子模型的字段
+                    for sub_key, sub_value in value.items():
+                        setattr(sub_model, sub_key, sub_value)
+            elif hasattr(task.config, key):
                 setattr(task.config, key, value)
 
         logger.info(f"Updated task {task_id} config: {list(update_data.keys())}")
@@ -390,13 +414,10 @@ class TaskManager:
             return None
         return task.config.model_dump()
 
-    async def get_task_status(self, task_id: str) -> Optional[Dict[str, Any]]:
-        """获取任务状态（包含前端需要的完整字段）"""
-        task = self._tasks.get(task_id)
-        if not task:
-            return None
-
-        result = {
+    @staticmethod
+    def _task_to_dict(task: Task) -> Dict[str, Any]:
+        """将 Task 转换为前端需要的字典格式（camelCase key）"""
+        return {
             "id": task.id,
             "name": task.name,
             "type": task.config.task_type.value,
@@ -408,12 +429,18 @@ class TaskManager:
             "error": task.result.error if task.result else None,
             "stage": task.stage,
         }
-        return result
+
+    async def get_task_status(self, task_id: str) -> Optional[Dict[str, Any]]:
+        """获取任务状态（包含前端需要的完整字段）"""
+        task = self._tasks.get(task_id)
+        if not task:
+            return None
+        return self._task_to_dict(task)
 
     async def get_all_tasks(
         self, exclude_types: Optional[list[TaskType]] = None
     ) -> list[Dict[str, Any]]:
-        """获取所有任务状态（包含前端需要的完整字段）
+        """获取所有任务状态
 
         Args:
             exclude_types: 要排除的任务类型列表
@@ -421,21 +448,7 @@ class TaskManager:
         tasks = self._tasks.values()
         if exclude_types:
             tasks = [t for t in tasks if t.config.task_type not in exclude_types]
-        return [
-            {
-                "id": task.id,
-                "name": task.name,
-                "type": task.config.task_type.value,
-                "inputPath": task.config.input_path,
-                "outputPath": task.result.output_path if task.result else None,
-                "status": task.status.value,
-                "progress": task.progress,
-                "message": task.message,
-                "error": task.result.error if task.result else None,
-                "stage": task.stage,
-            }
-            for task in tasks
-        ]
+        return [self._task_to_dict(task) for task in tasks]
 
     async def remove_task(self, task_id: str) -> bool:
         """移除任务"""

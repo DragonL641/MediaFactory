@@ -410,11 +410,22 @@ class LocalModelManager:
         forced_bos_token_id = tokenizer.get_lang_id(tgt_code)
 
         def translate_callable(
-            text: str,
+            text,
             max_length: int = 512,
             truncation: bool = True,
             **kwargs,
         ):
+            """翻译 callable，支持单条和批量输入。
+
+            Args:
+                text: 单条字符串或字符串列表
+                max_length: 最大序列长度
+                truncation: 是否截断
+
+            Returns:
+                单条时返回 [{"translation_text": ...}]，
+                批量时返回 [{"translation_text": ...}, ...]
+            """
             m = model_ref()
             t = tokenizer_ref()
             if m is None or t is None:
@@ -423,20 +434,22 @@ class LocalModelManager:
                     "Please reload the model before translating."
                 )
 
-            log_debug(
-                f"[Translation] Input: {text[:80]}..."
-                if len(text) > 80
-                else f"[Translation] Input: {text}"
-            )
+            # 判断单条还是批量
+            is_batch = isinstance(text, list)
+            texts = text if is_batch else [text]
 
-            log_debug(f"[Translation] M2M100: {_src_code} -> {_tgt_code}")
+            log_debug(
+                f"[Translation] Batch input: {len(texts)} sentence(s), "
+                f"M2M100: {_src_code} -> {_tgt_code}"
+            )
 
             t.src_lang = _src_code
             inputs = t(
-                text,
+                texts,
                 return_tensors="pt",
                 truncation=truncation,
                 max_length=max_length,
+                padding=True,
             )
             inputs = {k: v.to(m.device) for k, v in inputs.items()}
 
@@ -448,15 +461,18 @@ class LocalModelManager:
             with torch.no_grad():
                 translated = m.generate(**inputs, **gen_kwargs)
 
-            translated_text = t.decode(
-                translated[0], skip_special_tokens=True
-            )
+            decoded = t.batch_decode(translated, skip_special_tokens=True)
+
             log_debug(
-                f"[Translation] Output: {translated_text[:80]}..."
-                if len(translated_text) > 80
-                else f"[Translation] Output: {translated_text}"
+                f"[Translation] Batch output: {len(decoded)} result(s)"
             )
-            return [{"translation_text": translated_text}]
+
+            results = [{"translation_text": d} for d in decoded]
+
+            # 单条输入保持原有返回格式
+            if not is_batch:
+                return results[:1]
+            return results
 
         return translate_callable
 

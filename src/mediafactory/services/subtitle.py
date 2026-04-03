@@ -100,7 +100,7 @@ class SubtitleService:
             )
 
             # 在线程池中执行 Pipeline（因为它是同步的）
-            loop = asyncio.get_event_loop()
+            loop = asyncio.get_running_loop()
 
             def run_pipeline():
                 return pipeline.execute(context)

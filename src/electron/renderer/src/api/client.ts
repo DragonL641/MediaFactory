@@ -111,6 +111,7 @@ export class WebSocketClient {
   private listeners: Map<string, Set<(data: unknown) => void>> = new Map();
   private globalListeners: Set<(data: WebSocketMessage) => void> = new Set();
   private isConnected: boolean = false;
+  private intentionalClose: boolean = false;
 
   async connect(): Promise<void> {
     if (!baseUrl) {
@@ -158,7 +159,9 @@ export class WebSocketClient {
         this.ws.onclose = () => {
           console.log("[WS] Disconnected");
           this.isConnected = false;
-          this.attemptReconnect();
+          if (!this.intentionalClose) {
+            this.attemptReconnect();
+          }
         };
       } catch (error) {
         reject(error);
@@ -238,6 +241,7 @@ export class WebSocketClient {
   }
 
   disconnect(): void {
+    this.intentionalClose = true;
     this.listeners.clear();
     this.globalListeners.clear();
     if (this.ws) {

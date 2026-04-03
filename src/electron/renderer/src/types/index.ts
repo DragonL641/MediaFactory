@@ -32,6 +32,30 @@ export interface Task {
   error?: string; // 后端直接返回 error 字段
 }
 
+export interface AudioConfig {
+  sample_rate?: number;
+  channels?: number;
+  filter_enabled?: boolean;
+  highpass_freq?: number;
+  lowpass_freq?: number;
+  volume?: number;
+  output_format?: string;
+}
+
+export interface SubtitleConfig {
+  output_format?: string;
+  bilingual?: boolean;
+  bilingual_layout?: string;
+  style_preset?: string;
+}
+
+export interface EnhancementConfig {
+  scale?: number;
+  model?: string;
+  denoise?: boolean;
+  temporal?: boolean;
+}
+
 export interface TaskConfig {
   task_type: TaskType;
   input_path: string;
@@ -40,21 +64,9 @@ export interface TaskConfig {
   target_lang?: string;
   use_llm?: boolean;
   llm_preset?: string;
-  output_format?: string;
-  bilingual?: boolean;
-  bilingual_layout?: string;
-  style_preset?: string;
-  audio_sample_rate?: number;
-  audio_channels?: number;
-  audio_filter_enabled?: boolean;
-  audio_highpass_freq?: number;
-  audio_lowpass_freq?: number;
-  audio_volume?: number;
-  audio_output_format?: string;
-  enhancement_scale?: number;
-  enhancement_model?: string;
-  enhancement_denoise?: boolean;
-  enhancement_temporal?: boolean;
+  audio_config?: AudioConfig;
+  subtitle_config?: SubtitleConfig;
+  enhancement_config?: EnhancementConfig;
 }
 
 export interface ModelStatus {

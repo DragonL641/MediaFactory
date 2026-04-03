@@ -3,7 +3,7 @@
  *
  * 负责 Python 后端进程的生命周期管理。
  *
- * 开发模式：通过 .venv/bin/python 启动 uvicorn
+ * 开发模式：通过 .venv/bin/python (Unix) 或 .venv/Scripts/python.exe (Windows) 启动 uvicorn
  * 生产模式：直接启动 PyInstaller 打包的二进制文件
  */
 
@@ -171,7 +171,10 @@ export class PythonManager {
     }
 
     // 开发模式：优先使用虚拟环境
-    const venvPython = path.join(process.cwd(), ".venv", "bin", "python");
+    const venvPython =
+      process.platform === "win32"
+        ? path.join(process.cwd(), ".venv", "Scripts", "python.exe")
+        : path.join(process.cwd(), ".venv", "bin", "python");
     if (fs.existsSync(venvPython)) {
       return venvPython;
     }
