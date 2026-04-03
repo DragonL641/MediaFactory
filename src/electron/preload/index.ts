@@ -110,5 +110,4 @@ const electronAPI: ElectronAPI = {
 // 通过 contextBridge 安全暴露
 contextBridge.exposeInMainWorld("electronAPI", electronAPI);
 
-// 类型声明（导出给 TypeScript 使用）
-export type { ElectronAPI };
+// 类型已通过 export interface 导出，供渲染进程类型声明文件引用

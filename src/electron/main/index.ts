@@ -34,7 +34,7 @@ async function createWindow(): Promise<void> {
     // macOS 特定样式
     titleBarStyle: process.platform === "darwin" ? "hiddenInset" : "default",
     frame: process.platform === "darwin" ? true : false,
-    windowButtonPosition: { x: 15, y: 10 },
+    trafficLightPosition: { x: 15, y: 10 },
   });
 
   // 注册 IPC 处理器（只注册一次）
@@ -81,7 +81,7 @@ async function startApp(): Promise<void> {
       "Startup Failed",
       `Failed to start MediaFactory backend service:\n${error}\n\nPlease check the Python environment configuration.`
     );
-    app.quit(1);
+    app.exit(1);
   }
 }
 
@@ -118,6 +118,6 @@ app.on("activate", async () => {
       await pythonManager.start();
     }
     await createWindow();
-    mainWindow?.show();
+    mainWindow!.show();
   }
 });

@@ -7,6 +7,7 @@
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { getApiClient } from "./client";
+import type { AllModelsStatus } from "../types";
 
 // Query Keys
 export const queryKeys = {
@@ -354,7 +355,7 @@ export function useRetryTaskMutation() {
  * 仅首次加载 + 页面可见时 refetch
  */
 export function useModelsStatusQuery() {
-  return useQuery({
+  return useQuery<AllModelsStatus>({
     queryKey: queryKeys.modelsStatus,
     queryFn: async () => {
       const client = getApiClient();

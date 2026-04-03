@@ -13,7 +13,7 @@
     "dist": "electron-builder",
     "dist:mac": "electron-builder --mac",
     "dist:win": "electron-builder --win",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit -p src/electron/tsconfig.json && tsc --noEmit -p src/electron/preload/tsconfig.json && tsc --noEmit -p src/electron/renderer/tsconfig.json"
   },
   "dependencies": {
     "@ant-design/icons": "^5.2.0",

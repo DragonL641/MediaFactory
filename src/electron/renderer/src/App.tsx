@@ -14,7 +14,7 @@ import TasksPage from "./pages/Tasks";
 import SettingsPage from "./pages/Settings";
 import { initApiClient, wsClient } from "./api/client";
 import { queryKeys } from "./api/queries";
-import type { WebSocketMessage } from "./types";
+import type { WebSocketMessage, ProgressData } from "./types";
 
 const { Text } = Typography;
 
@@ -36,12 +36,13 @@ const App: React.FC = () => {
         // 注册全局监听器，收到进度/完成消息时更新任务状态
         wsUnsubscribe = wsClient.addGlobalListener((message: WebSocketMessage) => {
           if (message.type === "progress" && message.task_id) {
+            const data = message.data as ProgressData | undefined;
             // 精确更新单个 task 进度，避免全列表刷新
             queryClient.setQueryData(queryKeys.tasks, (old: any[] | undefined) => {
               if (!old) return old;
               return old.map(task =>
                 task.id === message.task_id
-                  ? { ...task, progress: message.data?.progress, message: message.data?.message, status: message.data?.status }
+                  ? { ...task, progress: data?.progress, message: data?.message, status: data?.status }
                   : task
               );
             });

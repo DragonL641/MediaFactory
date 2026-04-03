@@ -12,13 +12,12 @@ on:
     branches: [ main ]
 
 jobs:
-  # 测试作业 - 在 macOS 和 Ubuntu 上运行，覆盖项目支持的平台
   test:
     name: Test Suite (${{ matrix.os }}, Python ${{ matrix.python-version }})
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [macos-latest, ubuntu-latest]
+        os: [macos-latest, windows-latest]
         python-version: ["3.11", "3.12", "3.13"]
 
     steps:
