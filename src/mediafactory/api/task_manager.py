@@ -54,10 +54,6 @@ class Task:
     started_at: Optional[float] = None
     completed_at: Optional[float] = None
 
-    # 批处理相关
-    file_index: int = 0
-    total_files: int = 1
-
 
 class TaskManager:
     """任务管理器"""
@@ -210,8 +206,6 @@ class TaskManager:
                 progress=progress,
                 message=message,
                 stage=stage,
-                file_index=task.file_index,
-                total_files=task.total_files,
             )
 
         def progress_callback(progress: float, message: str = "", stage: str = ""):
@@ -316,8 +310,6 @@ class TaskManager:
             progress=task.progress,
             message=t("task.cancelled"),
             stage="",
-            file_index=task.file_index,
-            total_files=task.total_files,
         )
         await ws_manager.broadcast_task_complete(
             task_id=task_id,

@@ -193,8 +193,6 @@ class TestTaskProgress:
         )
         assert progress.message == ""
         assert progress.stage is None
-        assert progress.file_index == 0
-        assert progress.total_files == 1
 
     def test_with_all_fields(self):
         progress = TaskProgress(
@@ -203,13 +201,9 @@ class TestTaskProgress:
             progress=75.5,
             message="Transcribing...",
             stage=ProcessingStage.TRANSCRIPTION,
-            file_index=2,
-            total_files=5,
         )
         assert progress.message == "Transcribing..."
         assert progress.stage == ProcessingStage.TRANSCRIPTION
-        assert progress.file_index == 2
-        assert progress.total_files == 5
 
     def test_progress_boundary_zero(self):
         progress = TaskProgress(task_id="t", status=TaskStatus.RUNNING, progress=0.0)

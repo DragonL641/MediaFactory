@@ -1,13 +1,5 @@
 """MediaFactory 工具模块。"""
 
-from .video_scanner import (
-    SUPPORTED_VIDEO_EXTENSIONS,
-    is_video_file,
-    scan_video_files,
-    resolve_input_path,
-    format_file_list,
-    get_file_size_info,
-)
 from .resources import (
     get_system_resources,
     check_model_suitability,
@@ -32,13 +24,6 @@ from .prompt_loader import (
 )
 
 __all__ = [
-    # video_scanner
-    "SUPPORTED_VIDEO_EXTENSIONS",
-    "is_video_file",
-    "scan_video_files",
-    "resolve_input_path",
-    "format_file_list",
-    "get_file_size_info",
     # resources
     "get_system_resources",
     "check_model_suitability",

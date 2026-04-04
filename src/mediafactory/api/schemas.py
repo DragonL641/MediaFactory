@@ -112,10 +112,6 @@ class TaskProgress(BaseModel):
     message: str = ""
     stage: Optional[ProcessingStage] = None
 
-    # 批处理相关
-    file_index: int = 0
-    total_files: int = 1
-
 
 class TaskResult(BaseModel):
     """任务结果"""
