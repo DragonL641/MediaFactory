@@ -33,7 +33,7 @@ const SubtitleFormFields: React.FC<SubtitleFormFieldsProps> = ({ form }) => {
   const bilingualLayoutOptions = useBilingualLayoutOptions();
 
   const showAssPreset = outputFormat === "ass";
-  const showBilingual = outputFormat === "srt" || outputFormat === "ass";
+  const showBilingual = outputFormat === "srt" || outputFormat === "vtt" || outputFormat === "ass";
 
   return (
     <>
