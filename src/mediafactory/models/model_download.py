@@ -235,6 +235,17 @@ def download_model(
                 last_error = ex
                 log_error(f"Download failed for {huggingface_id} (attempt {attempt + 1}/{MAX_RETRIES}): {ex}")
 
+                # Gated repo 权限错误不重试（重试不会改变结果）
+                err_msg = str(ex)
+                if "not in the authorized list" in err_msg or "gated repo" in err_msg.lower():
+                    raise Exception(
+                        f"Access denied for {huggingface_id}. "
+                        f"This is a gated model — please: "
+                        f"1) Accept terms at https://huggingface.co/{huggingface_id} ; "
+                        f"2) If this model has dependencies (e.g. pyannote/segmentation-3.0), accept their terms too ; "
+                        f"3) Ensure HuggingFace Token is configured in Settings > HuggingFace Hub"
+                    )
+
                 # 非最后一次重试，继续尝试
                 if attempt < MAX_RETRIES - 1:
                     continue
