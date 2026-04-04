@@ -63,7 +63,7 @@ class AudioConfig(BaseModel):
 class SubtitleConfig(BaseModel):
     """字幕生成配置"""
 
-    output_format: str = "srt"  # srt, ass, txt
+    output_format: str = "srt"  # srt, ass, vtt, txt
     bilingual: bool = False
     bilingual_layout: str = "translate_on_top"
     style_preset: str = "default"
@@ -240,7 +240,7 @@ class TranscribeRequest(BaseModel):
     audio_path: str
     output_path: Optional[str] = None
     source_lang: str = "auto"
-    output_format: str = "srt"
+    output_format: str = "srt"  # srt, ass, vtt, txt
     style_preset: str = "default"
 
 

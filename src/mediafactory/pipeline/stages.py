@@ -251,6 +251,8 @@ class SRTGenerationStage(SkipableStage):
             video_name = ctx.get_video_name()
             if output_format == "ass":
                 ext = ".ass"
+            elif output_format == "vtt":
+                ext = ".vtt"
             elif output_format == "txt":
                 ext = ".txt"
             else:
