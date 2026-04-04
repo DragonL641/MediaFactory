@@ -38,6 +38,7 @@ export const useOutputFormatOptions = () => {
   return [
     { value: "srt", label: t("forms:outputFormat.srt") },
     { value: "ass", label: t("forms:outputFormat.ass") },
+    { value: "vtt", label: t("forms:outputFormat.vtt") },
     { value: "txt", label: t("forms:outputFormat.txt") },
   ];
 };
