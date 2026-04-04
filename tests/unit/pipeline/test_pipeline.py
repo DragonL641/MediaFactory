@@ -41,7 +41,7 @@ class TestPipeline:
             srt_engine=srt_engine,
         )
         assert pipeline is not None
-        assert len(pipeline.stages) == 6  # Model, Audio, Transcription, Translation, SRT, Cleanup
+        assert len(pipeline.stages) == 7  # Model, Audio, Transcription, PostProcess, Translation, SRT, Cleanup
 
     def test_pipeline_create_audio_only(self):
         """Test audio-only pipeline creation."""

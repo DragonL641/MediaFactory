@@ -35,6 +35,7 @@ from .pipeline import Pipeline
 from .stages import (
     AudioExtractionStage,
     TranscriptionStage,
+    PostProcessStage,
     TranslationStage,
     SRTGenerationStage,
     VideoEnhancementStage,
@@ -50,6 +51,7 @@ __all__ = [
     # Concrete stages
     "AudioExtractionStage",
     "TranscriptionStage",
+    "PostProcessStage",
     "TranslationStage",
     "SRTGenerationStage",
     "VideoEnhancementStage",

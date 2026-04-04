@@ -71,6 +71,62 @@ class WhisperConfig(BaseModel):
 
 
 # ============================================================================
+# 后处理配置（智能断句 + 说话人分离）
+# ============================================================================
+
+
+class PostProcessConfig(BaseModel):
+    """Whisper 转录后处理配置"""
+
+    resegment_enabled: bool = Field(
+        default=True,
+        description="启用智能断句（stable-ts regroup）",
+    )
+    max_chars_cjk: int = Field(
+        default=42,
+        ge=10,
+        le=200,
+        description="CJK 单条字幕最大字符数",
+    )
+    max_chars_latin: int = Field(
+        default=80,
+        ge=10,
+        le=300,
+        description="Latin 单条字幕最大字符数",
+    )
+    min_duration: float = Field(
+        default=1.0,
+        ge=0.1,
+        le=5.0,
+        description="最短持续时间（秒）",
+    )
+    max_duration: float = Field(
+        default=7.0,
+        ge=2.0,
+        le=30.0,
+        description="最长持续时间（秒）",
+    )
+    merge_gap_threshold: float = Field(
+        default=0.3,
+        ge=0.0,
+        le=2.0,
+        description="合并间隔阈值（秒）",
+    )
+
+    # 说话人分离
+    diarization_enabled: bool = Field(
+        default=False,
+        description="启用说话人分离（需要 pyannote 模型）",
+    )
+    num_speakers: int = Field(
+        default=0,
+        ge=0,
+        le=20,
+        description="说话人数量（0=自动检测）",
+    )
+
+
+# ============================================================================
 # Model 配置
 # ============================================================================
 
@@ -315,6 +371,10 @@ class AppConfig(BaseModel):
     whisper: WhisperConfig = Field(
         default_factory=WhisperConfig,
         description="Whisper 语音识别配置",
+    )
+    postprocess: PostProcessConfig = Field(
+        default_factory=PostProcessConfig,
+        description="转录后处理配置",
     )
     model: ModelConfig = Field(
         default_factory=ModelConfig,

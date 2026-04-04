@@ -105,6 +105,95 @@ class TranscriptionStage(SkipableStage):
         return True
 
 
+class PostProcessStage(SkipableStage):
+    """转录后处理阶段（智能断句 + 说话人分离）"""
+
+    name = "postprocess"
+
+    def __init__(self):
+        pass
+
+    def should_execute(self, ctx: ProcessingContext) -> bool:
+        """有转录结果才执行"""
+        return ctx.transcription_result is not None
+
+    def execute(self, ctx: ProcessingContext) -> ProcessingContext:
+        """执行后处理"""
+        log_step("Post-Processing")
+        ctx.set_stage("postprocess")
+        progress = ctx.progress_callback or NO_OP_PROGRESS
+        progress.update(0.0, "Post-processing...")
+
+        from ..engine.postprocess import PostProcessEngine
+        from ..config import get_config_manager
+
+        engine = PostProcessEngine()
+
+        # 从配置管理器读取 postprocess 配置
+        config_manager = get_config_manager()
+        pp_config = config_manager.config.postprocess
+
+        # 从 ctx.config 读取运行时覆盖（任务级别配置）
+        runtime_config = ctx.config or {}
+        pp_runtime = runtime_config.get("postprocess", {})
+
+        resegment_enabled = pp_runtime.get(
+            "resegment_enabled", pp_config.resegment_enabled
+        )
+        diarization_enabled = pp_runtime.get(
+            "diarization_enabled", pp_config.diarization_enabled
+        )
+
+        segments = ctx.transcription_result.get("segments", [])
+        original_count = len(segments)
+
+        # 智能断句
+        if resegment_enabled:
+            progress.update(20.0, "Resegmenting...")
+            segments = engine.resegment(
+                segments,
+                max_chars_cjk=pp_runtime.get("max_chars_cjk", pp_config.max_chars_cjk),
+                max_chars_latin=pp_runtime.get(
+                    "max_chars_latin", pp_config.max_chars_latin
+                ),
+                min_duration=pp_runtime.get("min_duration", pp_config.min_duration),
+                max_duration=pp_runtime.get("max_duration", pp_config.max_duration),
+                merge_gap_threshold=pp_runtime.get(
+                    "merge_gap_threshold", pp_config.merge_gap_threshold
+                ),
+            )
+
+        # 说话人分离
+        if diarization_enabled and ctx.audio_path:
+            progress.update(60.0, "Speaker diarization...")
+            segments = engine.diarize(
+                segments,
+                ctx.audio_path,
+                num_speakers=pp_runtime.get("num_speakers", pp_config.num_speakers),
+            )
+
+        # 更新转录结果中的 segments
+        ctx.transcription_result["segments"] = segments
+
+        # 重新生成完整文本
+        ctx.transcription_result["text"] = " ".join(
+            seg.get("text", "").strip() for seg in segments
+        )
+
+        log_success(
+            f"Post-processing complete: {original_count} -> {len(segments)} segments"
+        )
+        progress.update(100.0, "Post-processing completed")
+        return ctx
+
+    def validate(self, ctx: ProcessingContext) -> bool:
+        """验证后处理结果"""
+        if not ctx.transcription_result:
+            self._log("Transcription result not set after post-processing", "error")
+            return False
+        return True
+
+
 class TranslationStage(SkipableStage):
     """翻译阶段"""
 

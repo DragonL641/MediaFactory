@@ -29,7 +29,8 @@ logger = logging.getLogger(__name__)
 STAGE_RANGES = {
     "model_loading": (0.0, 10.0),
     "audio_extraction": (10.0, 20.0),
-    "transcription": (20.0, 70.0),
+    "transcription": (20.0, 60.0),
+    "postprocess": (60.0, 70.0),
     "translation": (70.0, 95.0),
     "srt_generation": (95.0, 100.0),
     "video_enhancement": (0.0, 100.0),

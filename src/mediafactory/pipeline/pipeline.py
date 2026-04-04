@@ -108,6 +108,7 @@ class Pipeline:
             ModelLoadingStage,
             AudioExtractionStage,
             TranscriptionStage,
+            PostProcessStage,
             TranslationStage,
             SRTGenerationStage,
             ModelCleanupStage,
@@ -118,6 +119,7 @@ class Pipeline:
                 ModelLoadingStage(),
                 AudioExtractionStage(audio_engine),
                 TranscriptionStage(recognition_engine),
+                PostProcessStage(),
                 TranslationStage(translation_engine),
                 SRTGenerationStage(srt_engine),
                 ModelCleanupStage(),
@@ -157,6 +159,7 @@ class Pipeline:
         from .stages import (
             ModelLoadingStage,
             TranscriptionStage,
+            PostProcessStage,
             SRTGenerationStage,
             ModelCleanupStage,
         )
@@ -165,6 +168,7 @@ class Pipeline:
             [
                 ModelLoadingStage(),
                 TranscriptionStage(recognition_engine),
+                PostProcessStage(),
                 SRTGenerationStage(srt_engine),
                 ModelCleanupStage(),
             ]
