@@ -50,14 +50,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 │  (编排 - ProcessingStages)                                 │
 │         src/mediafactory/pipeline/                         │
 │  ModelLoading → AudioExtraction →                         │
-│  Transcription → Translation → SRT                        │
+│  Transcription → PostProcess → Translation → SRT          │
 └──────────────────────────┬────────────────────────────────┘
                            │
 ┌──────────────────────────┴────────────────────────────────┐
 │           引擎层 (Engine Layer)                            │
-│  AudioEngine, RecognitionEngine,                           │
+│  AudioEngine, RecognitionEngine, PostProcessEngine,        │
 │  TranslationEngine, SRTEngine, ASSEngine,                 │
-│  VideoComposer, VideoEnhancementEngine                     │
+│  VTTEngine, VideoComposer, VideoEnhancementEngine          │
 │         src/mediafactory/engine/                           │
 └───────────────────────────────────────────────────────────┘
 ```
@@ -77,13 +77,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
           WebSocket → Electron (实时进度更新)
 ```
 
-### 流水线阶段（v3.0+ 进度范围）
+### 流水线阶段（v4.0+ 进度范围）
 
 - `ModelLoadingStage` (0-10%)：加载 Whisper 模型
 - `AudioExtractionStage` (10-20%)：从视频提取音频，使用高质量设置（48000Hz，立体声，滤波器）
-- `TranscriptionStage` (20-70%)：使用 Faster Whisper 进行语音转文字，带进度跟踪（主要工作）
+- `TranscriptionStage` (20-60%)：使用 Faster Whisper 进行语音转文字，带进度跟踪（主要工作）
+- `PostProcessStage` (60-70%)：智能分句（stable-ts）和说话人分离（pyannote，可选）
 - `TranslationStage` (70-95%)：翻译到目标语言，自动回退
-- `SRTGenerationStage` (95-100%)：生成字幕文件
+- `SRTGenerationStage` (95-100%)：生成字幕文件（SRT/ASS/VTT）
 - `ModelCleanupStage`：释放模型资源
 
 **注意**：`ModelLoadingStage` 和 `ModelCleanupStage` 定义在 `stages.py` 中，但未在 `pipeline/__init__.py` 中公开导出。
@@ -218,8 +219,9 @@ result = await loop.run_in_executor(None, pipeline.execute, context)
 **引擎层**（`src/mediafactory/engine/`）：
 - `AudioEngine`：ffmpeg 音频提取（48000Hz 立体声，语音增强滤波器）
 - `RecognitionEngine`：Faster Whisper 语音识别
+- `PostProcessEngine`：stable-ts 智能分句 + pyannote 说话人分离（可选）
 - `TranslationEngine`：统一翻译引擎，通过 `use_local_models_only` 和 `use_llm_backend` 参数切换本地翻译/LLM API 模式
-- `SRTEngine`、`ASSEngine`：字幕文件生成
+- `SRTEngine`、`ASSEngine`、`VTTEngine`：字幕文件生成
 - `VideoComposer`：视频合成
 - `VideoEnhancementEngine`：视频画质增强
 - `enhancement/`：`RealESRGANEnhancer`（超分辨率）、`Denoiser`（降噪）、`TemporalSmoother`（时序平滑）
@@ -231,12 +233,12 @@ result = await loop.run_in_executor(None, pipeline.execute, context)
 - 翻译方式：批量翻译 + 递归验证 + 本地回退
 
 **其他**：
-- `config/`：Pydantic v2 配置系统（TOML 存储，`MF_` 环境变量前缀）
+- `config/`：Pydantic v2 配置系统（TOML 存储，`MF_` 环境变量前缀），包含 `PostProcessConfig`（分句/说话人分离配置）
 - `logging/`：统一日志系统（loguru，自动清理过期日志，配置审计）
 - `models/`：Faster Whisper 模型选择和本地翻译模型发现
 - `constants.py`：`BackendConfigMapping`、`ToolConstants` 等
 - `resource_manager.py`：Whisper 模型资源管理（单例，上下文管理器）
-- `utils/`：transformers 配置、视频扫描器、prompt 加载器
+- `utils/`：transformers 配置、prompt 加载器
 - `resources/prompts/`：LLM 提示模板（Markdown + `${variable}` 语法）
 - `resource_manager.py`：Whisper 模型资源管理
 
@@ -247,7 +249,7 @@ result = await loop.run_in_executor(None, pipeline.execute, context)
 - `NoOpProgressCallback`：不需要进度时的无操作实现
 
 **进度映射**（在 `pipeline/stages.py` 中实现）：
-- 阶段范围映射：`model_loading`(0-10%) → `audio_extraction`(10-20%) → `transcription`(20-70%) → `translation`(70-95%) → `srt_generation`(95-100%)
+- 阶段范围映射：`model_loading`(0-10%) → `audio_extraction`(10-20%) → `transcription`(20-60%) → `postprocess`(60-70%) → `translation`(70-95%) → `srt_generation`(95-100%)
 - WebSocket 实时推送：`TaskManager` 通过 WebSocket 将进度实时推送到前端
 
 ### 异常处理（`src/mediafactory/exceptions.py`）
