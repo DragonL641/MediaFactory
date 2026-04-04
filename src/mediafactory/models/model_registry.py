@@ -697,17 +697,25 @@ def is_model_complete(model_id: str) -> bool:
         tolerance = expected_size * 0.05
         return abs(actual_size - expected_size) <= tolerance or actual_size > expected_size * 0.9
     else:
-        # 仓库模型：检查 config.json 和模型文件
+        # 仓库模型：检查配置文件和模型文件
         if not path.is_dir():
             return False
-        config_file = path / "config.json"
-        if not config_file.exists():
+        # 支持多种配置文件格式
+        config_files = ["config.json", "config.yaml", "config.yml"]
+        has_config = any((path / cf).exists() for cf in config_files)
+        if not has_config:
             return False
-        
+
         # 单次扫描目录，过滤模型文件后缀
-        valid_suffixes = {".bin", ".safetensors", ".gguf"}
+        valid_suffixes = {".bin", ".safetensors", ".gguf", ".onnx", ".pt", ".ckpt"}
         for entry in path.iterdir():
             if entry.is_file() and entry.suffix in valid_suffixes and entry.stat().st_size >= 1_000_000:
+                return True
+
+        # 某些 pipeline 模型（如 pyannote）没有权重文件，只有配置 + handler
+        # 检查目录中是否有实质性内容（非隐藏文件、非 README）
+        for entry in path.iterdir():
+            if entry.is_file() and not entry.name.startswith(".") and entry.name != "README.md":
                 return True
 
         return False
