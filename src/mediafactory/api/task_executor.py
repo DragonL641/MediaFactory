@@ -107,11 +107,13 @@ async def _execute_audio_async(config: TaskConfig, progress: ProgressCallback) -
 async def _execute_transcribe_async(config: TaskConfig, progress: ProgressCallback) -> Dict[str, Any]:
     from mediafactory.services.transcription import TranscriptionService
 
+    sub = config.subtitle_config or SubtitleConfig()
     service = TranscriptionService()
     result = await service.transcribe(
         audio_path=config.input_path,
         language=config.source_lang,
         progress=progress,
+        output_format=sub.output_format,
     )
     return _make_result(result)
 
@@ -127,6 +129,7 @@ async def _execute_translate_async(config: TaskConfig, progress: ProgressCallbac
             target_lang=config.target_lang,
             use_llm=config.use_llm,
             llm_preset=config.llm_preset,
+            output_format=config.output_format,
             progress=progress,
         )
     elif config.input_text:

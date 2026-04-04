@@ -38,6 +38,7 @@ class TranscriptionService:
         audio_path: str,
         language: str = "auto",
         progress: ProgressCallback = NO_OP_PROGRESS,
+        output_format: str = "srt",
     ) -> ProcessingResult:
         """
         转录音频文件
@@ -62,7 +63,7 @@ class TranscriptionService:
                 src_lang=language if language != "auto" else None,
                 progress_callback=progress,
                 config={
-                    "output_format": "srt",
+                    "output_format_type": output_format,
                 },
             )
 
