@@ -186,3 +186,4 @@ dist/
 .qoder/
 openspec/
 node_modules
+/docs/superpowers/

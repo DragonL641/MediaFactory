@@ -1,6 +1,7 @@
 """Unit tests for ProcessingContext and ProcessingResult."""
 
 import pytest
+from pathlib import Path
 
 from mediafactory import ProcessingContext, ProcessingResult
 from mediafactory.exceptions import (
@@ -163,12 +164,12 @@ class TestProcessingContext:
     def test_get_video_dir_from_video_path(self):
         """get_video_dir returns parent dir of video_path."""
         ctx = ProcessingContext(video_path="/data/movies/demo.mp4")
-        assert ctx.get_video_dir() == "/data/movies"
+        assert ctx.get_video_dir() == str(Path("/data/movies"))
 
     def test_get_video_dir_fallback_to_audio_path(self):
         """get_video_dir falls back to audio_path parent."""
         ctx = ProcessingContext(audio_path="/data/audio/podcast.wav")
-        assert ctx.get_video_dir() == "/data/audio"
+        assert ctx.get_video_dir() == str(Path("/data/audio"))
 
     def test_get_video_dir_no_paths(self):
         """get_video_dir returns '.' when no paths set."""
