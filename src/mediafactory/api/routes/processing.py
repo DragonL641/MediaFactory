@@ -145,6 +145,7 @@ async def create_translate_task(request: TranslateRequest):
         target_lang=request.target_lang,
         use_llm=request.use_llm,
         llm_preset=request.llm_preset,
+        output_format=request.output_format,
     )
 
     task_manager = _get_task_manager()

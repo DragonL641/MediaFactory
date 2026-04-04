@@ -121,6 +121,7 @@ class TranslationService:
         target_lang: str,
         use_llm: bool = False,
         llm_preset: Optional[str] = None,
+        output_format: str = "srt",
         progress: ProgressCallback = NO_OP_PROGRESS,
     ) -> ProcessingResult:
         """
@@ -130,6 +131,7 @@ class TranslationService:
             srt_path: SRT 文件路径
             target_lang: 目标语言
             use_llm: 是否使用 LLM API
+            output_format: 输出格式（srt, ass, vtt, txt）
             progress: 进度回调
 
         Returns:
@@ -153,13 +155,15 @@ class TranslationService:
                 )
 
             # 创建 Pipeline 上下文
+            ext_map = {"ass": ".ass", "vtt": ".vtt", "txt": ".txt"}
+            ext = ext_map.get(output_format, ".srt")
             context = ProcessingContext(
                 src_lang="auto",
                 tgt_lang=target_lang,
                 progress_callback=progress,
                 config={
-                    "output_path": str(srt_path.with_suffix(f".{target_lang}.srt")),
-                    "output_format_type": "srt",
+                    "output_path": str(srt_path.with_suffix(f".{target_lang}{ext}")),
+                    "output_format_type": output_format,
                 },
             )
             context.transcription_result = {"segments": segments}

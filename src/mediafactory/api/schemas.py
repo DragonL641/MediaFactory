@@ -94,6 +94,9 @@ class TaskConfig(BaseModel):
     use_llm: bool = False
     llm_preset: str = "openai"
 
+    # 输出格式
+    output_format: str = "srt"  # srt, ass, vtt, txt
+
     # 分类型配置（按任务类型使用）
     audio_config: Optional[AudioConfig] = None
     subtitle_config: Optional[SubtitleConfig] = None
@@ -251,6 +254,7 @@ class TranslateRequest(BaseModel):
     text: Optional[str] = None
     source_lang: str = "auto"
     target_lang: str = "zh"
+    output_format: str = "srt"  # srt, ass, vtt, txt
     use_llm: bool = False
     llm_preset: str = "openai"
 
