@@ -112,6 +112,18 @@ export interface DenoiseModelInfo {
   complete: boolean;
 }
 
+export interface DiarizationModelInfo {
+  id: string;
+  name: string;
+  purpose: string;
+  size: string;
+  memory: string;
+  vram?: string;
+  description: string;
+  downloaded: boolean;
+  complete: boolean;
+}
+
 export interface WhisperModelInfo {
   id: string;
   name: string;
@@ -141,6 +153,10 @@ export interface AllModelsStatus {
   denoise: {
     name: string;
     models: DenoiseModelInfo[];
+  };
+  diarization: {
+    name: string;
+    models: DiarizationModelInfo[];
   };
 }
 

@@ -12,7 +12,8 @@
   },
   "subSections": {
     "superResolution": "超分辨率模型",
-    "videoDenoising": "视频降噪"
+    "videoDenoising": "视频降噪",
+    "speakerDiarization": "说话人分离"
   },
   "whisper": {
     "title": "Whisper 转录",
@@ -50,5 +51,8 @@
     "logRetention": "日志保留",
     "logRetentionTooltip": "自动删除超过此天数的日志文件",
     "days": "天"
+  },
+  "diarization": {
+    "hfTokenNote": "下载前需要先在 HuggingFace 模型页面上接受研究条款。"
   }
 }

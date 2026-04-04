@@ -76,6 +76,7 @@ async def get_models_status() -> Dict[str, Any]:
 
     enhancement_models = _get_enhancement_model_statuses(config)
     denoise_models = _get_denoise_model_statuses(config)
+    diarization_models = _get_diarization_model_statuses()
 
     # 获取 Whisper 模型详情列表
     whisper_models = _get_whisper_model_statuses()
@@ -109,6 +110,10 @@ async def get_models_status() -> Dict[str, Any]:
         "denoise": {
             "name": "NAFNet",
             "models": denoise_models,
+        },
+        "diarization": {
+            "name": "Pyannote",
+            "models": diarization_models,
         },
     }
 
@@ -168,6 +173,12 @@ def _get_denoise_model_statuses(config) -> List[Dict[str, Any]]:
     """获取 NAFNet 降噪模型状态"""
     from mediafactory.models.model_registry import ModelType
     return _get_model_statuses_by_type(ModelType.DENOISE)
+
+
+def _get_diarization_model_statuses() -> List[Dict[str, Any]]:
+    """获取 Pyannote 说话人分离模型状态"""
+    from mediafactory.models.model_registry import ModelType
+    return _get_model_statuses_by_type(ModelType.DIARIZATION)
 
 
 @router.get("/whisper")

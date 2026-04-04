@@ -12,7 +12,8 @@
   },
   "subSections": {
     "superResolution": "Super Resolution Models",
-    "videoDenoising": "Video Denoising"
+    "videoDenoising": "Video Denoising",
+    "speakerDiarization": "Speaker Diarization"
   },
   "whisper": {
     "title": "Whisper Transcription",
@@ -50,5 +51,8 @@
     "logRetention": "Log Retention",
     "logRetentionTooltip": "Automatically delete logs older than this many days",
     "days": "days"
+  },
+  "diarization": {
+    "hfTokenNote": "Requires accepting research terms on the HuggingFace model page before downloading."
   }
 }

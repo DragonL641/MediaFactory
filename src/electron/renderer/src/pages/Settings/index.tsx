@@ -209,6 +209,7 @@ const SettingsPage: React.FC = () => {
   const translationModels = modelsStatus?.translation?.models || [];
   const enhancementModels = modelsStatus?.enhancement?.models || [];
   const denoiseModels = modelsStatus?.denoise?.models || [];
+  const diarizationModels = modelsStatus?.diarization?.models || [];
 
   const isLoading = configLoading || modelsLoading;
   const isError = configError || modelsError;
@@ -274,6 +275,30 @@ const SettingsPage: React.FC = () => {
             <Form.Item name={["whisper", "vad_filter"]} label={t("settings:whisper.vadFilter")} valuePropName="checked" tooltip={t("settings:whisper.vadFilterTooltip")}>
               <Switch />
             </Form.Item>
+          </div>
+
+          {/* Speaker Diarization */}
+          <div className="sub-section-title" style={{ marginTop: 8 }}>{t("settings:subSections.speakerDiarization")}</div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 8 }}>
+            {diarizationModels.map((m) => (
+              <SettingsModelCard
+                key={m.id}
+                name={m.purpose || m.name}
+                subtitle={m.vram
+                  ? t("models:card.subtitleWithVram", { name: m.name, size: m.size, memory: m.memory, vram: m.vram })
+                  : t("models:card.subtitle", { name: m.name, size: m.size, memory: m.memory })
+                }
+                downloaded={m.downloaded}
+                complete={m.complete}
+                isDownloading={downloadingId === m.id}
+                downloadProgress={downloadProgress}
+                onDownload={() => handleDownload(m.id)}
+                onDelete={() => handleDeleteModel(m.id)}
+              />
+            ))}
+          </div>
+          <div style={{ fontSize: 12, color: "#888", marginBottom: 4 }}>
+            {t("settings:diarization.hfTokenNote")}
           </div>
         </div>
 
