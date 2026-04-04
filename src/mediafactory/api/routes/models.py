@@ -240,6 +240,7 @@ async def start_model_download(
     download_config = get_config()
     download_source = download_config.model.download_source
     endpoint = None if download_source == "https://huggingface.co" else download_source
+    hf_token = download_config.model.hf_token or None
 
     # 启动下载任务
     task_manager = get_task_manager()
@@ -296,6 +297,7 @@ async def start_model_download(
                     model_id,
                     download_source=endpoint,
                     progress_callback=sync_progress,
+                    hf_token=hf_token,
                 ),
             )
 

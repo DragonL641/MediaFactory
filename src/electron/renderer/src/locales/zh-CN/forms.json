@@ -18,6 +18,7 @@
   "outputFormat": {
     "srt": "SRT 字幕",
     "ass": "ASS 字幕（样式化）",
+    "vtt": "WebVTT 字幕",
     "txt": "纯文本 (.txt)"
   },
   "stylePreset": {

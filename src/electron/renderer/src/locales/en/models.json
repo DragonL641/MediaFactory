@@ -32,7 +32,9 @@
     "download": "Download",
     "incompleteTooltip": "Model files are incomplete or corrupted",
     "retry": "Retry",
-    "delete": "Delete"
+    "delete": "Delete",
+    "downloadFailed": "Download Failed",
+    "downloadFailedTooltip": "Download failed: {{error}}"
   },
   "confirm": {
     "deleteTitle": "Delete Model",

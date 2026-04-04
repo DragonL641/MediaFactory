@@ -148,6 +148,7 @@ def download_model(
     custom_path: Optional[str] = None,
     download_source: Optional[str] = None,
     progress_callback: Optional[Callable] = None,
+    hf_token: Optional[str] = None,
 ) -> Path:
     """从注册表下载模型（带重试机制）。
 
@@ -205,6 +206,7 @@ def download_model(
                         filename=model_info.huggingface_filename,
                         local_dir=str(get_enhancement_models_dir()),
                         endpoint=endpoint,
+                        token=hf_token or None,
                     )
                 else:
                     # 仓库模型：使用 snapshot_download 下载整个仓库
@@ -215,6 +217,7 @@ def download_model(
                         local_dir=str(local_path),
                         endpoint=endpoint,
                         max_workers=4,
+                        token=hf_token or None,
                     )
 
                 # 下载成功，通知完成

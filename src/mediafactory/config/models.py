@@ -148,6 +148,10 @@ class ModelConfig(BaseModel):
         le=600,
         description="模型下载 HTTP 请求超时（秒）",
     )
+    hf_token: str = Field(
+        default="",
+        description="HuggingFace Access Token（用于 gated 模型如 pyannote）",
+    )
     available_translation_models: List[str] = Field(
         default_factory=list,
         description="已下载的翻译模型列表",

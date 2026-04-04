@@ -18,6 +18,7 @@
   "outputFormat": {
     "srt": "SRT Subtitles",
     "ass": "ASS Subtitles (Styled)",
+    "vtt": "WebVTT Subtitles (.vtt)",
     "txt": "Plain Text (.txt)"
   },
   "stylePreset": {

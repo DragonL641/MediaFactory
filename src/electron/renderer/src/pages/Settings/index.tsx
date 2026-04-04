@@ -1,20 +1,23 @@
 /**
  * Settings 页面
  *
- * 统一配置中心，包含 5 个区块：
- * 1. Speech Recognition — Whisper 模型管理 + 参数
+ * 统一配置中心，包含 6 个区块：
+ * 1. Speech Recognition — Whisper 模型管理 + 参数 + Speaker Diarization
  * 2. Local Translation Models — 翻译模型管理
  * 3. Remote LLM Providers — LLM 供应商管理 + API 参数
  * 4. Video Enhancement — 超分辨率 + 降噪模型管理
- * 5. General — 下载源、下载超时、日志保留
+ * 5. HuggingFace Hub — 下载源、下载超时、Token
+ * 6. Log Settings — 日志保留
  */
 
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useRef, useState } from "react";
 import {
+  Alert,
   Card,
   Form,
   Input,
   InputNumber,
+  Modal,
   Select,
   Switch,
   Button,
@@ -35,6 +38,8 @@ import {
   DeleteOutlined,
   WifiOutlined,
   SettingOutlined,
+  GlobalOutlined,
+  FileTextOutlined,
 } from "@ant-design/icons";
 import { useTranslation } from "react-i18next";
 import { useQueryClient } from "@tanstack/react-query";
@@ -59,8 +64,11 @@ import type { AppConfig, LLMPresetInfo, TestConnectionResponse } from "../../typ
 
 const SettingsPage: React.FC = () => {
   const [form] = Form.useForm();
-  const { message } = App.useApp();
+  const { message, modal } = App.useApp();
   const { t } = useTranslation(["settings", "models", "llmConfig", "common"]);
+
+  // HuggingFace Hub 区块的 ref（用于滚动定位）
+  const hfHubRef = useRef<HTMLDivElement>(null);
 
   // 数据查询
   const { data: config, isLoading: configLoading, isError: configError, refetch: refetchConfig } = useConfigQuery();
@@ -81,6 +89,7 @@ const SettingsPage: React.FC = () => {
   // 模型下载状态
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const [downloadProgress, setDownloadProgress] = useState<number>(0);
+  const [downloadError, setDownloadError] = useState<string | null>(null);
   const downloadingIdRef = React.useRef(downloadingId);
   downloadingIdRef.current = downloadingId;
 
@@ -104,9 +113,12 @@ const SettingsPage: React.FC = () => {
         setDownloadingId(null);
         setDownloadProgress(0);
         if (taskData.success) {
+          setDownloadError(null);
           message.success(t("models:messages.downloadCompleted"));
         } else {
-          message.error((taskData.error as string) || t("models:messages.downloadFailed"));
+          const errMsg = (taskData.error as string) || t("models:messages.downloadFailed");
+          setDownloadError(errMsg);
+          message.error(errMsg);
         }
         queryClient.invalidateQueries({ queryKey: ["models", "status"] });
       }
@@ -134,10 +146,30 @@ const SettingsPage: React.FC = () => {
     });
   };
 
+  // 获取当前 hf_token 值
+  const currentHfToken = Form.useWatch(["model", "hf_token"], form);
+
   // 模型操作
   const handleDownload = (modelId: string) => {
+    // pyannote 模型需要 token 检查
+    if (modelId.includes("pyannote") && !currentHfToken) {
+      modal.confirm({
+        title: t("settings:diarization.tokenRequiredTitle"),
+        content: t("settings:diarization.tokenRequiredContent"),
+        okText: t("settings:diarization.scrollToConfig"),
+        cancelText: t("common:actions.cancel", { ns: "common" }),
+        onOk: () => {
+          setTimeout(() => {
+            hfHubRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+          }, 100);
+        },
+      });
+      return;
+    }
+
     setDownloadingId(modelId);
     setDownloadProgress(0);
+    setDownloadError(null);
     downloadMutation.mutate(modelId, {
       onSuccess: () => message.success(t("models:messages.downloadStarted", { modelId })),
       onError: (error: unknown) => {
@@ -261,6 +293,7 @@ const SettingsPage: React.FC = () => {
                 complete={m.complete}
                 isDownloading={downloadingId === m.id}
                 downloadProgress={downloadProgress}
+                downloadError={downloadingId === m.id ? undefined : downloadError || undefined}
                 onDownload={() => handleDownload(m.id)}
                 onDelete={() => handleDeleteModel(m.id)}
               />
@@ -279,6 +312,26 @@ const SettingsPage: React.FC = () => {
 
           {/* Speaker Diarization */}
           <div className="sub-section-title" style={{ marginTop: 8 }}>{t("settings:subSections.speakerDiarization")}</div>
+
+          {/* Token 缺失提示 */}
+          {!currentHfToken && diarizationModels.length > 0 && (
+            <Alert
+              message={t("settings:diarization.hfTokenRequired")}
+              type="warning"
+              showIcon
+              style={{ marginBottom: 12 }}
+              action={
+                <Button
+                  size="small"
+                  type="link"
+                  onClick={() => hfHubRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })}
+                >
+                  {t("settings:diarization.scrollToConfig")}
+                </Button>
+              }
+            />
+          )}
+
           <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 8 }}>
             {diarizationModels.map((m) => (
               <SettingsModelCard
@@ -292,6 +345,7 @@ const SettingsPage: React.FC = () => {
                 complete={m.complete}
                 isDownloading={downloadingId === m.id}
                 downloadProgress={downloadProgress}
+                downloadError={downloadingId === m.id ? undefined : downloadError || undefined}
                 onDownload={() => handleDownload(m.id)}
                 onDelete={() => handleDeleteModel(m.id)}
               />
@@ -322,6 +376,7 @@ const SettingsPage: React.FC = () => {
                 complete={m.complete}
                 isDownloading={downloadingId === m.id}
                 downloadProgress={downloadProgress}
+                downloadError={downloadingId === m.id ? undefined : downloadError || undefined}
                 onDownload={() => handleDownload(m.id)}
                 onDelete={() => handleDeleteModel(m.id)}
               />
@@ -427,6 +482,7 @@ const SettingsPage: React.FC = () => {
                 complete={m.complete}
                 isDownloading={downloadingId === m.id}
                 downloadProgress={downloadProgress}
+                downloadError={downloadingId === m.id ? undefined : downloadError || undefined}
                 onDownload={() => handleDownload(m.id)}
                 onDelete={() => handleDeleteModel(m.id)}
               />
@@ -448,6 +504,7 @@ const SettingsPage: React.FC = () => {
                 complete={m.complete}
                 isDownloading={downloadingId === m.id}
                 downloadProgress={downloadProgress}
+                downloadError={downloadingId === m.id ? undefined : downloadError || undefined}
                 onDownload={() => handleDownload(m.id)}
                 onDelete={() => handleDeleteModel(m.id)}
               />
@@ -455,15 +512,15 @@ const SettingsPage: React.FC = () => {
           </div>
         </div>
 
-        {/* 区块 5: General */}
-        <div className="settings-section-card" style={{ marginBottom: 24 }}>
+        {/* 区块 5: HuggingFace Hub */}
+        <div ref={hfHubRef} className="settings-section-card" style={{ marginBottom: 24 }}>
           <div className="section-title">
-            <span className="section-title-icon"><SettingOutlined /></span>
-            <span>{t("settings:sections.general")}</span>
+            <span className="section-title-icon"><GlobalOutlined /></span>
+            <span>{t("settings:sections.huggingfaceHub")}</span>
           </div>
 
           <div className="form-row">
-            <Form.Item name={["model", "download_source"]} label={t("settings:model.downloadSource")} tooltip={t("settings:model.downloadSourceTooltip")}>
+            <Form.Item name={["model", "download_source"]} label={t("settings:huggingface.downloadSource")} tooltip={t("settings:huggingface.downloadSourceTooltip")}>
               <Select
                 options={[
                   { label: "HuggingFace Mirror (China)", value: "https://hf-mirror.com" },
@@ -471,9 +528,21 @@ const SettingsPage: React.FC = () => {
                 ]}
               />
             </Form.Item>
-            <Form.Item name={["model", "download_timeout"]} label={t("settings:general.downloadTimeout")} tooltip={t("settings:general.downloadTimeoutTooltip")}>
+            <Form.Item name={["model", "download_timeout"]} label={t("settings:huggingface.downloadTimeout")} tooltip={t("settings:huggingface.downloadTimeoutTooltip")}>
               <InputNumber min={10} max={600} style={{ width: "100%" }} suffix="s" />
             </Form.Item>
+          </div>
+
+          <Form.Item name={["model", "hf_token"]} label={t("settings:huggingface.hfToken")} tooltip={t("settings:huggingface.hfTokenTooltip")}>
+            <Input.Password placeholder={t("settings:huggingface.hfTokenPlaceholder")} />
+          </Form.Item>
+        </div>
+
+        {/* 区块 6: Log Settings */}
+        <div className="settings-section-card" style={{ marginBottom: 24 }}>
+          <div className="section-title">
+            <span className="section-title-icon"><FileTextOutlined /></span>
+            <span>{t("settings:sections.general")}</span>
           </div>
 
           <div className="form-row">

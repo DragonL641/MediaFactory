@@ -8,7 +8,8 @@
     "localTranslation": "本地翻译模型",
     "remoteLLM": "远端 LLM 供应商",
     "videoEnhancement": "视频增强",
-    "general": "通用设置"
+    "huggingfaceHub": "HuggingFace Hub",
+    "general": "日志设置"
   },
   "subSections": {
     "superResolution": "超分辨率模型",
@@ -29,9 +30,14 @@
     "temperature": "温度",
     "temperatureTooltip": "控制翻译的创造性。越低越确定，越高越多样"
   },
-  "model": {
+  "huggingface": {
     "downloadSource": "下载源",
-    "downloadSourceTooltip": "模型下载镜像。国内使用 hf-mirror.com，海外使用 huggingface.co"
+    "downloadSourceTooltip": "模型下载镜像。国内使用 hf-mirror.com，海外使用 huggingface.co",
+    "downloadTimeout": "下载超时",
+    "downloadTimeoutTooltip": "模型下载请求超时时间（秒）",
+    "hfToken": "HuggingFace Token",
+    "hfTokenTooltip": "下载受限模型（如 pyannote）时需要。请在 huggingface.co/settings/tokens 获取",
+    "hfTokenPlaceholder": "hf_xxxxxxxxxxxxxxxxxxxx"
   },
   "actions": {
     "reload": "重新加载",
@@ -46,13 +52,15 @@
     "loadFailed": "加载设置失败"
   },
   "general": {
-    "downloadTimeout": "下载超时",
-    "downloadTimeoutTooltip": "模型下载请求超时时间（秒）",
     "logRetention": "日志保留",
     "logRetentionTooltip": "自动删除超过此天数的日志文件",
     "days": "天"
   },
   "diarization": {
-    "hfTokenNote": "下载前需要先在 HuggingFace 模型页面上接受研究条款。"
+    "hfTokenNote": "下载前需要先在 HuggingFace 模型页面上接受研究条款。",
+    "hfTokenRequired": "需要配置 HuggingFace Token，请在下方 HuggingFace Hub 设置中配置。",
+    "tokenRequiredTitle": "需要 Token",
+    "tokenRequiredContent": "此模型需要 HuggingFace Token 才能下载。请在下方 HuggingFace Hub 设置中配置 Token。",
+    "scrollToConfig": "前往设置"
   }
 }

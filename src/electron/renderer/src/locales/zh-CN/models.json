@@ -32,7 +32,9 @@
     "download": "下载",
     "incompleteTooltip": "模型文件不完整或已损坏",
     "retry": "重试",
-    "delete": "删除"
+    "delete": "删除",
+    "downloadFailed": "下载失败",
+    "downloadFailedTooltip": "下载失败: {{error}}"
   },
   "confirm": {
     "deleteTitle": "删除模型",

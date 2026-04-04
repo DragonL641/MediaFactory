@@ -2,12 +2,12 @@
  * 统一模型卡片组件
  *
  * 用于 Settings 页面中所有模型展示
- * 支持 Ready / Downloading / Not Downloaded 三种状态
+ * 支持 Ready / Downloading / Failed / Incomplete / Not Downloaded 五种状态
  */
 
 import React from "react";
 import { Button, Popconfirm, Progress, Tooltip } from "antd";
-import { DeleteOutlined, DownloadOutlined, RedoOutlined } from "@ant-design/icons";
+import { DeleteOutlined, DownloadOutlined, RedoOutlined, WarningOutlined } from "@ant-design/icons";
 import { useTranslation } from "react-i18next";
 import { StatusTag } from "../../components/common";
 
@@ -24,6 +24,8 @@ export interface ModelCardProps {
   isDownloading?: boolean;
   /** 下载进度 (0-100) */
   downloadProgress?: number;
+  /** 下载失败原因 */
+  downloadError?: string;
   /** 下载回调 */
   onDownload?: () => void;
   /** 删除回调 */
@@ -37,6 +39,7 @@ const SettingsModelCard: React.FC<ModelCardProps> = ({
   complete,
   isDownloading,
   downloadProgress,
+  downloadError,
   onDownload,
   onDelete,
 }) => {
@@ -44,6 +47,7 @@ const SettingsModelCard: React.FC<ModelCardProps> = ({
 
   const isReady = downloaded && complete !== false;
   const isIncomplete = downloaded && complete === false;
+  const isFailed = !isDownloading && !!downloadError;
 
   return (
     <div className="model-card">
@@ -77,6 +81,34 @@ const SettingsModelCard: React.FC<ModelCardProps> = ({
                   <Tooltip title={t("card.delete")}>
                     <Button size="small" type="text" danger icon={<DeleteOutlined />} />
                   </Tooltip>
+                </Popconfirm>
+              )}
+            </>
+          ) : isFailed ? (
+            <>
+              <Tooltip title={t("card.downloadFailedTooltip", { error: downloadError })}>
+                <StatusTag status="error" text={t("card.downloadFailed")} />
+              </Tooltip>
+              {onDownload && (
+                <Button
+                  size="small"
+                  type="link"
+                  icon={<RedoOutlined />}
+                  onClick={onDownload}
+                >
+                  {t("card.retry")}
+                </Button>
+              )}
+              {onDelete && (
+                <Popconfirm
+                  title={t("confirm.deleteTitle")}
+                  description={t("confirm.deleteDescription", { name })}
+                  onConfirm={onDelete}
+                  okText={t("common:actions.delete", { ns: "common" })}
+                  cancelText={t("common:actions.cancel", { ns: "common" })}
+                  okButtonProps={{ danger: true }}
+                >
+                  <Button size="small" type="text" danger icon={<DeleteOutlined />} />
                 </Popconfirm>
               )}
             </>

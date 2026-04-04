@@ -193,6 +193,7 @@ export interface ModelConfig {
   local_model_path?: string;
   download_source?: string;
   download_timeout?: number;
+  hf_token?: string;
   models_dir?: string;
   available_translation_models?: string[];
   whisper_models?: string[];

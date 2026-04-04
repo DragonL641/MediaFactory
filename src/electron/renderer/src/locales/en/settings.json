@@ -8,7 +8,8 @@
     "localTranslation": "Local Translation Models",
     "remoteLLM": "Remote LLM Providers",
     "videoEnhancement": "Video Enhancement",
-    "general": "General"
+    "huggingfaceHub": "HuggingFace Hub",
+    "general": "Log Settings"
   },
   "subSections": {
     "superResolution": "Super Resolution Models",
@@ -29,9 +30,14 @@
     "temperature": "Temperature",
     "temperatureTooltip": "Controls translation creativity. Lower = more deterministic, Higher = more varied"
   },
-  "model": {
+  "huggingface": {
     "downloadSource": "Download Source",
-    "downloadSourceTooltip": "Model download mirror. Use hf-mirror.com in China, huggingface.co otherwise"
+    "downloadSourceTooltip": "Model download mirror. Use hf-mirror.com in China, huggingface.co otherwise",
+    "downloadTimeout": "Download Timeout",
+    "downloadTimeoutTooltip": "Timeout for model download requests in seconds",
+    "hfToken": "HuggingFace Token",
+    "hfTokenTooltip": "Required for gated models (e.g., pyannote). Get your token at huggingface.co/settings/tokens",
+    "hfTokenPlaceholder": "hf_xxxxxxxxxxxxxxxxxxxx"
   },
   "actions": {
     "reload": "Reload",
@@ -46,13 +52,15 @@
     "loadFailed": "Failed to load settings"
   },
   "general": {
-    "downloadTimeout": "Download Timeout",
-    "downloadTimeoutTooltip": "Timeout for model download requests in seconds",
     "logRetention": "Log Retention",
     "logRetentionTooltip": "Automatically delete logs older than this many days",
     "days": "days"
   },
   "diarization": {
-    "hfTokenNote": "Requires accepting research terms on the HuggingFace model page before downloading."
+    "hfTokenNote": "Requires accepting research terms on the HuggingFace model page before downloading.",
+    "hfTokenRequired": "HuggingFace Token required. Please configure it in HuggingFace Hub settings below.",
+    "tokenRequiredTitle": "Token Required",
+    "tokenRequiredContent": "This model requires a HuggingFace Token for download. Please configure your token in the HuggingFace Hub section below.",
+    "scrollToConfig": "Go to Settings"
   }
 }
