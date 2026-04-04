@@ -28,6 +28,7 @@ const SubtitleForm: React.FC<SubtitleFormProps> = ({ form }) => {
         bilingual: false,
         bilingual_layout: "translate_on_top",
         use_llm: false,
+        diarization_enabled: false,
       }}
       fileInput={{
         name: "video_path",

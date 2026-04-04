@@ -40,6 +40,7 @@ class SubtitleService:
         bilingual: bool = False,
         bilingual_layout: str = "translate_on_top",
         style_preset: str = "default",
+        diarization_enabled: bool = False,
         progress: ProgressCallback = NO_OP_PROGRESS,
     ) -> ProcessingResult:
         """
@@ -88,6 +89,9 @@ class SubtitleService:
                 config={
                     "output_format_type": output_format,
                     "output_format": output_format,
+                    "postprocess": {
+                        "diarization_enabled": diarization_enabled,
+                    },
                 },
             )
 

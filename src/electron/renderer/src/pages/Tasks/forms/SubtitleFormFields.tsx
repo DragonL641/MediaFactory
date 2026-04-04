@@ -69,6 +69,10 @@ const SubtitleFormFields: React.FC<SubtitleFormFieldsProps> = ({ form }) => {
         </>
       )}
 
+      <Form.Item name="diarization_enabled" label={t("forms:label.speakerDiarization")} valuePropName="checked">
+        <Switch />
+      </Form.Item>
+
       <Form.Item name="use_llm" label={t("forms:label.useRemoteLlm")} valuePropName="checked">
         <Switch onChange={(checked) => setUseLlm(checked)} />
       </Form.Item>

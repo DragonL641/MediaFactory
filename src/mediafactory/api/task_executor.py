@@ -79,6 +79,7 @@ async def _execute_subtitle_async(config: TaskConfig, progress: ProgressCallback
         bilingual=sub.bilingual,
         bilingual_layout=sub.bilingual_layout,
         style_preset=sub.style_preset,
+        diarization_enabled=sub.diarization_enabled,
         progress=progress,
     )
     return _make_result(result)
@@ -114,6 +115,7 @@ async def _execute_transcribe_async(config: TaskConfig, progress: ProgressCallba
         language=config.source_lang,
         progress=progress,
         output_format=sub.output_format,
+        diarization_enabled=sub.diarization_enabled,
     )
     return _make_result(result)
 

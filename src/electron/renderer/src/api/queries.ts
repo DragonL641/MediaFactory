@@ -68,6 +68,7 @@ export function useCreateSubtitleTaskMutation() {
       bilingual_layout?: string;
       style_preset?: string;
       llm_preset?: string;
+      diarization_enabled?: boolean;
     }) => {
       const client = getApiClient();
       const response = await client.post("/api/processing/subtitle", params);
@@ -118,6 +119,7 @@ export function useCreateTranscribeTaskMutation() {
       source_lang: string;
       output_format?: string;
       style_preset?: string;
+      diarization_enabled?: boolean;
     }) => {
       const client = getApiClient();
       const response = await client.post("/api/processing/transcribe", params);

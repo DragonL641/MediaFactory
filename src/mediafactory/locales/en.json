@@ -30,6 +30,10 @@
     "processingFrames": "Processing frame {{current}}/{{total}}",
     "mergingAudio": "Merging audio...",
     "videoEnhancementCompleted": "Video enhancement completed",
+    "postProcessStart": "Post-processing...",
+    "resegmenting": "Resegmenting...",
+    "diarizing": "Speaker diarization...",
+    "postProcessCompleted": "Post-processing completed",
     "completed": "Completed"
   },
   "error": {

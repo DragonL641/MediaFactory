@@ -30,6 +30,10 @@
     "processingFrames": "正在处理帧 {{current}}/{{total}}",
     "mergingAudio": "正在合并音频...",
     "videoEnhancementCompleted": "视频增强完成",
+    "postProcessStart": "后处理中...",
+    "resegmenting": "智能断句中...",
+    "diarizing": "说话人分离中...",
+    "postProcessCompleted": "后处理完成",
     "completed": "已完成"
   },
   "error": {

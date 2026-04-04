@@ -54,6 +54,7 @@ async def create_subtitle_task(request: SubtitleRequest):
             bilingual=request.bilingual,
             bilingual_layout=request.bilingual_layout,
             style_preset=request.style_preset,
+            diarization_enabled=request.diarization_enabled,
         ),
     )
 
@@ -114,6 +115,7 @@ async def create_transcribe_task(request: TranscribeRequest):
         subtitle_config=SubtitleConfig(
             output_format=request.output_format,
             style_preset=request.style_preset,
+            diarization_enabled=request.diarization_enabled,
         ),
     )
 
