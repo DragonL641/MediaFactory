@@ -205,6 +205,13 @@ class SRTEngine:
                     text = segment.get("text", "").strip()
                     original_text = segment.get("original_text", "").strip()
 
+                    # 说话人标签处理（语音分离后 segment 包含 speaker 字段）
+                    speaker = segment.get("speaker", "")
+                    if speaker:
+                        text = f"[{speaker}] {text}"
+                        if original_text:
+                            original_text = f"[{speaker}] {original_text}"
+
                     # 双语处理
                     if bilingual and original_text:
                         if layout == BilingualLayout.TRANSLATE_ON_TOP:
