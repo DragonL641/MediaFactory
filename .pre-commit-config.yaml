@@ -20,3 +20,20 @@ repos:
         # 严重级别与 CI 一致：-ll (severity>=low) -ii (confidence>=medium)
         args: ["-ll", "-ii"]
         files: ^src/
+
+  # 前端检查 — 对齐 CI 流水线 frontend job
+  - repo: local
+    hooks:
+      - id: typecheck
+        name: TypeScript type check
+        entry: npx tsc --noEmit -p src/electron/tsconfig.json && npx tsc --noEmit -p src/electron/preload/tsconfig.json && npx tsc --noEmit -p src/electron/renderer/tsconfig.json
+        language: system
+        types: [ts]
+        pass_filenames: false
+
+      - id: eslint
+        name: ESLint check
+        entry: npx eslint src/electron/
+        language: system
+        types: [ts, tsx]
+        pass_filenames: false
