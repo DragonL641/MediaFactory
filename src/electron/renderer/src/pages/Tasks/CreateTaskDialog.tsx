@@ -40,7 +40,7 @@ const TaskConfigStep: React.FC<{
   onSubmittingChange: (v: boolean) => void;
   llmAvailable?: boolean;
   configuredPresets?: string[];
-}> = ({ selectedType, onSuccess, onSubmitRef, onSubmittingChange, llmAvailable = true, configuredPresets }) => {
+}> = ({ selectedType, onSuccess, onSubmitRef, onSubmittingChange, llmAvailable = true, configuredPresets: _configuredPresets }) => {
   const [form] = Form.useForm();
   const { message } = App.useApp();
   const { t } = useTranslation("tasks");
@@ -67,7 +67,6 @@ const TaskConfigStep: React.FC<{
     try {
       const values = await form.validateFields();
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const mutations: Record<string, any> = {
         subtitle: subtitleMutation,
         audio: audioMutation,
@@ -89,7 +88,8 @@ const TaskConfigStep: React.FC<{
 
   React.useEffect(() => {
     onSubmitRef.current = handleSubmit;
-  }, [selectedType, isSubmitting]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- imperative ref pattern: only update when inputs change
+  }, [selectedType, isSubmitting, handleSubmit]);
 
   const selectedTypeInfo = taskTypes.find((t) => t.key === selectedType);
 

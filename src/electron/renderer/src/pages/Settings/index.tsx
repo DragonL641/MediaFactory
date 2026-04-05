@@ -120,7 +120,7 @@ const SettingsPage: React.FC = () => {
       }
     });
     return () => { unsub1(); unsub2(); };
-  }, [queryClient]);
+  }, [queryClient, message, t]);
 
   // 配置加载后设置表单值
   React.useEffect(() => {

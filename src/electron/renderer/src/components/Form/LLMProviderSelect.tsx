@@ -21,7 +21,7 @@ export interface LLMProviderSelectProps {
 }
 
 const LLMProviderSelect: React.FC<LLMProviderSelectProps> = ({
-  form,
+  form: _form,
   name = "llm_preset",
   label,
   required = true,

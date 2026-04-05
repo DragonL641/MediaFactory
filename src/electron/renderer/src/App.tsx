@@ -77,7 +77,7 @@ const App: React.FC = () => {
     return () => {
       wsUnsubscribe?.();
     };
-  }, []);
+  }, [queryClient]);
 
   if (isLoading) {
     return (

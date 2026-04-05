@@ -5,7 +5,7 @@
  */
 
 import React from "react";
-import { Card, Skeleton, Space } from "antd";
+import { Skeleton, Space } from "antd";
 
 export type PageSkeletonType = "tasks" | "settings";
 

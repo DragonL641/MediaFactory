@@ -6,9 +6,9 @@
  */
 
 import React from "react";
-import { Layout, theme } from "antd";
+import { Layout } from "antd";
 import { FileTextOutlined, SettingOutlined, GlobalOutlined } from "@ant-design/icons";
-import { useNavigate, useLocation, Link } from "react-router-dom";
+import { useLocation, Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useLanguage } from "../../hooks/useLanguage";
 import TitleBar from "./TitleBar";
@@ -26,7 +26,6 @@ const TAB_ITEMS = [
 ];
 
 const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
-  const navigate = useNavigate();
   const location = useLocation();
   const { t } = useTranslation("layout");
   const { language, changeLanguage } = useLanguage();

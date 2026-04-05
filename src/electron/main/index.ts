@@ -4,7 +4,7 @@
  * 负责应用生命周期、窗口管理、Python 后端进程管理
  */
 
-import { app, BrowserWindow, dialog, ipcMain } from "electron";
+import { app, BrowserWindow, dialog } from "electron";
 import * as path from "path";
 import { PythonManager } from "./pythonManager";
 import { registerIpcHandlers } from "./ipcHandlers";

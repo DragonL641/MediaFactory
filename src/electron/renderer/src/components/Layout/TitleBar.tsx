@@ -12,7 +12,7 @@ const TITLEBAR_HEIGHT = 44;
 
 const TitleBar: React.FC = () => {
   const [isMac, setIsMac] = useState(false);
-  const [isMaximized, setIsMaximized] = useState(false);
+  const [_isMaximized, setIsMaximized] = useState(false);
 
   useEffect(() => {
     window.electronAPI.getPlatform().then((info) => {

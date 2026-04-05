@@ -145,7 +145,7 @@ export class WebSocketClient {
           try {
             const message: WebSocketMessage = JSON.parse(event.data);
             this.handleMessage(message);
-          } catch (e) {
+          } catch {
             console.error("[WS] Failed to parse message:", event.data);
           }
         };
