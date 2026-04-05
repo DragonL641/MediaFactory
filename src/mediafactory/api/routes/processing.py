@@ -54,7 +54,6 @@ async def create_subtitle_task(request: SubtitleRequest):
             bilingual=request.bilingual,
             bilingual_layout=request.bilingual_layout,
             style_preset=request.style_preset,
-            diarization_enabled=request.diarization_enabled,
         ),
     )
 
@@ -115,7 +114,6 @@ async def create_transcribe_task(request: TranscribeRequest):
         subtitle_config=SubtitleConfig(
             output_format=request.output_format,
             style_preset=request.style_preset,
-            diarization_enabled=request.diarization_enabled,
         ),
     )
 
@@ -234,34 +232,19 @@ async def cancel_task(task_id: str):
 
 @router.post("/retry/{task_id}")
 async def retry_task(task_id: str):
-    """重试失败/取消的任务（创建同配置新任务）"""
+    """重试失败/取消的任务（在原任务上重新执行）"""
     task_manager = _get_task_manager()
 
-    # 获取原任务配置
-    config_dict = await task_manager.get_task_config(task_id)
-    if not config_dict:
-        raise HTTPException(status_code=404, detail=t("error.taskNotFound"))
-
-    # 检查原任务状态
-    status_info = await task_manager.get_task_status(task_id)
-    if not status_info:
-        raise HTTPException(status_code=404, detail=t("error.taskNotFound"))
-
-    if status_info["status"] not in ("failed", "cancelled"):
-        raise HTTPException(
-            status_code=400, detail=t("error.canOnlyRetryFailed")
-        )
-
-    # 用相同配置创建新任务
-    from mediafactory.api.schemas import TaskConfig
-
-    new_config = TaskConfig(**config_dict)
-    new_task_id = await task_manager.create_task(
-        new_config, name=status_info.get("name", f"Retry: {task_id}")
-    )
+    success = await task_manager.retry_task(task_id)
+    if not success:
+        # 区分"不存在"和"状态不允许"
+        status_info = await task_manager.get_task_status(task_id)
+        if not status_info:
+            raise HTTPException(status_code=404, detail=t("error.taskNotFound"))
+        raise HTTPException(status_code=400, detail=t("error.canOnlyRetryFailed"))
 
     return TaskResponse(
-        task_id=new_task_id,
+        task_id=task_id,
         status=TaskStatus.PENDING,
         message=t("task.retried"),
     )
@@ -292,9 +275,11 @@ async def list_tasks():
 async def remove_task(task_id: str):
     """移除任务"""
     task_manager = _get_task_manager()
-    success = await task_manager.remove_task(task_id)
+    result = await task_manager.remove_task(task_id)
 
-    if not success:
+    if result == "not_found":
+        raise HTTPException(status_code=404, detail=t("error.taskNotFound"))
+    if result == "running":
         raise HTTPException(status_code=400, detail=t("error.cannotRemoveRunningTask"))
 
     return {"success": True}
@@ -379,10 +364,8 @@ async def batch_clear_tasks():
             TaskStatus.FAILED.value,
             TaskStatus.CANCELLED.value,
         ):
-            try:
-                await task_manager.remove_task(task_info["id"])
+            result = await task_manager.remove_task(task_info["id"])
+            if result == "removed":
                 cleared += 1
-            except Exception:
-                pass
 
     return {"success": True, "cleared": cleared}

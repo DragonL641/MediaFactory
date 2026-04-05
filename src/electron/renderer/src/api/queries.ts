@@ -7,7 +7,7 @@
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { getApiClient } from "./client";
-import type { AllModelsStatus } from "../types";
+import type { AllModelsStatus, ModelReadiness } from "../types";
 
 // Query Keys
 export const queryKeys = {
@@ -16,6 +16,7 @@ export const queryKeys = {
   modelsStatus: ["models", "status"] as const,
   config: ["config"] as const,
   llmPresets: ["config", "llm", "presets"] as const,
+  modelReadiness: ["models", "readiness"] as const,
 };
 
 // ============ Tasks ============
@@ -68,7 +69,6 @@ export function useCreateSubtitleTaskMutation() {
       bilingual_layout?: string;
       style_preset?: string;
       llm_preset?: string;
-      diarization_enabled?: boolean;
     }) => {
       const client = getApiClient();
       const response = await client.post("/api/processing/subtitle", params);
@@ -119,7 +119,6 @@ export function useCreateTranscribeTaskMutation() {
       source_lang: string;
       output_format?: string;
       style_preset?: string;
-      diarization_enabled?: boolean;
     }) => {
       const client = getApiClient();
       const response = await client.post("/api/processing/transcribe", params);
@@ -369,6 +368,21 @@ export function useModelsStatusQuery() {
 }
 
 /**
+ * 获取任务前置条件就绪状态
+ */
+export function useModelReadinessQuery() {
+  return useQuery<ModelReadiness>({
+    queryKey: queryKeys.modelReadiness,
+    queryFn: async () => {
+      const client = getApiClient();
+      const response = await client.get("/api/models/readiness");
+      return response.data;
+    },
+    staleTime: 30000,
+  });
+}
+
+/**
  * 下载模型
  */
 export function useDownloadModelMutation() {
@@ -382,6 +396,7 @@ export function useDownloadModelMutation() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.modelsStatus });
+      queryClient.invalidateQueries({ queryKey: queryKeys.modelReadiness });
     },
   });
 }
@@ -399,6 +414,7 @@ export function useDeleteModelMutation() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.modelsStatus });
+      queryClient.invalidateQueries({ queryKey: queryKeys.modelReadiness });
     },
   });
 }
@@ -492,6 +508,7 @@ export function useUpdateLLMPresetMutation() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.llmPresets });
       queryClient.invalidateQueries({ queryKey: queryKeys.modelsStatus });
+      queryClient.invalidateQueries({ queryKey: queryKeys.modelReadiness });
     },
   });
 }
@@ -513,6 +530,7 @@ export function useDeleteLLMPresetMutation() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.llmPresets });
       queryClient.invalidateQueries({ queryKey: queryKeys.modelsStatus });
+      queryClient.invalidateQueries({ queryKey: queryKeys.modelReadiness });
     },
   });
 }
@@ -535,6 +553,7 @@ export function useSetCurrentLLMPresetMutation() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.config });
       queryClient.invalidateQueries({ queryKey: queryKeys.modelsStatus });
+      queryClient.invalidateQueries({ queryKey: queryKeys.modelReadiness });
     },
   });
 }

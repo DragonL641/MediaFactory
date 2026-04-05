@@ -50,8 +50,7 @@
     "layout": "Layout",
     "useRemoteLlm": "Use Remote LLM for Translation",
     "useRemoteLlmShort": "Use Remote LLM",
-    "llmProvider": "LLM Provider",
-    "speakerDiarization": "Speaker Diarization"
+    "llmProvider": "LLM Provider"
   },
   "placeholder": {
     "selectVideo": "Click to select video file...",
@@ -95,5 +94,9 @@
   },
   "validation": {
     "fileRequired": "Please select a file"
+  },
+  "llm": {
+    "notConfiguredTooltip": "No LLM provider configured. Please go to Settings to configure one.",
+    "configureInSettings": "Configure an LLM provider in Settings to enable this option."
   }
 }

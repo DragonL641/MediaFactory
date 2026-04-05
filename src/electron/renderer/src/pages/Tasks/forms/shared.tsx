@@ -58,8 +58,6 @@ export const useBilingualLayoutOptions = () => {
   return [
     { value: "translate_on_top", label: t("forms:bilingualLayout.translateOnTop") },
     { value: "original_on_top", label: t("forms:bilingualLayout.originalOnTop") },
-    { value: "translate_only", label: t("forms:bilingualLayout.translateOnly") },
-    { value: "original_only", label: t("forms:bilingualLayout.originalOnly") },
   ];
 };
 

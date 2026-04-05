@@ -11,9 +11,10 @@ import TranslateFormFields from "./TranslateFormFields";
 
 interface TranslateFormProps {
   form: FormInstance;
+  llmAvailable?: boolean;
 }
 
-const TranslateForm: React.FC<TranslateFormProps> = ({ form }) => {
+const TranslateForm: React.FC<TranslateFormProps> = ({ form, llmAvailable = true }) => {
   const { t } = useTranslation("forms");
   const fileFilters = useFileFilters();
 
@@ -32,7 +33,7 @@ const TranslateForm: React.FC<TranslateFormProps> = ({ form }) => {
         filters: fileFilters.srt,
       }}
     >
-      <TranslateFormFields form={form} />
+      <TranslateFormFields form={form} llmAvailable={llmAvailable} />
     </TaskFormWrapper>
   );
 };

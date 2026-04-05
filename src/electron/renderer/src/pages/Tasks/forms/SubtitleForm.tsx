@@ -11,9 +11,10 @@ import SubtitleFormFields from "./SubtitleFormFields";
 
 interface SubtitleFormProps {
   form: FormInstance;
+  llmAvailable?: boolean;
 }
 
-const SubtitleForm: React.FC<SubtitleFormProps> = ({ form }) => {
+const SubtitleForm: React.FC<SubtitleFormProps> = ({ form, llmAvailable = true }) => {
   const { t } = useTranslation("forms");
   const fileFilters = useFileFilters();
 
@@ -28,7 +29,6 @@ const SubtitleForm: React.FC<SubtitleFormProps> = ({ form }) => {
         bilingual: false,
         bilingual_layout: "translate_on_top",
         use_llm: false,
-        diarization_enabled: false,
       }}
       fileInput={{
         name: "video_path",
@@ -37,7 +37,7 @@ const SubtitleForm: React.FC<SubtitleFormProps> = ({ form }) => {
         filters: fileFilters.video,
       }}
     >
-      <SubtitleFormFields form={form} />
+      <SubtitleFormFields form={form} llmAvailable={llmAvailable} />
     </TaskFormWrapper>
   );
 };

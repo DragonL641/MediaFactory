@@ -219,7 +219,7 @@ class TaskManager:
             )
 
         try:
-            result = await asyncio.get_event_loop().run_in_executor(
+            result = await asyncio.get_running_loop().run_in_executor(
                 None,
                 executor,
                 task.config,
@@ -317,6 +317,34 @@ class TaskManager:
             success=False,
             error=t("task.cancelled"),
         )
+        return True
+
+    async def retry_task(self, task_id: str) -> bool:
+        """重试失败/取消的任务：重置状态并重新执行"""
+        async with self._lock:
+            task = self._tasks.get(task_id)
+            if not task:
+                return False
+
+            if task.status not in (TaskStatus.FAILED, TaskStatus.CANCELLED):
+                return False
+
+            # 重置任务状态
+            task.status = TaskStatus.PENDING
+            task.progress = 0.0
+            task.message = ""
+            task.stage = None
+            task.result = None
+            task.cancel_token = CancellationToken()
+            task.started_at = None
+            task.completed_at = None
+
+            # 加入队列触发执行（复用现有串行机制）
+            if task_id not in self._queue:
+                self._queue.append(task_id)
+
+        # 锁外触发队列处理
+        await self._process_next_in_queue()
         return True
 
     async def update_task_status(
@@ -443,19 +471,29 @@ class TaskManager:
             tasks = [t for t in tasks if t.config.task_type not in exclude_types]
         return [self._task_to_dict(task) for task in tasks]
 
-    async def remove_task(self, task_id: str) -> bool:
-        """移除任务"""
+    async def remove_task(self, task_id: str) -> str:
+        """移除任务（不能移除正在运行的任务）
+
+        Returns:
+            "removed" - 成功移除
+            "not_found" - 任务不存在
+            "running" - 任务正在运行
+        """
         async with self._lock:
-            if task_id in self._tasks:
-                task = self._tasks[task_id]
-                if task.status == TaskStatus.RUNNING:
-                    return False
-                # 同时从队列中移除
-                if task_id in self._queue:
-                    self._queue.remove(task_id)
-                del self._tasks[task_id]
-                return True
-        return False
+            if task_id not in self._tasks:
+                logger.warning(f"remove_task: task {task_id} not found in _tasks, "
+                               f"existing keys: {list(self._tasks.keys())}")
+                return "not_found"
+            task = self._tasks[task_id]
+            if task.status == TaskStatus.RUNNING:
+                logger.warning(f"remove_task: task {task_id} is still RUNNING, cannot remove")
+                return "running"
+            # 同时从队列中移除
+            if task_id in self._queue:
+                self._queue.remove(task_id)
+            logger.info(f"Removing task {task_id} (status={task.status.value})")
+            del self._tasks[task_id]
+            return "removed"
 
     async def shutdown(self):
         """关闭时取消所有运行中的任务"""

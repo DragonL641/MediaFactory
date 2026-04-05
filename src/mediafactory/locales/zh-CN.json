@@ -32,7 +32,6 @@
     "videoEnhancementCompleted": "视频增强完成",
     "postProcessStart": "后处理中...",
     "resegmenting": "智能断句中...",
-    "diarizing": "说话人分离中...",
     "postProcessCompleted": "后处理完成",
     "completed": "已完成"
   },
@@ -119,6 +118,8 @@
     "presetDeleted": "预设 {{preset}} 已删除",
     "queuedForExecution": "已排队 {{count}} 个任务",
     "downloadCreated": "下载任务已创建: {{modelId}}",
+    "downloadAlreadyInProgress": "模型 {{modelId}} 正在下载中",
+    "anotherDownloadInProgress": "有模型正在下载中，请等待当前下载完成",
     "modelDeleted": "模型已删除: {{modelId}}"
   },
   "info": {

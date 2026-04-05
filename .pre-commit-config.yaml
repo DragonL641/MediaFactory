@@ -17,5 +17,6 @@ repos:
     rev: 1.8.2
     hooks:
       - id: bandit
-        args: ["-r", "src/"]
+        # 严重级别与 CI 一致：-ll (severity>=low) -ii (confidence>=medium)
+        args: ["-ll", "-ii"]
         files: ^src/

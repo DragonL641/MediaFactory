@@ -17,6 +17,7 @@ export interface LLMProviderSelectProps {
   label?: string;
   required?: boolean;
   placeholder?: string;
+  configuredPresets?: string[];
 }
 
 const LLMProviderSelect: React.FC<LLMProviderSelectProps> = ({
@@ -25,6 +26,7 @@ const LLMProviderSelect: React.FC<LLMProviderSelectProps> = ({
   label,
   required = true,
   placeholder,
+  configuredPresets,
 }) => {
   const { t } = useTranslation("forms");
   const { token } = theme.useToken();
@@ -33,7 +35,9 @@ const LLMProviderSelect: React.FC<LLMProviderSelectProps> = ({
   const { data: presetsData } = useLLMPresetsQuery();
 
   const presetOptions = presetsData
-    ? (Object.entries(presetsData) as [string, LLMPresetInfo][]).map(([id, info]) => ({
+    ? (Object.entries(presetsData) as [string, LLMPresetInfo][])
+        .filter(([id]) => !configuredPresets || configuredPresets.includes(id))
+        .map(([id, info]) => ({
         value: id,
         label: info.display_name,
         connected: info.connection_available,

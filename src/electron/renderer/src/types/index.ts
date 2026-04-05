@@ -112,18 +112,6 @@ export interface DenoiseModelInfo {
   complete: boolean;
 }
 
-export interface DiarizationModelInfo {
-  id: string;
-  name: string;
-  purpose: string;
-  size: string;
-  memory: string;
-  vram?: string;
-  description: string;
-  downloaded: boolean;
-  complete: boolean;
-}
-
 export interface WhisperModelInfo {
   id: string;
   name: string;
@@ -154,9 +142,17 @@ export interface AllModelsStatus {
     name: string;
     models: DenoiseModelInfo[];
   };
-  diarization: {
-    name: string;
-    models: DiarizationModelInfo[];
+}
+
+export interface ModelReadiness {
+  whisper_ready: boolean;
+  translation_ready: boolean;
+  enhancement_ready: boolean;
+  llm: {
+    configured_presets: string[];
+    current_preset: string | null;
+    current_ready: boolean;
+    llm_available: boolean;
   };
 }
 
@@ -193,7 +189,6 @@ export interface ModelConfig {
   local_model_path?: string;
   download_source?: string;
   download_timeout?: number;
-  hf_token?: string;
   models_dir?: string;
   available_translation_models?: string[];
   whisper_models?: string[];

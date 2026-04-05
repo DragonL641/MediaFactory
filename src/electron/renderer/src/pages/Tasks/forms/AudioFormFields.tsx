@@ -5,15 +5,17 @@
 
 import React from "react";
 import { Form, Select, Switch, InputNumber, Slider } from "antd";
+import type { FormInstance } from "antd";
 import { useTranslation } from "react-i18next";
 
 interface AudioFormFieldsProps {
+  form: FormInstance;
   fieldPrefix?: string;
 }
 
-const AudioFormFields: React.FC<AudioFormFieldsProps> = ({ fieldPrefix = "" }) => {
+const AudioFormFields: React.FC<AudioFormFieldsProps> = ({ form, fieldPrefix = "" }) => {
   const { t } = useTranslation("forms");
-  const [filterEnabled, setFilterEnabled] = React.useState(true);
+  const filterEnabled = Form.useWatch(`${fieldPrefix}filter_enabled`, form);
 
   return (
     <>
@@ -49,7 +51,7 @@ const AudioFormFields: React.FC<AudioFormFieldsProps> = ({ fieldPrefix = "" }) =
       </Form.Item>
 
       <Form.Item name={`${fieldPrefix}filter_enabled`} label={t("forms:audioLabels.voiceEnhancementFilter")} valuePropName="checked">
-        <Switch defaultChecked onChange={setFilterEnabled} />
+        <Switch />
       </Form.Item>
 
       {filterEnabled && (

@@ -11,9 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **subtitle:** WebVTT (VTT) format output support
 - **pipeline:** Intelligent sentence segmentation via stable-ts integration (PostProcessStage)
-- **pipeline:** Speaker diarization via pyannote (optional, per-task toggle)
-- **config:** PostProcessConfig for resegmentation and diarization settings
-- **models:** Pyannote Speaker Diarization 3.1 model registration
+- **config:** PostProcessConfig for resegmentation settings
 
 ### Changed
 
@@ -24,8 +22,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - **transcription:** Fixed config key mismatch (output_format -> output_format_type)
-- **ass:** Per-speaker color styling for diarization output
-
 ### Removed
 
 - **utils:** Removed unused video_scanner.py module

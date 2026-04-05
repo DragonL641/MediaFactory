@@ -32,7 +32,6 @@
     "videoEnhancementCompleted": "Video enhancement completed",
     "postProcessStart": "Post-processing...",
     "resegmenting": "Resegmenting...",
-    "diarizing": "Speaker diarization...",
     "postProcessCompleted": "Post-processing completed",
     "completed": "Completed"
   },
@@ -119,6 +118,8 @@
     "presetDeleted": "Preset {{preset}} deleted",
     "queuedForExecution": "Queued {{count}} tasks for execution",
     "downloadCreated": "Download task created: {{modelId}}",
+    "downloadAlreadyInProgress": "Model {{modelId}} is already downloading",
+    "anotherDownloadInProgress": "Another model is downloading, please wait for it to finish",
     "modelDeleted": "Model deleted: {{modelId}}"
   },
   "info": {

@@ -76,7 +76,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
       <Content
         style={{
           padding: "24px 32px",
-          flex: 1,
+          minHeight: 0,
           overflowY: "auto",
         }}
       >

@@ -11,6 +11,7 @@ import {
   Space,
   Popconfirm,
   App,
+  Alert,
 } from "antd";
 import {
   PlusOutlined,
@@ -20,6 +21,7 @@ import {
   FileTextOutlined,
 } from "@ant-design/icons";
 import { useTranslation } from "react-i18next";
+import { useNavigate } from "react-router-dom";
 import {
   useTasksQuery,
   useCancelTaskMutation,
@@ -28,6 +30,7 @@ import {
   useBatchStartMutation,
   useBatchCancelMutation,
   useBatchClearMutation,
+  useModelReadinessQuery,
 } from "../../api/queries";
 import { TaskStatus, type Task, type BatchOperationResponse } from "../../types";
 import PageHeader from "../../components/Layout/PageHeader";
@@ -49,6 +52,36 @@ const TasksPage: React.FC = () => {
   const batchCancelMutation = useBatchCancelMutation();
   const batchClearMutation = useBatchClearMutation();
   const retryMutation = useRetryTaskMutation();
+
+  const { data: readiness } = useModelReadinessQuery();
+  const navigate = useNavigate();
+
+  const readinessWarnings = React.useMemo(() => {
+    if (!readiness) return [];
+    const warnings: { key: string; message: string; affectedTypes: string[] }[] = [];
+    if (!readiness.whisper_ready) {
+      warnings.push({
+        key: "whisper",
+        message: t("tasks:readiness.whisperWarning"),
+        affectedTypes: ["Subtitle", "Transcribe"],
+      });
+    }
+    if (!readiness.translation_ready) {
+      warnings.push({
+        key: "translation",
+        message: t("tasks:readiness.translationWarning"),
+        affectedTypes: ["Translate"],
+      });
+    }
+    if (!readiness.enhancement_ready) {
+      warnings.push({
+        key: "enhancement",
+        message: t("tasks:readiness.enhancementWarning"),
+        affectedTypes: ["Enhance"],
+      });
+    }
+    return warnings;
+  }, [readiness, t]);
 
   const handleCancel = (taskId: string) => {
     cancelMutation.mutate(taskId);
@@ -189,6 +222,33 @@ const TasksPage: React.FC = () => {
             />
           ))}
         </div>
+      )}
+
+      {readinessWarnings.length > 0 && (
+        <Alert
+          type="warning"
+          showIcon
+          style={{ marginTop: 12 }}
+          styles={{ body: { padding: "8px 12px" } }}
+          message={<span style={{ fontSize: 12 }}>{t("tasks:readiness.title")}</span>}
+          description={
+            <div style={{ fontSize: 12 }}>
+              {readinessWarnings.map((w) => (
+                <div key={w.key}>
+                  {w.message} ({w.affectedTypes.join(", ")})
+                </div>
+              ))}
+              <Button
+                type="link"
+                size="small"
+                style={{ padding: 0, marginTop: 2, fontSize: 12 }}
+                onClick={() => navigate("/settings")}
+              >
+                {t("tasks:readiness.goToSettings")}
+              </Button>
+            </div>
+          }
+        />
       )}
 
       <CreateTaskDialog

@@ -71,7 +71,7 @@ class WhisperConfig(BaseModel):
 
 
 # ============================================================================
-# 后处理配置（智能断句 + 说话人分离）
+# 后处理配置（智能断句）
 # ============================================================================
 
 
@@ -113,18 +113,6 @@ class PostProcessConfig(BaseModel):
         description="合并间隔阈值（秒）",
     )
 
-    # 说话人分离
-    diarization_enabled: bool = Field(
-        default=False,
-        description="启用说话人分离（需要 pyannote 模型）",
-    )
-    num_speakers: int = Field(
-        default=0,
-        ge=0,
-        le=20,
-        description="说话人数量（0=自动检测）",
-    )
-
 
 # ============================================================================
 # Model 配置
@@ -147,10 +135,6 @@ class ModelConfig(BaseModel):
         ge=10,
         le=600,
         description="模型下载 HTTP 请求超时（秒）",
-    )
-    hf_token: str = Field(
-        default="",
-        description="HuggingFace Access Token（用于 gated 模型如 pyannote）",
     )
     available_translation_models: List[str] = Field(
         default_factory=list,

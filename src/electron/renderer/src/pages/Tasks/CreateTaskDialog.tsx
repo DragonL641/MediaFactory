@@ -17,6 +17,7 @@ import TranscribeForm from "./forms/TranscribeForm";
 import TranslateForm from "./forms/TranslateForm";
 import EnhanceForm from "./forms/EnhanceForm";
 import {
+  useModelReadinessQuery,
   useCreateSubtitleTaskMutation,
   useCreateAudioTaskMutation,
   useCreateTranscribeTaskMutation,
@@ -37,7 +38,9 @@ const TaskConfigStep: React.FC<{
   onSuccess: () => void;
   onSubmitRef: React.MutableRefObject<(() => Promise<void>) | undefined>;
   onSubmittingChange: (v: boolean) => void;
-}> = ({ selectedType, onSuccess, onSubmitRef, onSubmittingChange }) => {
+  llmAvailable?: boolean;
+  configuredPresets?: string[];
+}> = ({ selectedType, onSuccess, onSubmitRef, onSubmittingChange, llmAvailable = true, configuredPresets }) => {
   const [form] = Form.useForm();
   const { message } = App.useApp();
   const { t } = useTranslation("tasks");
@@ -93,13 +96,13 @@ const TaskConfigStep: React.FC<{
   const renderForm = () => {
     switch (selectedType) {
       case "subtitle":
-        return <SubtitleForm form={form} />;
+        return <SubtitleForm form={form} llmAvailable={llmAvailable} />;
       case "audio":
         return <AudioForm form={form} />;
       case "transcribe":
         return <TranscribeForm form={form} />;
       case "translate":
-        return <TranslateForm form={form} />;
+        return <TranslateForm form={form} llmAvailable={llmAvailable} />;
       case "enhance":
         return <EnhanceForm form={form} />;
       default:
@@ -131,6 +134,22 @@ const CreateTaskDialog: React.FC<CreateTaskDialogProps> = ({ open, onClose }) =>
   const [isSubmitting, setIsSubmitting] = useState(false);
   const handleSubmitRef = React.useRef<(() => Promise<void>) | undefined>();
   const { t } = useTranslation("tasks");
+  const { data: readiness } = useModelReadinessQuery();
+
+  const disabledTypes = React.useMemo(() => {
+    const result: Record<string, { disabled: boolean; reason?: string }> = {};
+    if (readiness && !readiness.whisper_ready) {
+      result["subtitle"] = { disabled: true, reason: t("readiness.whisperRequired") };
+      result["transcribe"] = { disabled: true, reason: t("readiness.whisperRequired") };
+    }
+    if (readiness && !readiness.translation_ready) {
+      result["translate"] = { disabled: true, reason: t("readiness.translationRequired") };
+    }
+    if (readiness && !readiness.enhancement_ready) {
+      result["enhance"] = { disabled: true, reason: t("readiness.enhancementRequired") };
+    }
+    return result;
+  }, [readiness, t]);
 
   const handleClose = () => {
     setCurrentStep(0);
@@ -182,13 +201,15 @@ const CreateTaskDialog: React.FC<CreateTaskDialogProps> = ({ open, onClose }) =>
       )}
 
       {currentStep === 0 ? (
-        <TaskTypeSelector onSelect={(key) => { setSelectedType(key); setCurrentStep(1); }} />
+        <TaskTypeSelector onSelect={(key) => { setSelectedType(key); setCurrentStep(1); }} disabledTypes={disabledTypes} />
       ) : selectedType ? (
         <TaskConfigStep
           selectedType={selectedType}
           onSuccess={handleClose}
           onSubmitRef={handleSubmitRef}
           onSubmittingChange={setIsSubmitting}
+          llmAvailable={readiness?.llm?.llm_available}
+          configuredPresets={readiness?.llm?.configured_presets}
         />
       ) : null}
     </Modal>

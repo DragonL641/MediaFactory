@@ -2,7 +2,7 @@
  * 字幕翻译表单字段（不含 Form 包装和文件输入）
  */
 
-import React, { useState } from "react";
+import React from "react";
 import { Form, Select, Switch } from "antd";
 import type { FormInstance } from "antd";
 import { useTranslation } from "react-i18next";
@@ -11,11 +11,12 @@ import LLMProviderSelect from "../../../components/Form/LLMProviderSelect";
 
 interface TranslateFormFieldsProps {
   form: FormInstance;
+  llmAvailable?: boolean;
 }
 
-const TranslateFormFields: React.FC<TranslateFormFieldsProps> = ({ form }) => {
+const TranslateFormFields: React.FC<TranslateFormFieldsProps> = ({ form, llmAvailable = true }) => {
   const { t } = useTranslation("forms");
-  const [useLlm, setUseLlm] = useState(false);
+  const useLlm = Form.useWatch("use_llm", form);
 
   const languageOptions = useLanguageOptions();
   const targetLanguageOptions = useTargetLanguageOptions();
@@ -31,10 +32,16 @@ const TranslateFormFields: React.FC<TranslateFormFieldsProps> = ({ form }) => {
       </Form.Item>
 
       <Form.Item name="use_llm" label={t("forms:label.useRemoteLlmShort")} valuePropName="checked">
-        <Switch onChange={(checked) => setUseLlm(checked)} />
+        <Switch disabled={!llmAvailable} />
       </Form.Item>
 
-      {useLlm && <LLMProviderSelect form={form} />}
+      {!llmAvailable && (
+        <div style={{ marginTop: -8, marginBottom: 12, fontSize: 12, color: "var(--mf-text-muted, #999)" }}>
+          {t("forms:llm.configureInSettings")}
+        </div>
+      )}
+
+      {useLlm && llmAvailable && <LLMProviderSelect form={form} />}
     </>
   );
 };

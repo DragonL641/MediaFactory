@@ -39,7 +39,6 @@ class TranscriptionService:
         language: str = "auto",
         progress: ProgressCallback = NO_OP_PROGRESS,
         output_format: str = "srt",
-        diarization_enabled: bool = False,
     ) -> ProcessingResult:
         """
         转录音频文件
@@ -65,9 +64,6 @@ class TranscriptionService:
                 progress_callback=progress,
                 config={
                     "output_format_type": output_format,
-                    "postprocess": {
-                        "diarization_enabled": diarization_enabled,
-                    },
                 },
             )
 

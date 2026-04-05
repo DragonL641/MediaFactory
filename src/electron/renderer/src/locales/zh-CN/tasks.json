@@ -81,5 +81,15 @@
     "taskType": "任务类型",
     "inputFile": "输入文件",
     "saved": "任务配置已更新"
+  },
+  "readiness": {
+    "title": "前置条件未就绪",
+    "whisperWarning": "Whisper 模型未下载",
+    "translationWarning": "翻译模型未下载",
+    "enhancementWarning": "增强模型未完全下载",
+    "goToSettings": "前往设置",
+    "whisperRequired": "Whisper 模型未下载",
+    "translationRequired": "翻译模型未下载",
+    "enhancementRequired": "增强模型未完全下载"
   }
 }

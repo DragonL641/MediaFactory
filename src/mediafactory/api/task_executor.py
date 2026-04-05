@@ -11,8 +11,25 @@ from typing import Any, Callable, Coroutine, Dict, Optional
 from mediafactory.api.schemas import AudioConfig, EnhancementConfig, SubtitleConfig, TaskConfig, TaskType
 from mediafactory.core.progress_protocol import ProgressCallback
 from mediafactory.core.tool import CancellationToken
+from mediafactory.exceptions import ConfigurationError
 
 logger = logging.getLogger(__name__)
+
+
+def _check_readiness(requirement: str, message: str):
+    """检查前置条件，不满足时抛出 ConfigurationError"""
+    from mediafactory.services.models import ModelStatusService
+
+    readiness = ModelStatusService().get_readiness()
+
+    if requirement == "whisper" and not readiness["whisper_ready"]:
+        raise ConfigurationError(message)
+    elif requirement == "translation_local" and not readiness["translation_ready"]:
+        raise ConfigurationError(message)
+    elif requirement == "enhancement" and not readiness["enhancement_ready"]:
+        raise ConfigurationError(message)
+
+
 # API 层使用标准 logging，通过 InterceptHandler 自动重定向到 loguru
 # 详见 mediafactory.logging.loguru_logger.setup_logging_intercept
 
@@ -79,7 +96,6 @@ async def _execute_subtitle_async(config: TaskConfig, progress: ProgressCallback
         bilingual=sub.bilingual,
         bilingual_layout=sub.bilingual_layout,
         style_preset=sub.style_preset,
-        diarization_enabled=sub.diarization_enabled,
         progress=progress,
     )
     return _make_result(result)
@@ -115,7 +131,6 @@ async def _execute_transcribe_async(config: TaskConfig, progress: ProgressCallba
         language=config.source_lang,
         progress=progress,
         output_format=sub.output_format,
-        diarization_enabled=sub.diarization_enabled,
     )
     return _make_result(result)
 
@@ -170,83 +185,63 @@ async def _execute_enhance_async(config: TaskConfig, progress: ProgressCallback)
 # =============================================================================
 
 
-def execute_subtitle_task(
-    config: TaskConfig,
-    progress_callback: Callable[[float, str, str], None],
-    cancel_token: CancellationToken,
-) -> Dict[str, Any]:
-    """执行字幕生成任务"""
-    adapter = SimpleProgressAdapter(progress_callback, cancel_token)
-    try:
-        return _run_async(_execute_subtitle_async(config, adapter))
-    except Exception as e:
-        logger.exception(f"Subtitle task failed: {e}")
-        raise
+def _create_executor(
+    async_fn: Callable,
+    readiness_check: Optional[Callable[[TaskConfig], None]] = None,
+    task_name: str = "",
+):
+    """创建同步任务执行器（通用模板）。
+
+    Args:
+        async_fn: 异步执行函数，签名为 (config, progress_adapter) -> Dict
+        readiness_check: 可选的前置条件检查函数，签名为 (config) -> None
+        task_name: 任务名称，用于日志
+    """
+
+    def executor(
+        config: TaskConfig,
+        progress_callback: Callable[[float, str, str], None],
+        cancel_token: CancellationToken,
+    ) -> Dict[str, Any]:
+        if readiness_check:
+            readiness_check(config)
+        adapter = SimpleProgressAdapter(progress_callback, cancel_token)
+        try:
+            return _run_async(async_fn(config, adapter))
+        except Exception as e:
+            logger.exception(f"{task_name} task failed: {e}")
+            raise
+
+    return executor
 
 
-def execute_audio_task(
-    config: TaskConfig,
-    progress_callback: Callable[[float, str, str], None],
-    cancel_token: CancellationToken,
-) -> Dict[str, Any]:
-    """执行音频提取任务"""
-    adapter = SimpleProgressAdapter(progress_callback, cancel_token)
-    try:
-        return _run_async(_execute_audio_async(config, adapter))
-    except Exception as e:
-        logger.exception(f"Audio task failed: {e}")
-        raise
+# 前置条件检查函数
+def _check_whisper(_config: TaskConfig):
+    _check_readiness("whisper", "Whisper model not downloaded. Please go to Settings to download a Whisper model.")
 
 
-def execute_transcribe_task(
-    config: TaskConfig,
-    progress_callback: Callable[[float, str, str], None],
-    cancel_token: CancellationToken,
-) -> Dict[str, Any]:
-    """执行音频转录任务"""
-    adapter = SimpleProgressAdapter(progress_callback, cancel_token)
-    try:
-        return _run_async(_execute_transcribe_async(config, adapter))
-    except Exception as e:
-        logger.exception(f"Transcribe task failed: {e}")
-        raise
+def _check_translation(config: TaskConfig):
+    if not config.use_llm:
+        _check_readiness(
+            "translation_local",
+            "Translation model not downloaded. Please go to Settings to download a translation model.",
+        )
 
 
-def execute_translate_task(
-    config: TaskConfig,
-    progress_callback: Callable[[float, str, str], None],
-    cancel_token: CancellationToken,
-) -> Dict[str, Any]:
-    """执行翻译任务"""
-    adapter = SimpleProgressAdapter(progress_callback, cancel_token)
-    try:
-        return _run_async(_execute_translate_async(config, adapter))
-    except Exception as e:
-        logger.exception(f"Translate task failed: {e}")
-        raise
-
-
-def execute_enhance_task(
-    config: TaskConfig,
-    progress_callback: Callable[[float, str, str], None],
-    cancel_token: CancellationToken,
-) -> Dict[str, Any]:
-    """执行视频增强任务"""
-    adapter = SimpleProgressAdapter(progress_callback, cancel_token)
-    try:
-        return _run_async(_execute_enhance_async(config, adapter))
-    except Exception as e:
-        logger.exception(f"Enhance task failed: {e}")
-        raise
+def _check_enhancement(_config: TaskConfig):
+    _check_readiness(
+        "enhancement",
+        "Enhancement models not fully downloaded. Please go to Settings to download all enhancement models.",
+    )
 
 
 # 任务类型到执行器的映射
 TASK_EXECUTORS = {
-    TaskType.SUBTITLE: execute_subtitle_task,
-    TaskType.AUDIO: execute_audio_task,
-    TaskType.TRANSCRIBE: execute_transcribe_task,
-    TaskType.TRANSLATE: execute_translate_task,
-    TaskType.ENHANCE: execute_enhance_task,
+    TaskType.SUBTITLE: _create_executor(_execute_subtitle_async, _check_whisper, "Subtitle"),
+    TaskType.AUDIO: _create_executor(_execute_audio_async, task_name="Audio"),
+    TaskType.TRANSCRIBE: _create_executor(_execute_transcribe_async, _check_whisper, "Transcribe"),
+    TaskType.TRANSLATE: _create_executor(_execute_translate_async, _check_translation, "Translate"),
+    TaskType.ENHANCE: _create_executor(_execute_enhance_async, _check_enhancement, "Enhance"),
 }
 
 

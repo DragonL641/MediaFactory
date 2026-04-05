@@ -82,7 +82,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `ModelLoadingStage` (0-10%)：加载 Whisper 模型
 - `AudioExtractionStage` (10-20%)：从视频提取音频，使用高质量设置（48000Hz，立体声，滤波器）
 - `TranscriptionStage` (20-60%)：使用 Faster Whisper 进行语音转文字，带进度跟踪（主要工作）
-- `PostProcessStage` (60-70%)：智能分句（stable-ts）和说话人分离（pyannote，可选）
+- `PostProcessStage` (60-70%)：智能分句（stable-ts）
 - `TranslationStage` (70-95%)：翻译到目标语言，自动回退
 - `SRTGenerationStage` (95-100%)：生成字幕文件（SRT/ASS/VTT）
 - `ModelCleanupStage`：释放模型资源
@@ -219,7 +219,7 @@ result = await loop.run_in_executor(None, pipeline.execute, context)
 **引擎层**（`src/mediafactory/engine/`）：
 - `AudioEngine`：ffmpeg 音频提取（48000Hz 立体声，语音增强滤波器）
 - `RecognitionEngine`：Faster Whisper 语音识别
-- `PostProcessEngine`：stable-ts 智能分句 + pyannote 说话人分离（可选）
+- `PostProcessEngine`：stable-ts 智能分句
 - `TranslationEngine`：统一翻译引擎，通过 `use_local_models_only` 和 `use_llm_backend` 参数切换本地翻译/LLM API 模式
 - `SRTEngine`、`ASSEngine`、`VTTEngine`：字幕文件生成
 - `VideoComposer`：视频合成
@@ -233,7 +233,7 @@ result = await loop.run_in_executor(None, pipeline.execute, context)
 - 翻译方式：批量翻译 + 递归验证 + 本地回退
 
 **其他**：
-- `config/`：Pydantic v2 配置系统（TOML 存储，`MF_` 环境变量前缀），包含 `PostProcessConfig`（分句/说话人分离配置）
+- `config/`：Pydantic v2 配置系统（TOML 存储，`MF_` 环境变量前缀），包含 `PostProcessConfig`（分句配置）
 - `logging/`：统一日志系统（loguru，自动清理过期日志，配置审计）
 - `models/`：Faster Whisper 模型选择和本地翻译模型发现
 - `constants.py`：`BackendConfigMapping`、`ToolConstants` 等
@@ -265,6 +265,7 @@ result = await loop.run_in_executor(None, pipeline.execute, context)
 - `AppConfigManager`：集中管理器，支持嵌套更新（双下划线表示法）
 - 环境变量覆盖：`MF_` 前缀（例如 `MF_WHISPER_BEAM_SIZE=7`）
 - 配置变更自动记录审计日志，敏感字段脱敏
+- `[ffmpeg]` 配置节：`soft_subtitle_timeout`（内嵌字幕超时）、`hard_subtitle_timeout`（硬字幕超时）、`multi_subtitle_timeout`（多字幕超时），单位秒
 ```python
 from mediafactory.config import get_config, update_config, save_config, reload_config
 

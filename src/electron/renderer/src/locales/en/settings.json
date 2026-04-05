@@ -13,8 +13,7 @@
   },
   "subSections": {
     "superResolution": "Super Resolution Models",
-    "videoDenoising": "Video Denoising",
-    "speakerDiarization": "Speaker Diarization"
+    "videoDenoising": "Video Denoising"
   },
   "whisper": {
     "title": "Whisper Transcription",
@@ -34,10 +33,7 @@
     "downloadSource": "Download Source",
     "downloadSourceTooltip": "Model download mirror. Use hf-mirror.com in China, huggingface.co otherwise",
     "downloadTimeout": "Download Timeout",
-    "downloadTimeoutTooltip": "Timeout for model download requests in seconds",
-    "hfToken": "HuggingFace Token",
-    "hfTokenTooltip": "Required for gated models (e.g., pyannote). Get your token at huggingface.co/settings/tokens",
-    "hfTokenPlaceholder": "hf_xxxxxxxxxxxxxxxxxxxx"
+    "downloadTimeoutTooltip": "Timeout for model download requests in seconds"
   },
   "actions": {
     "reload": "Reload",
@@ -55,12 +51,5 @@
     "logRetention": "Log Retention",
     "logRetentionTooltip": "Automatically delete logs older than this many days",
     "days": "days"
-  },
-  "diarization": {
-    "hfTokenNote": "Requires accepting research terms on the HuggingFace model page before downloading.",
-    "hfTokenRequired": "HuggingFace Token required. Please configure it in HuggingFace Hub settings below.",
-    "tokenRequiredTitle": "Token Required",
-    "tokenRequiredContent": "This model requires a HuggingFace Token for download. Please configure your token in the HuggingFace Hub section below.",
-    "scrollToConfig": "Go to Settings"
   }
 }

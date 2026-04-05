@@ -77,7 +77,6 @@ AI video tools often force you to choose between quality and speed, or between c
 
 - **Fast and accurate** — Faster Whisper delivers 4-6x speedup without sacrificing quality
 - **Smart segmentation** — Intelligent sentence segmentation via stable-ts for natural subtitle boundaries
-- **Speaker diarization** — Identify and label different speakers using pyannote (optional, per-task toggle)
 - **Local or cloud** — Use local models for privacy, or LLM APIs for convenience — your choice
 - **Multiple subtitle formats** — SRT, ASS, and WebVTT output support
 - **Batch processing done right** — Real progress tracking, not a black box
@@ -96,7 +95,6 @@ AI video tools often force you to choose between quality and speed, or between c
 | **Core Focus** | Auto Generation | Video Translation | LLM Subtitles | Manual Editing |
 | **License** | MIT | GPL-3.0 | GPL-3.0 | GPL/LGPL |
 | **Speech Recognition** | ✅ Faster Whisper | ✅ Multiple | ✅ Multiple | ✅ Whisper |
-| **Speaker Diarization** | ✅ pyannote | ❌ | ❌ | ❌ |
 | **Local Translation** | ✅ | ✅ | ❌ | ❌ |
 | **LLM Translation** | ✅ 6+ Providers | ✅ | ✅ | ✅ Google/DeepL |
 | **Batch Processing** | ✅ | ✅ | ✅ | ✅ |
@@ -132,7 +130,7 @@ AI video tools often force you to choose between quality and speed, or between c
 
 **Translation quality**: LLM translation generally produces more natural results than local models. Use local models when privacy is critical.
 
-**Model download**: Download translation model before first run. For speaker diarization, also download the pyannote model:
+**Model download**: Download translation model before first run:
 
 ```bash
 # List available models
@@ -140,9 +138,6 @@ uv run python scripts/utils/download_model.py --list
 
 # Download translation model
 uv run python scripts/utils/download_model.py facebook/m2m100_1.2B
-
-# Download speaker diarization model (optional)
-uv run python scripts/utils/download_model.py pyannote/speaker-diarization-3.1
 ```
 
 **Log files**: All logs are written to `logs/LOG-YYYY-MM-DD-HHMM.log` in the application directory.

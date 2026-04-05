@@ -45,13 +45,3 @@ win:
       arch:
         - x64
   artifactName: ${productName}-${version}-${arch}-portable.${ext}
-
-linux:
-  # 注意：Linux 暂不支持，此配置仅供未来参考
-  target:
-    - target: AppImage
-      arch:
-        - x64
-  icon: src/electron/resources/icons
-  category: AudioVideo
-  artifactName: ${productName}-${version}-${arch}.${ext}

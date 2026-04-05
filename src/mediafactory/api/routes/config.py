@@ -221,6 +221,23 @@ async def update_llm_preset(preset_id: str, request: LLMPresetUpdateRequest):
 
         update_config(**update_kwargs)
 
+        # 如果当前预设无效（未配置），自动将新配置的预设设为当前预设
+        from mediafactory.config import get_config
+        current_cfg = get_config()
+        oa_config = getattr(current_cfg, 'openai_compatible', None)
+        if oa_config:
+            current_preset = getattr(oa_config, 'current_preset', None)
+            current_valid = False
+            if current_preset:
+                try:
+                    preset_cfg = oa_config.get_preset_config(current_preset)
+                    api_key = getattr(preset_cfg, 'api_key', '')
+                    current_valid = bool(api_key and api_key != "sk-xxx")
+                except (ValueError, AttributeError):
+                    pass
+            if not current_valid:
+                update_config(openai_compatible__current_preset=preset_id)
+
         return {"success": True, "message": t("task.presetUpdated", preset=preset_id)}
 
     except Exception as e:

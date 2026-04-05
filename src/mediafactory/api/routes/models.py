@@ -28,6 +28,9 @@ _status_service = ModelStatusService()
 
 # 模型状态缓存（60 秒）
 _models_status_cache: Dict[str, Any] = None
+
+# 并发下载保护：追踪正在下载的模型
+_active_downloads: set[str] = set()
 _models_status_cache_time: float = 0
 _MODELS_STATUS_CACHE_TTL = 60
 
@@ -76,7 +79,6 @@ async def get_models_status() -> Dict[str, Any]:
 
     enhancement_models = _get_enhancement_model_statuses(config)
     denoise_models = _get_denoise_model_statuses(config)
-    diarization_models = _get_diarization_model_statuses()
 
     # 获取 Whisper 模型详情列表
     whisper_models = _get_whisper_model_statuses()
@@ -110,10 +112,6 @@ async def get_models_status() -> Dict[str, Any]:
         "denoise": {
             "name": "NAFNet",
             "models": denoise_models,
-        },
-        "diarization": {
-            "name": "Pyannote",
-            "models": diarization_models,
         },
     }
 
@@ -175,12 +173,6 @@ def _get_denoise_model_statuses(config) -> List[Dict[str, Any]]:
     return _get_model_statuses_by_type(ModelType.DENOISE)
 
 
-def _get_diarization_model_statuses() -> List[Dict[str, Any]]:
-    """获取 Pyannote 说话人分离模型状态"""
-    from mediafactory.models.model_registry import ModelType
-    return _get_model_statuses_by_type(ModelType.DIARIZATION)
-
-
 @router.get("/whisper")
 async def get_whisper_status() -> Dict[str, Any]:
     """获取 Whisper 模型状态"""
@@ -221,6 +213,12 @@ async def get_llm_status() -> Dict[str, Any]:
     }
 
 
+@router.get("/readiness")
+async def get_readiness() -> Dict[str, Any]:
+    """获取任务前置条件就绪状态"""
+    return _status_service.get_readiness()
+
+
 @router.post("/download/{model_id:path}")
 async def start_model_download(
     model_id: str,
@@ -234,6 +232,20 @@ async def start_model_download(
     from mediafactory.api.main import get_task_manager
     from mediafactory.api.schemas import TaskConfig, TaskType
     from mediafactory.api.websocket import manager as ws_manager
+
+    # 并发下载保护：同一模型或任何下载进行中时拒绝
+    if model_id in _active_downloads:
+        raise HTTPException(
+            status_code=409,
+            detail=t("task.downloadAlreadyInProgress", modelId=model_id),
+        )
+    if _active_downloads:
+        raise HTTPException(
+            status_code=409,
+            detail=t("task.anotherDownloadInProgress"),
+        )
+
+    _active_downloads.add(model_id)
 
     # 从配置读取下载源
     from mediafactory.config import get_config
@@ -297,7 +309,6 @@ async def start_model_download(
                     model_id,
                     download_source=endpoint,
                     progress_callback=sync_progress,
-                    hf_token=hf_token,
                 ),
             )
 
@@ -331,6 +342,8 @@ async def start_model_download(
                 success=False,
                 error=sanitize_error(e),
             )
+        finally:
+            _active_downloads.discard(model_id)
 
     # 启动后台任务
     asyncio.create_task(_execute_download_task())

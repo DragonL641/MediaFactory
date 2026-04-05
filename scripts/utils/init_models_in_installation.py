@@ -83,10 +83,8 @@ def get_default_install_dir() -> Path:
 
     if system == "Windows":
         return Path.home() / "MediaFactory"
-    elif system == "Darwin":  # macOS
+    else:  # macOS
         return Path("/Applications/MediaFactory.app")
-    else:  # Linux
-        return Path.home() / "MediaFactory"
 
 
 def get_models_dir(install_dir: Path) -> Path:

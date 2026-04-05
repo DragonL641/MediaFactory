@@ -1,13 +1,14 @@
-"""转录后处理引擎（智能断句 + 说话人分离）
+"""转录后处理引擎（智能断句）
 
-使用 stable-ts 进行智能断句（regroup），使用 pyannote.audio 进行说话人分离。
-两个功能均为容错设计：处理失败时返回原始 segments 并记录警告。
+使用 stable-ts 进行智能断句（regroup）。
+当执行失败时，抛出异常以通知上层终止任务。
 """
 
 from typing import Any, Dict, List, Optional
 
-from ..logging import log_info, log_warning, log_debug
+from ..logging import log_info, log_warning, log_debug, log_error
 from ..core.exception_wrapper import convert_exception
+from ..exceptions import ProcessingError
 
 
 class PostProcessEngine:
@@ -33,7 +34,10 @@ class PostProcessEngine:
             merge_gap_threshold: 合并间隔阈值（秒）
 
         Returns:
-            处理后的 segments 列表，失败时返回原始 segments
+            处理后的 segments 列表
+
+        Raises:
+            ProcessingError: 智能断句执行失败
         """
         if not segments:
             log_debug("No segments to resegment, returning empty list")
@@ -66,8 +70,9 @@ class PostProcessEngine:
             whisper_result.regroup(regroup_algo=regroup_algo)
 
             # 应用最短时长：过短的分段与相邻分段合并
+            # stable-ts >= 2.17.0: merge_by_gap 第一个参数为位置参数 gap
             whisper_result.merge_by_gap(
-                max_gap=merge_gap_threshold,
+                merge_gap_threshold,
                 max_words=float("inf"),
             )
 
@@ -79,89 +84,18 @@ class PostProcessEngine:
             )
             return result_segments
 
-        except Exception as e:
-            wrapped = convert_exception(
-                e, context={"operation": "resegmentation", "segment_count": len(segments)}
-            )
+        except ImportError as e:
             log_warning(
-                f"Resegmentation failed, returning original segments: {wrapped.message}"
-            )
-            return segments
-
-    def diarize(
-        self,
-        segments: List[Dict[str, Any]],
-        audio_path: str,
-        num_speakers: int = 0,
-    ) -> List[Dict[str, Any]]:
-        """说话人分离：使用 pyannote.audio 标注说话人
-
-        Args:
-            segments: MediaFactory 格式的 segments 列表
-            audio_path: 音频文件路径
-            num_speakers: 说话人数量（0=自动检测）
-
-        Returns:
-            添加了 speaker 字段的 segments 列表，失败时返回原始 segments
-        """
-        if not segments:
-            log_debug("No segments to diarize, returning empty list")
-            return segments
-
-        try:
-            from pyannote.audio import Pipeline as PyannotePipeline
-
-            # 尝试加载 pyannote 说话人分离模型
-            # 需要用户在 HuggingFace 接受 pyannote/speaker-diarization-3.1 协议
-            import torch
-
-            log_info("Loading pyannote speaker diarization model...")
-            diarization_pipeline = PyannotePipeline.from_pretrained(
-                "pyannote/speaker-diarization-3.1",
-                use_auth_token=True,
-            )
-
-            # 选择设备
-            device = "cuda" if torch.cuda.is_available() else "cpu"
-            diarization_pipeline.to(torch.device(device))
-
-            log_info(f"Running speaker diarization on {device}...")
-
-            # 执行说话人分离
-            diarization_kwargs = {}
-            if num_speakers > 0:
-                diarization_kwargs["num_speakers"] = num_speakers
-
-            diarization_result = diarization_pipeline(audio_path, **diarization_kwargs)
-
-            # 将说话人标签映射到 segments
-            result_segments = self._assign_speakers(segments, diarization_result)
-
-            # 统计说话人数量
-            speakers = set(
-                seg.get("speaker", "") for seg in result_segments if seg.get("speaker")
-            )
-            log_info(
-                f"Diarization complete: {len(speakers)} speakers detected "
-                f"across {len(result_segments)} segments"
-            )
-            return result_segments
-
-        except ImportError:
-            log_warning(
-                "pyannote.audio not installed, skipping diarization. "
-                "Install with: pip install pyannote.audio"
+                f"stable-ts not installed, skipping resegmentation: {e}"
             )
             return segments
 
         except Exception as e:
-            wrapped = convert_exception(
-                e, context={"operation": "diarization", "audio_path": audio_path}
-            )
-            log_warning(
-                f"Diarization failed, returning original segments: {wrapped.message}"
-            )
-            return segments
+            log_error(f"Resegmentation failed: {e}")
+            raise ProcessingError(
+                message=f"Resegmentation failed: {e}",
+                context={"operation": "resegmentation", "segment_count": len(segments)},
+            ) from e
 
     def _whisper_result_to_segments(
         self, whisper_result: Any
@@ -196,56 +130,5 @@ class PostProcessEngine:
                 ]
 
             result.append(segment_dict)
-
-        return result
-
-    def _assign_speakers(
-        self,
-        segments: List[Dict[str, Any]],
-        diarization_result: Any,
-    ) -> List[Dict[str, Any]]:
-        """将说话人标签分配到 segments
-
-        策略：对每个 segment，找到与其时间范围重叠最多的说话人。
-
-        Args:
-            segments: MediaFactory segments
-            diarization_result: pyannote 说话人分离结果
-
-        Returns:
-            添加了 speaker 字段的 segments
-        """
-        result = []
-        for seg in segments:
-            seg_start = seg["start"]
-            seg_end = seg["end"]
-            seg_duration = seg_end - seg_start
-
-            # 计算每个说话人在此 segment 时间范围内的重叠时长
-            speaker_overlap: Dict[str, float] = {}
-
-            for turn, _, speaker in diarization_result.itertracks(yield_label=True):
-                # 计算重叠
-                overlap_start = max(seg_start, turn.start)
-                overlap_end = min(seg_end, turn.end)
-                overlap = overlap_end - overlap_start
-
-                if overlap > 0:
-                    speaker_overlap[speaker] = (
-                        speaker_overlap.get(speaker, 0.0) + overlap
-                    )
-
-            # 选择重叠最多的说话人
-            if speaker_overlap:
-                best_speaker = max(speaker_overlap, key=speaker_overlap.get)
-                # 只有重叠占比超过 50% 才分配说话人标签
-                if seg_duration > 0 and speaker_overlap[best_speaker] / seg_duration > 0.5:
-                    seg_copy = {**seg, "speaker": best_speaker}
-                else:
-                    seg_copy = {**seg, "speaker": ""}
-            else:
-                seg_copy = {**seg, "speaker": ""}
-
-            result.append(seg_copy)
 
         return result

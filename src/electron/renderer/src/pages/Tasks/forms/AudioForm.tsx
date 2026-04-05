@@ -36,7 +36,7 @@ const AudioForm: React.FC<AudioFormProps> = ({ form }) => {
         filters: fileFilters.video,
       }}
     >
-      <AudioFormFields />
+      <AudioFormFields form={form} />
     </TaskFormWrapper>
   );
 };

@@ -50,8 +50,7 @@
     "layout": "布局",
     "useRemoteLlm": "使用远程 LLM 翻译",
     "useRemoteLlmShort": "使用远程 LLM",
-    "llmProvider": "LLM 供应商",
-    "speakerDiarization": "说话人分离"
+    "llmProvider": "LLM 供应商"
   },
   "placeholder": {
     "selectVideo": "点击选择视频文件...",
@@ -95,5 +94,9 @@
   },
   "validation": {
     "fileRequired": "请选择文件"
+  },
+  "llm": {
+    "notConfiguredTooltip": "未配置 LLM 服务。请前往设置页面配置。",
+    "configureInSettings": "请在设置页面配置 LLM 服务以启用此选项。"
   }
 }

@@ -54,8 +54,9 @@ const EditTaskDialog: React.FC<EditTaskDialogProps> = ({
         delete flat.audio_config;
       }
       if (config.subtitle_config) {
+        // SubtitleFormFields 不使用前缀，直接展平到根级别
         Object.entries(config.subtitle_config).forEach(([k, v]) => {
-          flat[`subtitle_${k === "output_format" ? "output_format" : k}`] = v;
+          flat[k] = v;
         });
         delete flat.subtitle_config;
       }
@@ -126,7 +127,7 @@ const EditTaskDialog: React.FC<EditTaskDialogProps> = ({
       case TaskType.SUBTITLE:
         return <SubtitleFormFields form={form} />;
       case TaskType.AUDIO:
-        return <AudioFormFields fieldPrefix="audio_" />;
+        return <AudioFormFields form={form} fieldPrefix="audio_" />;
       case TaskType.TRANSCRIBE:
         return <TranscribeFormFields form={form} />;
       case TaskType.TRANSLATE:

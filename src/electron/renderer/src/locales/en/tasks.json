@@ -81,5 +81,15 @@
     "taskType": "Task Type",
     "inputFile": "Input File",
     "saved": "Task config updated"
+  },
+  "readiness": {
+    "title": "Prerequisites Not Ready",
+    "whisperWarning": "Whisper model not downloaded",
+    "translationWarning": "Translation model not downloaded",
+    "enhancementWarning": "Enhancement models not fully downloaded",
+    "goToSettings": "Go to Settings",
+    "whisperRequired": "Whisper model not downloaded",
+    "translationRequired": "Translation model not downloaded",
+    "enhancementRequired": "Enhancement models not fully downloaded"
   }
 }

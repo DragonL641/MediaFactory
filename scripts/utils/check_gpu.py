@@ -134,8 +134,8 @@ def main():
     # 检测 CPU
     print(f"\n🔧 CPU: {platform.processor() or 'Unknown'}")
 
-    # 检测内存 (仅 Linux/macOS)
-    if os_name in ["Linux", "Darwin"]:
+    # 检测内存 (macOS)
+    if os_name == "Darwin":
         try:
             import psutil
             mem_gb = psutil.virtual_memory().total / (1024**3)

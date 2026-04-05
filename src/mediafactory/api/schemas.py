@@ -67,7 +67,6 @@ class SubtitleConfig(BaseModel):
     bilingual: bool = False
     bilingual_layout: str = "translate_on_top"
     style_preset: str = "default"
-    diarization_enabled: bool = False
 
 
 class EnhancementConfig(BaseModel):
@@ -218,7 +217,6 @@ class SubtitleRequest(BaseModel):
     bilingual: bool = False
     bilingual_layout: str = "translate_on_top"
     style_preset: str = "default"
-    diarization_enabled: bool = False
 
 
 class AudioRequest(BaseModel):
@@ -243,7 +241,6 @@ class TranscribeRequest(BaseModel):
     source_lang: str = "auto"
     output_format: str = "srt"  # srt, ass, vtt, txt
     style_preset: str = "default"
-    diarization_enabled: bool = False
 
 
 class TranslateRequest(BaseModel):

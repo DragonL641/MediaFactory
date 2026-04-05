@@ -7,7 +7,7 @@
 
 import React from "react";
 import { Button, Popconfirm, Progress, Tooltip } from "antd";
-import { DeleteOutlined, DownloadOutlined, RedoOutlined, WarningOutlined } from "@ant-design/icons";
+import { DeleteOutlined, DownloadOutlined, ExclamationCircleOutlined, RedoOutlined } from "@ant-design/icons";
 import { useTranslation } from "react-i18next";
 import { StatusTag } from "../../components/common";
 
@@ -26,6 +26,8 @@ export interface ModelCardProps {
   downloadProgress?: number;
   /** 下载失败原因 */
   downloadError?: string;
+  /** 禁用下载按钮（其他模型正在下载时） */
+  downloadDisabled?: boolean;
   /** 下载回调 */
   onDownload?: () => void;
   /** 删除回调 */
@@ -40,6 +42,7 @@ const SettingsModelCard: React.FC<ModelCardProps> = ({
   isDownloading,
   downloadProgress,
   downloadError,
+  downloadDisabled,
   onDownload,
   onDelete,
 }) => {
@@ -86,31 +89,20 @@ const SettingsModelCard: React.FC<ModelCardProps> = ({
             </>
           ) : isFailed ? (
             <>
-              <Tooltip title={t("card.downloadFailedTooltip", { error: downloadError })}>
-                <StatusTag status="error" text={t("card.downloadFailed")} />
-              </Tooltip>
               {onDownload && (
                 <Button
                   size="small"
                   type="link"
                   icon={<RedoOutlined />}
                   onClick={onDownload}
+                  disabled={downloadDisabled}
                 >
                   {t("card.retry")}
                 </Button>
               )}
-              {onDelete && (
-                <Popconfirm
-                  title={t("confirm.deleteTitle")}
-                  description={t("confirm.deleteDescription", { name })}
-                  onConfirm={onDelete}
-                  okText={t("common:actions.delete", { ns: "common" })}
-                  cancelText={t("common:actions.cancel", { ns: "common" })}
-                  okButtonProps={{ danger: true }}
-                >
-                  <Button size="small" type="text" danger icon={<DeleteOutlined />} />
-                </Popconfirm>
-              )}
+              <Tooltip title={downloadError || t("card.downloadFailed")}>
+                <ExclamationCircleOutlined style={{ color: "#ff4d4f", fontSize: 16, cursor: "pointer" }} />
+              </Tooltip>
             </>
           ) : isIncomplete ? (
             <>
@@ -123,6 +115,7 @@ const SettingsModelCard: React.FC<ModelCardProps> = ({
                   type="link"
                   icon={<RedoOutlined />}
                   onClick={onDownload}
+                  disabled={downloadDisabled}
                 >
                   {t("card.retry")}
                 </Button>
@@ -147,6 +140,7 @@ const SettingsModelCard: React.FC<ModelCardProps> = ({
                 type="primary"
                 icon={<DownloadOutlined />}
                 onClick={onDownload}
+                disabled={downloadDisabled}
               >
                 {t("card.download")}
               </Button>

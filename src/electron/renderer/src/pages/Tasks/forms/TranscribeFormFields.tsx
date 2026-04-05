@@ -3,7 +3,7 @@
  */
 
 import React from "react";
-import { Form, Select, Switch } from "antd";
+import { Form, Select } from "antd";
 import type { FormInstance } from "antd";
 import { useTranslation } from "react-i18next";
 import { useLanguageOptions, useOutputFormatOptions, useStylePresetOptions } from "./shared";
@@ -35,10 +35,6 @@ const TranscribeFormFields: React.FC<TranscribeFormFieldsProps> = ({ form }) => 
           <Select options={stylePresetOptions} />
         </Form.Item>
       )}
-
-      <Form.Item name="diarization_enabled" label={t("forms:label.speakerDiarization")} valuePropName="checked">
-        <Switch />
-      </Form.Item>
     </>
   );
 };

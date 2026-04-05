@@ -242,7 +242,7 @@ def download_model(
                         f"Access denied for {huggingface_id}. "
                         f"This is a gated model — please: "
                         f"1) Accept terms at https://huggingface.co/{huggingface_id} ; "
-                        f"2) If this model has dependencies (e.g. pyannote/segmentation-3.0), accept their terms too ; "
+                        f"2) if this model has dependencies (e.g. stable-ts segmentation-3.0), accept their terms"
                         f"3) Ensure HuggingFace Token is configured in Settings > HuggingFace Hub"
                     )
 
@@ -250,8 +250,36 @@ def download_model(
                 if attempt < MAX_RETRIES - 1:
                     continue
 
-    # 所有重试都失败，抛出异常
+    # 所有重试都失败，清理中间文件后抛出异常
+    _cleanup_failed_download(local_path, is_file_mode)
     raise Exception(f"Download failed after {MAX_RETRIES} retries: {last_error}")
+
+
+def _cleanup_failed_download(model_path: Path, is_file_mode: bool) -> None:
+    """清理下载失败后残留的中间文件。
+
+    repo 模式：删除 .cache 目录和空模型目录
+    file 模式：删除不完整的文件
+    """
+    try:
+        if is_file_mode:
+            # 单文件模式：删除不完整的文件
+            if model_path.exists():
+                model_path.unlink(missing_ok=True)
+                log_info(f"Cleaned incomplete file: {model_path}")
+        else:
+            # 仓库模式：先清理 .cache（huggingface_hub 临时文件），再删除空目录
+            cache_dir = model_path / ".cache"
+            if cache_dir.exists():
+                shutil.rmtree(cache_dir, ignore_errors=True)
+                log_info(f"Cleaned cache directory: {cache_dir}")
+            # 删除整个模型目录（含所有残留文件）
+            if model_path.exists():
+                shutil.rmtree(model_path, ignore_errors=True)
+                log_info(f"Cleaned failed download directory: {model_path}")
+    except Exception as e:
+        # 清理失败不应阻断异常上报，仅记录日志
+        log_error(f"Failed to clean up download artifacts: {e}")
 
 
 def delete_model(huggingface_id: str) -> Tuple[bool, str]:
@@ -307,6 +335,11 @@ def delete_model(huggingface_id: str) -> Tuple[bool, str]:
 
             log_info(f"Model deleted: {huggingface_id}")
             _update_config_after_delete(huggingface_id, model_info.model_type)
+
+            # 清理 HuggingFace 全局缓存（非关键操作，失败不影响删除流程）
+            hf_repo_id = model_info.huggingface_repo if is_file_mode else huggingface_id
+            _cleanup_hf_global_cache(hf_repo_id)
+
             return True, ""
 
         except PermissionError as e:
@@ -349,6 +382,26 @@ def _update_config_after_download(huggingface_id: str, model_type: ModelType) ->
         if huggingface_id not in models_list:
             models_list.append(huggingface_id)
             config_manager.update(model__whisper_models=models_list)
+
+
+def _cleanup_hf_global_cache(repo_id: str) -> None:
+    """清理 HuggingFace 全局缓存中指定仓库的数据。
+
+    当使用 hf_hub_download / snapshot_download 下载模型时，
+    即使指定了 local_dir，HF Hub 仍会在全局缓存中保留数据（blob + 元数据）。
+    此函数在模型删除后清理这些残留缓存，释放磁盘空间。
+    非关键操作，失败不影响删除流程。
+    """
+    try:
+        from huggingface_hub.constants import HF_HUB_CACHE
+
+        # HF 缓存目录命名规则：models--{org}--{repo}
+        cache_repo_dir = Path(HF_HUB_CACHE) / f"models--{repo_id.replace('/', '--')}"
+        if cache_repo_dir.exists():
+            shutil.rmtree(cache_repo_dir)
+            log_info(f"Cleaned HuggingFace global cache for {repo_id}")
+    except Exception as e:
+        log_info(f"Could not clean HF cache for {repo_id} (non-critical): {e}")
 
 
 def _update_config_after_delete(huggingface_id: str, model_type: ModelType) -> None:

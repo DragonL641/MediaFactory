@@ -44,7 +44,6 @@ class ModelType(Enum):
     TRANSLATION = "translation"
     SUPER_RESOLUTION = "super_resolution"  # Real-ESRGAN
     DENOISE = "denoise"  # NAFNet
-    DIARIZATION = "diarization"  # Speaker diarization
 
 
 class DownloadMode(Enum):
@@ -230,22 +229,6 @@ MODEL_REGISTRY: dict[str, ModelInfo] = {
         description="4x upscaling for anime",
         purpose="4x Video Upscaling (Anime)",
         metadata={"scale": 4, "type": "anime"},
-    ),
-    # ========== Diarization Models ==========
-    "pyannote/speaker-diarization-3.1": ModelInfo(
-        huggingface_id="pyannote/speaker-diarization-3.1",
-        display_name="Pyannote Speaker Diarization 3.1",
-        model_type=ModelType.DIARIZATION,
-        model_size_mb=600,
-        runtime_memory_mb=1024,
-        runtime_vram_mb=800,
-        recommended_system_mb=8192,
-        recommended_vram_mb=4096,
-        license=LicenseType.MIT,
-        language_support="Language-independent",
-        precision="fp32",
-        description="State-of-the-art speaker diarization model",
-        purpose="Speaker Diarization",
     ),
     # ========== Enhancement Models: Denoise (NAFNet) ==========
 "NAFNet-GoPro-width64": ModelInfo(
@@ -689,13 +672,12 @@ def is_model_complete(model_id: str) -> bool:
         return False
     
     if info.download_mode == DownloadMode.FILE:
-        # 单文件模型：校验文件大小（允许 5% 容差）
+        # 单文件模型：校验文件大小（至少达到期望大小的 95%）
         if not path.is_file():
             return False
         actual_size = path.stat().st_size
         expected_size = info.model_size_mb * 1024 * 1024
-        tolerance = expected_size * 0.05
-        return abs(actual_size - expected_size) <= tolerance or actual_size > expected_size * 0.9
+        return actual_size >= expected_size * 0.95
     else:
         # 仓库模型：检查配置文件和模型文件
         if not path.is_dir():

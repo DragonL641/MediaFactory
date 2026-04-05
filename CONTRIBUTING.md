@@ -31,6 +31,10 @@ pip install uv
 # Install development dependencies
 uv sync --group dev
 
+# Install pre-commit hooks (recommended)
+# This ensures code quality checks run before each commit, consistent with CI
+uv run pre-commit install
+
 # Run tests
 uv run pytest
 

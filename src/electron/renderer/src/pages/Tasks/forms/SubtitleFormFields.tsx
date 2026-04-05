@@ -3,7 +3,7 @@
  * 用于 CreateTaskDialog 和 EditTaskDialog 共享
  */
 
-import React, { useState } from "react";
+import React from "react";
 import { Form, Select, Switch } from "antd";
 import type { FormInstance } from "antd";
 import { useTranslation } from "react-i18next";
@@ -18,12 +18,13 @@ import LLMProviderSelect from "../../../components/Form/LLMProviderSelect";
 
 interface SubtitleFormFieldsProps {
   form: FormInstance;
+  llmAvailable?: boolean;
 }
 
-const SubtitleFormFields: React.FC<SubtitleFormFieldsProps> = ({ form }) => {
+const SubtitleFormFields: React.FC<SubtitleFormFieldsProps> = ({ form, llmAvailable = true }) => {
   const { t } = useTranslation("forms");
-  const [useLlm, setUseLlm] = useState(false);
-  const [bilingual, setBilingual] = useState(false);
+  const useLlm = Form.useWatch("use_llm", form);
+  const bilingual = Form.useWatch("bilingual", form);
   const outputFormat = Form.useWatch("output_format", form);
 
   const languageOptions = useLanguageOptions();
@@ -58,7 +59,7 @@ const SubtitleFormFields: React.FC<SubtitleFormFieldsProps> = ({ form }) => {
       {showBilingual && (
         <>
           <Form.Item name="bilingual" label={t("forms:label.bilingualSubtitles")} valuePropName="checked">
-            <Switch onChange={(checked) => setBilingual(checked)} />
+            <Switch />
           </Form.Item>
 
           {bilingual && (
@@ -69,15 +70,17 @@ const SubtitleFormFields: React.FC<SubtitleFormFieldsProps> = ({ form }) => {
         </>
       )}
 
-      <Form.Item name="diarization_enabled" label={t("forms:label.speakerDiarization")} valuePropName="checked">
-        <Switch />
-      </Form.Item>
-
       <Form.Item name="use_llm" label={t("forms:label.useRemoteLlm")} valuePropName="checked">
-        <Switch onChange={(checked) => setUseLlm(checked)} />
+        <Switch disabled={!llmAvailable} />
       </Form.Item>
 
-      {useLlm && <LLMProviderSelect form={form} />}
+      {!llmAvailable && (
+        <div style={{ marginTop: -8, marginBottom: 12, fontSize: 12, color: "var(--mf-text-muted, #999)" }}>
+          {t("forms:llm.configureInSettings")}
+        </div>
+      )}
+
+      {useLlm && llmAvailable && <LLMProviderSelect form={form} />}
     </>
   );
 };

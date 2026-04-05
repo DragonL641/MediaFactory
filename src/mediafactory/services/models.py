@@ -251,3 +251,102 @@ class ModelStatusService:
             results["error"] = sanitize_error(e)
 
         return results
+
+    def get_readiness(self) -> Dict[str, Any]:
+        """
+        获取模型就绪状态
+
+        检查各类模型是否已下载且完整，以及 LLM 配置状态。
+
+        Returns:
+            包含就绪状态的字典：
+            - whisper_ready: bool — 是否有任意 Whisper 模型已下载且完整
+            - translation_ready: bool — 是否有任意翻译模型已下载且完整
+            - enhancement_ready: bool — 所有增强模型是否已下载且完整
+            - llm: dict — LLM 配置状态
+        """
+        try:
+            from mediafactory.models.model_registry import (
+                MODEL_REGISTRY,
+                ModelType,
+                is_model_downloaded,
+                is_model_complete,
+            )
+
+            # Whisper: 任意模型已下载且完整即可
+            whisper_ready = any(
+                is_model_downloaded(mid) and is_model_complete(mid)
+                for mid, info in MODEL_REGISTRY.items()
+                if info.model_type == ModelType.WHISPER
+            )
+
+            # 翻译: 任意模型已下载且完整即可
+            translation_ready = any(
+                is_model_downloaded(mid) and is_model_complete(mid)
+                for mid, info in MODEL_REGISTRY.items()
+                if info.model_type == ModelType.TRANSLATION
+            )
+
+            # 增强: 所有 SUPER_RESOLUTION + DENOISE 模型都必须已下载且完整
+            enhancement_types = {ModelType.SUPER_RESOLUTION, ModelType.DENOISE}
+            enhancement_models = [
+                (mid, info) for mid, info in MODEL_REGISTRY.items()
+                if info.model_type in enhancement_types
+            ]
+            enhancement_ready = (
+                len(enhancement_models) > 0
+                and all(
+                    is_model_downloaded(mid) and is_model_complete(mid)
+                    for mid, _ in enhancement_models
+                )
+            )
+
+            # LLM: 检查预设配置状态
+            oa_config = getattr(self.config, 'openai_compatible', None)
+            preset_names = ("openai", "deepseek", "glm", "qwen", "moonshot", "custom")
+
+            configured_presets: List[str] = []
+            current_preset: Optional[str] = None
+            current_ready = False
+
+            if oa_config:
+                current_preset = getattr(oa_config, 'current_preset', None)
+
+                for name in preset_names:
+                    preset_cfg = getattr(oa_config, name, None)
+                    if preset_cfg and getattr(preset_cfg, 'api_key', ''):
+                        configured_presets.append(name)
+
+                # 当前预设是否已配置（有 api_key）
+                if current_preset:
+                    try:
+                        preset_config = oa_config.get_preset_config(current_preset)
+                        api_key = getattr(preset_config, 'api_key', '')
+                        current_ready = bool(api_key and api_key != "sk-xxx")
+                    except (ValueError, AttributeError):
+                        current_ready = False
+
+            return {
+                "whisper_ready": whisper_ready,
+                "translation_ready": translation_ready,
+                "enhancement_ready": enhancement_ready,
+                "llm": {
+                    "configured_presets": configured_presets,
+                    "current_preset": current_preset,
+                    "current_ready": current_ready,
+                    "llm_available": len(configured_presets) > 0,
+                },
+            }
+        except Exception as e:
+            log_error(f"Failed to get readiness status: {e}")
+            return {
+                "whisper_ready": False,
+                "translation_ready": False,
+                "enhancement_ready": False,
+                "llm": {
+                    "configured_presets": [],
+                    "current_preset": None,
+                    "current_ready": False,
+                    "llm_available": False,
+                },
+            }

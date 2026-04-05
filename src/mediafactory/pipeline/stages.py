@@ -106,7 +106,7 @@ class TranscriptionStage(SkipableStage):
 
 
 class PostProcessStage(SkipableStage):
-    """转录后处理阶段（智能断句 + 说话人分离）"""
+    """转录后处理阶段（智能断句）"""
 
     name = "postprocess"
 
@@ -140,9 +140,6 @@ class PostProcessStage(SkipableStage):
         resegment_enabled = pp_runtime.get(
             "resegment_enabled", pp_config.resegment_enabled
         )
-        diarization_enabled = pp_runtime.get(
-            "diarization_enabled", pp_config.diarization_enabled
-        )
 
         segments = ctx.transcription_result.get("segments", [])
         original_count = len(segments)
@@ -161,15 +158,6 @@ class PostProcessStage(SkipableStage):
                 merge_gap_threshold=pp_runtime.get(
                     "merge_gap_threshold", pp_config.merge_gap_threshold
                 ),
-            )
-
-        # 说话人分离
-        if diarization_enabled and ctx.audio_path:
-            progress.update(60.0, "Speaker diarization...")
-            segments = engine.diarize(
-                segments,
-                ctx.audio_path,
-                num_speakers=pp_runtime.get("num_speakers", pp_config.num_speakers),
             )
 
         # 更新转录结果中的 segments

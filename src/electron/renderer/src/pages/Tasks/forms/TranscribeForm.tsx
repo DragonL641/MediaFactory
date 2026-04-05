@@ -24,7 +24,6 @@ const TranscribeForm: React.FC<TranscribeFormProps> = ({ form }) => {
         source_lang: "auto",
         output_format: "srt",
         style_preset: "default",
-        diarization_enabled: false,
       }}
       fileInput={{
         name: "audio_path",
