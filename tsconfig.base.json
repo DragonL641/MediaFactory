@@ -15,7 +15,7 @@
     "sourceMap": true,
     "baseUrl": ".",
     "paths": {
-      "@/*": ["electron/renderer/src/*"]
+      "@/*": ["src/*"]
     }
   }
 }

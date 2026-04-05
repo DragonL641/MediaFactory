@@ -13,7 +13,7 @@
     "dist": "electron-builder",
     "dist:mac": "electron-builder --mac",
     "dist:win": "electron-builder --win",
-    "typecheck": "tsc --noEmit -p electron/tsconfig.json && tsc --noEmit -p electron/preload/tsconfig.json && tsc --noEmit -p electron/renderer/tsconfig.json",
+    "typecheck": "tsc --noEmit -p electron/tsconfig.json && tsc --noEmit -p electron/preload/tsconfig.json && tsc --noEmit -p src/tsconfig.json",
     "lint": "eslint electron/",
     "lint:fix": "eslint electron/ --fix"
   },

@@ -29,12 +29,12 @@ export default defineConfig({
     },
   },
   renderer: {
-    root: resolve(__dirname, "electron/renderer"),
+    root: resolve(__dirname, "src"),
     build: {
       outDir: "dist/electron/renderer",
       rollupOptions: {
         input: {
-          index: resolve(__dirname, "electron/renderer/index.html"),
+          index: resolve(__dirname, "src/index.html"),
         },
       },
     },

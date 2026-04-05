@@ -191,7 +191,7 @@ API 层 (FastAPI + WebSocket)
 - **Pipeline 层**用编排模式将处理流程拆分为独立的 Stage
 - **Engine 层**是实际干活的，每个 Engine 对应一个具体能力
 
-> **技术细节：** 分层架构的核心思想是**关注点分离**（Separation of Concerns）。每一层只负责一件事：API 层处理 HTTP 协议，Service 层处理异步/同步转换，Pipeline 层处理流程编排，Engine 层处理具体算法。这样改动一层不影响其他层——实际验证了这一点：从 Flet 迁移到 Electron 时，Service/Pipeline/Engine 三层几乎零改动。关键源码路径：`src/mediafactory/api/`（API 层）→ `src/mediafactory/services/`（Service 层）→ `src/mediafactory/pipeline/`（Pipeline 层）→ `src/mediafactory/engine/`（Engine 层）。
+> **技术细节：** 分层架构的核心思想是**关注点分离**（Separation of Concerns）。每一层只负责一件事：API 层处理 HTTP 协议，Service 层处理异步/同步转换，Pipeline 层处理流程编排，Engine 层处理具体算法。这样改动一层不影响其他层——实际验证了这一点：从 Flet 迁移到 Electron 时，Service/Pipeline/Engine 三层几乎零改动。关键源码路径：`mediafactory/api/`（API 层）→ `mediafactory/services/`（Service 层）→ `mediafactory/pipeline/`（Pipeline 层）→ `mediafactory/engine/`（Engine 层）。
 
 ### Q4: 为什么选择 Electron + FastAPI 而不是纯 Electron 或纯 Python GUI？
 
@@ -339,7 +339,7 @@ Service 层通过 WebSocket 推送到前端
 
 最大的收获是：**Service 层和 Pipeline 层几乎没有改动**——这说明分层架构的抽象是对的，切换前端框架不需要重写业务逻辑。
 
-> **技术细节：** 这次迁移的关键洞察是**分层架构的价值在于隔离变化**。迁移过程中改动最大的是：(1) 新增 `api/` 整个目录（路由、schemas、WebSocket、任务管理），约 500 行新代码；(2) 新增 `src/electron/` 整个前端，约 2000 行新代码。而 `services/`、`pipeline/`、`engine/` 三个目录的改动仅限于：Service 方法签名从同步改为 async（因为 FastAPI 需要），以及进度回调从直接调用 GUI 改为通过 WebSocket 推送。这验证了"洋葱架构"（Onion Architecture）的核心思想——业务逻辑在最内层，不依赖外层的 UI 框架选择。
+> **技术细节：** 这次迁移的关键洞察是**分层架构的价值在于隔离变化**。迁移过程中改动最大的是：(1) 新增 `api/` 整个目录（路由、schemas、WebSocket、任务管理），约 500 行新代码；(2) 新增 `electron/` 整个前端，约 2000 行新代码。而 `services/`、`pipeline/`、`engine/` 三个目录的改动仅限于：Service 方法签名从同步改为 async（因为 FastAPI 需要），以及进度回调从直接调用 GUI 改为通过 WebSocket 推送。这验证了"洋葱架构"（Onion Architecture）的核心思想——业务逻辑在最内层，不依赖外层的 UI 框架选择。
 
 ### Q12: 内存泄漏是怎么发现的？怎么解决的？
 
@@ -543,7 +543,7 @@ Pipeline 层和 Service 层不需要改动，因为字幕格式是 Engine 层的
    - 不含 ML 依赖（torch、transformers 等），减小体积
    - 用户首次启动时通过引导安装 ML 依赖
 
-2. **electron-builder 打包 Electron 前端**：`cd src/electron && npm run build`
+2. **electron-builder 打包 Electron 前端**：`npm run build`
    - 将 PyInstaller 产物嵌入 Electron 包
    - 生成 macOS .dmg / Windows .exe 安装包
 
@@ -569,7 +569,7 @@ Pipeline 层和 Service 层不需要改动，因为字幕格式是 Engine 层的
 
 **A:** 前端实现了自动重连机制：断线后最多重试 5 次，间隔 3 秒。重连后重新订阅之前的 task_id。由于进度是幂等的（当前进度覆盖之前的），重连后不会出现进度错乱。
 
-> **技术细节：** 重连实现在 `src/electron/renderer/src/api/client.ts` 中。WebSocket 的 `onclose` 回调中检查 `retryCount < MAX_RETRIES`，如果满足则用 `setTimeout` 延迟 3 秒后创建新连接。重连成功后遍历之前订阅的 `task_id` 列表，逐个发送 `subscribe` 消息。进度数据的幂等性保证了即使重连期间服务端推送了多次进度，前端只会显示最新值（React state 的特性）。这是一种**最终一致性**（Eventual Consistency）设计——短暂的不一致（断线期间）是可以接受的，重连后会自动恢复到正确状态。
+> **技术细节：** 重连实现在 `src/api/client.ts` 中。WebSocket 的 `onclose` 回调中检查 `retryCount < MAX_RETRIES`，如果满足则用 `setTimeout` 延迟 3 秒后创建新连接。重连成功后遍历之前订阅的 `task_id` 列表，逐个发送 `subscribe` 消息。进度数据的幂等性保证了即使重连期间服务端推送了多次进度，前端只会显示最新值（React state 的特性）。这是一种**最终一致性**（Eventual Consistency）设计——短暂的不一致（断线期间）是可以接受的，重连后会自动恢复到正确状态。
 
 ### Q29: 怎么处理 huggingface_hub 的进度条问题？
 
