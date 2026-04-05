@@ -7,25 +7,78 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.4.0]
 
+
 ### Added
 
-- **subtitle:** WebVTT (VTT) format output support
-- **pipeline:** Intelligent sentence segmentation via stable-ts integration (PostProcessStage)
-- **config:** PostProcessConfig for resegmentation settings
+**ui:** Add WebVTT to output format options
+
+
+**ui:** Enable bilingual subtitle option for WebVTT format
+
+
+**api:** Add VTT format support in backend schemas and pipeline
+
+
+**pipeline:** Add PostProcessEngine and PostProcessStage for intelligent sentence segmentation
+
+
+**models:** 添加模型前置条件就绪状态支持
+
+
 
 ### Changed
 
-- **translation:** Output format is no longer hardcoded to SRT; respects user selection
-- **transcription:** Output format flows through from request to pipeline
-- **pipeline:** Progress ranges adjusted: transcription(20-60%), postprocess(60-70%)
+**translation:** 改进本地翻译错误处理机制
+
+
+
+### Documentation
+
+**readme:** 更新模型管理和任务类型展示内容
+
+
+Update all documentation and bump version to v0.4.0
+
+
 
 ### Fixed
 
-- **transcription:** Fixed config key mismatch (output_format -> output_format_type)
-### Removed
+**transcription:** Pass output_format through to pipeline instead of hardcoding SRT
 
-- **utils:** Removed unused video_scanner.py module
-- **api:** Removed unused file_index/total_files batch fields from Task and TaskProgress
+
+**translation:** Support configurable output format instead of hardcoding SRT
+
+
+Add VTT i18n keys, HuggingFace token config, and download error display
+
+
+**download:** Improve gated repo error message with actionable steps
+
+
+**models:** Support config.yaml and pipeline-only repos in completeness check
+
+
+**tasks:** Remove invalid Alert styles prop causing TS error
+
+
+Resolve ESLint errors in electron frontend code
+
+
+**pre-commit:** Use npm run typecheck instead of chained npx tsc commands
+
+
+**pre-commit:** Use files regex for ESLint hook to match ts and tsx
+
+
+
+### Testing
+
+**tests:** 重构测试体系，新增集成准确率和错误处理测试
+
+
+Add VTT format generation and parsing tests
+
+
 
 ## [0.3.0]
 
