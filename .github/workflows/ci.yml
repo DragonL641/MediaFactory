@@ -35,7 +35,7 @@ jobs:
       run: uv sync --group dev --group core
 
     - name: Run tests with coverage
-      run: uv run pytest tests/unit/ --override-ini="addopts=" --cov=src/mediafactory --cov-report=xml
+      run: uv run pytest tests/unit/ --override-ini="addopts=" --cov=mediafactory --cov-report=xml
 
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v5
@@ -69,11 +69,11 @@ jobs:
 
     # 使用Black检查代码格式是否符合规范 (仅警告，不中断)
     - name: Check code formatting with Black
-      run: uv run black --check src/ || true
+      run: uv run black --check mediafactory/ || true
 
     # 使用Flake8检查严重的代码风格问题
     - name: Check code style with Flake8
-      run: uv run flake8 src/ --select=E9,F63,F7,F82 --ignore=F821
+      run: uv run flake8 mediafactory/ --select=E9,F63,F7,F82 --ignore=F821
 
   # 前端构建验证 + 类型检查
   frontend:
@@ -121,7 +121,7 @@ jobs:
     # 运行Bandit安全扫描，递归扫描src目录，仅报告中高级风险
     - name: Run Bandit security scan
       continue-on-error: true
-      run: uv run bandit -r src/ -ll -ii -f json -o bandit-results.json
+      run: uv run bandit -r mediafactory/ -ll -ii -f json -o bandit-results.json
 
     # 运行Safety依赖安全检查，生成完整报告
     - name: Run Safety dependency check

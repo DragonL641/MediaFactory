@@ -167,7 +167,7 @@ minversion = "7.0"
 addopts = [
     "-ra",
     "-q",
-    "--cov=src/mediafactory",
+    "--cov=mediafactory",
     "--cov-report=term-missing",
 ]
 testpaths = [
@@ -185,7 +185,7 @@ markers = [
 ]
 
 [tool.coverage.run]
-source = ["src/"]
+source = ["mediafactory/"]
 omit = [
     "*/tests/*",
     "*/venv/*",
@@ -203,10 +203,7 @@ exclude_lines = [
 
 ##### Build Settings #####
 [tool.setuptools.packages.find]
-where = ["src"]
-
-[tool.setuptools.package-dir]
-"" = "src"
+where = ["."]
 
 ##### Black Check Settings #####
 [tool.black]

@@ -16,7 +16,7 @@ from pathlib import Path
 
 # 添加项目路径
 project_root = Path(__file__).parent.parent.parent
-sys.path.insert(0, str(project_root / "src"))
+sys.path.insert(0, str(project_root))
 
 from mediafactory.engine import RecognitionEngine
 from mediafactory.models.whisper_runtime import select_model_and_device

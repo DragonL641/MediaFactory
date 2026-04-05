@@ -11,14 +11,14 @@ Usage:
     python download_model.py facebook/m2m100_1.2B --source=https://hf-mirror.com
 
 This is a CLI wrapper around the core download functionality in
-src/mediafactory/models/model_download.py
+mediafactory/models/model_download.py
 """
 
 import sys
 from pathlib import Path
 
-# Add src to path for imports
-sys.path.insert(0, str(Path(__file__).parent.parent.parent / "src"))
+# Add project root to path for imports
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from mediafactory.models.model_download import (
     delete_model,

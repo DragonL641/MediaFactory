@@ -92,7 +92,7 @@ def _load_languages() -> Dict[str, str]:
 
     # 首先尝试从包内的 resources 文件夹加载
     utils_dir = os.path.dirname(os.path.abspath(__file__))
-    # utils_dir 是 src/mediafactory/utils，我们需要 src/mediafactory/resources
+    # utils_dir 是 mediafactory/utils，我们需要 mediafactory/resources
     config_path = os.path.join(os.path.dirname(utils_dir), "resources", "languages.ini")
 
     # 如果不存在，再尝试从当前工作目录加载（兼容旧位置或用户自定义）

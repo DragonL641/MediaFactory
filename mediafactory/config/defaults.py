@@ -92,8 +92,8 @@ def get_app_root_dir() -> Path:
             return Path(sys.executable).parent
     else:
         # 开发环境
-        # src/mediafactory/config -> src/mediafactory -> src -> project root
-        return Path(__file__).parent.parent.parent.parent.resolve()
+        # mediafactory/config -> mediafactory -> project root
+        return Path(__file__).parent.parent.parent.resolve()
 
 
 def get_config_path() -> Path:

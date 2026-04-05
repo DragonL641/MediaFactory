@@ -78,7 +78,7 @@ DIST_DIR = BASE_DIR / "dist"
 IS_MACOS = platform.system() == 'Darwin'
 
 # 版本号：优先环境变量，统一从 _version.py 获取
-sys.path.insert(0, str(BASE_DIR / "src"))
+sys.path.insert(0, str(BASE_DIR))
 from mediafactory._version import get_version
 
 APP_VERSION = os.environ.get("APP_VERSION", get_version())
@@ -86,8 +86,8 @@ PROJECT_NAME = "MediaFactory"
 
 # Icon
 _icon_path = {
-    "darwin": BASE_DIR / "src" / "mediafactory" / "resources" / "icon.icns",
-    "windows": BASE_DIR / "src" / "mediafactory" / "resources" / "icon.ico",
+    "darwin": BASE_DIR / "mediafactory" / "resources" / "icon.icns",
+    "windows": BASE_DIR / "mediafactory" / "resources" / "icon.ico",
 }.get(platform.system().lower())
 ICON_PATH = str(_icon_path) if _icon_path and _icon_path.exists() else None
 
@@ -98,7 +98,7 @@ ICON_PATH = str(_icon_path) if _icon_path and _icon_path.exists() else None
 datas = [
     (str(BASE_DIR / "pyproject.toml"), "."),  # _version.py 需要读取版本号
     (str(BASE_DIR / "config.toml.example"), "."),
-    (str(BASE_DIR / "src" / "mediafactory" / "resources"), "mediafactory/resources"),
+    (str(BASE_DIR / "mediafactory" / "resources"), "mediafactory/resources"),
     (str(BASE_DIR / "NOTICE.txt"), "."),
     (str(BASE_DIR / "THIRD_PARTY_LICENSES.txt"), "."),
 ]
@@ -206,8 +206,8 @@ EXCLUDES = [
 # =============================================================================
 
 a = Analysis(
-    [str(BASE_DIR / "src" / "mediafactory" / "__main__.py")],
-    pathex=[str(DIST_DIR), str(BASE_DIR / "src")],
+    [str(BASE_DIR / "mediafactory" / "__main__.py")],
+    pathex=[str(DIST_DIR), str(BASE_DIR)],
     binaries=binaries + ml_binaries,
     datas=datas + ml_datas,
     hiddenimports=hiddenimports + ml_hiddenimports,

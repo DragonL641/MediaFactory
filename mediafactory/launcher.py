@@ -15,8 +15,8 @@ def get_project_root() -> Path:
         # 冻结状态（PyInstaller 等）
         return Path(sys.executable).parent
     else:
-        # 开发状态
-        return Path(__file__).parent.parent.parent
+        # 开发状态：mediafactory/ -> project root
+        return Path(__file__).parent.parent
 
 
 # 首次运行标记文件

@@ -4,14 +4,14 @@ repos:
     hooks:
       - id: black
         language_version: python3
-        files: ^src/
+        files: ^mediafactory/
 
   - repo: https://github.com/pycqa/flake8
     rev: 7.3.0
     hooks:
       - id: flake8
         args: ["--select=E9,F63,F7,F82", "--ignore=F821"]
-        files: ^src/
+        files: ^mediafactory/
 
   - repo: https://github.com/PyCQA/bandit
     rev: 1.8.2
@@ -19,7 +19,7 @@ repos:
       - id: bandit
         # 严重级别与 CI 一致：-ll (severity>=low) -ii (confidence>=medium)
         args: ["-ll", "-ii"]
-        files: ^src/
+        files: ^mediafactory/
 
   # 前端检查 — 对齐 CI 流水线 frontend job
   - repo: local
@@ -33,7 +33,7 @@ repos:
 
       - id: eslint
         name: ESLint check
-        entry: npx eslint src/electron/
+        entry: npx eslint electron/
         language: system
-        files: ^src/electron/.*\.(ts|tsx)$
+        files: ^electron/.*\.(ts|tsx)$
         pass_filenames: false

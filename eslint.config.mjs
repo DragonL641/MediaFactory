@@ -12,7 +12,7 @@ export default tseslint.config(
       "release/**",
       "out/**",
       "node_modules/**",
-      "src/electron/renderer/src/locales/**",
+      "electron/renderer/src/locales/**",
     ],
   },
 
@@ -24,7 +24,7 @@ export default tseslint.config(
 
   // React 相关配置（renderer 目录）
   {
-    files: ["src/electron/renderer/**/*.{ts,tsx}"],
+    files: ["electron/renderer/**/*.{ts,tsx}"],
     plugins: {
       react: reactPlugin,
       "react-hooks": reactHooksPlugin,
@@ -50,7 +50,7 @@ export default tseslint.config(
 
   // 全局 TypeScript 规则覆盖
   {
-    files: ["src/electron/**/*.{ts,tsx}"],
+    files: ["electron/**/*.{ts,tsx}"],
     rules: {
       // 允许 _ 前缀的未使用变量
       "@typescript-eslint/no-unused-vars": [

@@ -7,7 +7,7 @@ import sys
 from mediafactory.models.local_models import LocalModelManager
 from mediafactory.engine import TranslationEngine
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../src"))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 
 def test_local_model_functionality():

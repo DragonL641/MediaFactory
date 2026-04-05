@@ -12,7 +12,7 @@ export default defineConfig({
       outDir: "dist/electron/main",
       rollupOptions: {
         input: {
-          index: resolve(__dirname, "src/electron/main/index.ts"),
+          index: resolve(__dirname, "electron/main/index.ts"),
         },
       },
     },
@@ -23,18 +23,18 @@ export default defineConfig({
       outDir: "dist/electron/preload",
       rollupOptions: {
         input: {
-          index: resolve(__dirname, "src/electron/preload/index.ts"),
+          index: resolve(__dirname, "electron/preload/index.ts"),
         },
       },
     },
   },
   renderer: {
-    root: resolve(__dirname, "src/electron/renderer"),
+    root: resolve(__dirname, "electron/renderer"),
     build: {
       outDir: "dist/electron/renderer",
       rollupOptions: {
         input: {
-          index: resolve(__dirname, "src/electron/renderer/index.html"),
+          index: resolve(__dirname, "electron/renderer/index.html"),
         },
       },
     },

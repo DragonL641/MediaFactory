@@ -13,9 +13,9 @@
     "dist": "electron-builder",
     "dist:mac": "electron-builder --mac",
     "dist:win": "electron-builder --win",
-    "typecheck": "tsc --noEmit -p src/electron/tsconfig.json && tsc --noEmit -p src/electron/preload/tsconfig.json && tsc --noEmit -p src/electron/renderer/tsconfig.json",
-    "lint": "eslint src/electron/",
-    "lint:fix": "eslint src/electron/ --fix"
+    "typecheck": "tsc --noEmit -p electron/tsconfig.json && tsc --noEmit -p electron/preload/tsconfig.json && tsc --noEmit -p electron/renderer/tsconfig.json",
+    "lint": "eslint electron/",
+    "lint:fix": "eslint electron/ --fix"
   },
   "dependencies": {
     "@ant-design/icons": "^5.2.0",

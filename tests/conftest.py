@@ -8,15 +8,9 @@ Test Structure:
 - tests/resources/     - 测试资源
 """
 
-import sys
 from pathlib import Path
+
 import pytest
-
-# Add src directory to Python path for testing
-src_path = Path(__file__).parent.parent / "src"
-sys.path.insert(0, str(src_path))
-
-
 def pytest_configure(config):
     """Configure pytest settings."""
     config.addinivalue_line("markers", "unit: Fast tests with all dependencies mocked")

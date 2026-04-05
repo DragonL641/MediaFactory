@@ -4,7 +4,7 @@ copyright: Copyright © 2024-2026 MediaFactory
 
 directories:
   output: release/${version}
-  buildResources: src/electron/resources
+  buildResources: electron/resources
 
 files:
   - dist/electron/**/*
@@ -27,7 +27,7 @@ extraResources:
 
 mac:
   category: public.app-category.video
-  icon: src/electron/resources/icon.icns
+  icon: electron/resources/icon.icns
   target:
     - target: dmg
       arch:
@@ -39,7 +39,7 @@ mac:
   artifactName: ${productName}-${version}-${arch}.${ext}
 
 win:
-  icon: src/electron/resources/icon.ico
+  icon: electron/resources/icon.ico
   target:
     - target: zip
       arch:

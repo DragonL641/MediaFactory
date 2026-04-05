@@ -54,7 +54,7 @@ export class PythonManager {
         port.toString(),
         "--reload",
         "--reload-dir",
-        "src/mediafactory",
+        "mediafactory",
       ];
     }
 

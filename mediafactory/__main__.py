@@ -29,14 +29,14 @@ def main():
     multiprocessing.freeze_support()
 
     if args.reload:
-        # 开发模式：热加载，监听 src/mediafactory 目录
+        # 开发模式：热加载，监听 mediafactory 目录
         uvicorn.run(
             "mediafactory.api.main:get_app",
             host="127.0.0.1",
             port=args.port,
             factory=True,
             reload=True,
-            reload_dirs=["src/mediafactory"],
+            reload_dirs=["mediafactory"],
             log_level="info",
         )
     else:

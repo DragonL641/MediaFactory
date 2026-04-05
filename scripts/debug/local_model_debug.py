@@ -15,7 +15,7 @@ from pathlib import Path
 
 # 添加项目路径
 project_root = Path(__file__).parent.parent.parent
-sys.path.insert(0, str(project_root / "src"))
+sys.path.insert(0, str(project_root))
 
 from mediafactory.engine import TranslationEngine
 from mediafactory.models.local_models import discover_translation_models

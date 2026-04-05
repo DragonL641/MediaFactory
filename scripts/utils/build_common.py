@@ -22,7 +22,7 @@ def get_project_root() -> Path:
 def get_project_version() -> str:
     """获取项目版本号（统一从 _version.py 获取）"""
     root = get_project_root()
-    src_dir = str(root / "src")
+    src_dir = str(root)
     if src_dir not in sys.path:
         sys.path.insert(0, src_dir)
     try:
