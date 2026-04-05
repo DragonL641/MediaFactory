@@ -50,7 +50,7 @@ def convert_exception(
     ctx["original_exception"] = type(exc).__name__
 
     # 认证/配置错误 -> ConfigurationError (FATAL)
-    auth_config_keywords = [
+    auth_config_keywords = (
         "unauthorized",
         "401",
         "authentication",
@@ -60,10 +60,10 @@ def convert_exception(
         "forbidden",
         "config.toml",
         "configuration",
-        "setting",
-        "missing",
+        "settings file",
+        "missing configuration",
         "invalid option",
-    ]
+    )
     if any(kw in error_str for kw in auth_config_keywords):
         return ConfigurationError(
             message=str(exc),
@@ -71,7 +71,7 @@ def convert_exception(
         )
 
     # 可恢复错误 -> ProcessingError (RECOVERABLE)
-    recoverable_keywords = [
+    recoverable_keywords = (
         "rate limit",
         "429",
         "too many requests",
@@ -93,7 +93,7 @@ def convert_exception(
         "cuda driver",
         "out of memory",
         "oom",
-    ]
+    )
     if any(kw in error_str for kw in recoverable_keywords):
         return ProcessingError(
             message=str(exc),

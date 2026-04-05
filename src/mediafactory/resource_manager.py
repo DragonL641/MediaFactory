@@ -65,10 +65,10 @@ class ModelResourceManager:
         if signum == signal.SIGINT:
             raise KeyboardInterrupt("操作被用户中断")
         else:
-            # 对于其他信号，退出程序
-            import os
+            # 对于其他信号，正常退出以允许 atexit 和日志刷写
+            import sys
 
-            os._exit(0)
+            sys.exit(0)
 
     def register_model(self, model):
         """注册模型实例。

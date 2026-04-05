@@ -17,7 +17,6 @@ import psutil
 
 from ..logging import log_info, log_warning
 
-
 # Memory tier definitions (GB)
 MEMORY_TIERS = [8, 16, 32, 64, 128]
 
@@ -690,27 +689,21 @@ def is_model_complete(model_id: str) -> bool:
         if not has_config:
             return False
 
-        # 单次扫描目录，过滤模型文件后缀
+        # 单次扫描目录，同时检查模型权重文件和一般文件
         valid_suffixes = {".bin", ".safetensors", ".gguf", ".onnx", ".pt", ".ckpt"}
+        has_content_file = False
         for entry in path.iterdir():
-            if (
-                entry.is_file()
-                and entry.suffix in valid_suffixes
-                and entry.stat().st_size >= 1_000_000
-            ):
+            if not entry.is_file():
+                continue
+            # 检查模型权重文件（>= 1MB）
+            if entry.suffix in valid_suffixes and entry.stat().st_size >= 1_000_000:
                 return True
+            # 记录是否有实质性内容文件（非隐藏、非 README）
+            if not entry.name.startswith(".") and entry.name != "README.md":
+                has_content_file = True
 
         # 某些 pipeline 模型（如 pyannote）没有权重文件，只有配置 + handler
-        # 检查目录中是否有实质性内容（非隐藏文件、非 README）
-        for entry in path.iterdir():
-            if (
-                entry.is_file()
-                and not entry.name.startswith(".")
-                and entry.name != "README.md"
-            ):
-                return True
-
-        return False
+        return has_content_file
 
 
 def get_all_model_statuses() -> Dict[str, bool]:

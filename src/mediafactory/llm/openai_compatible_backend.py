@@ -680,6 +680,8 @@ class OpenAICompatibleBackend(TranslationBackend):
     def _parse_json_response(self, response_text: str) -> Optional[Dict[str, str]]:
         """解析 JSON 响应。
 
+        依次尝试：1. 直接解析 2. 提取 markdown 代码块 3. 提取 JSON 对象
+
         Args:
             response_text: LLM 返回的文本
 
@@ -689,50 +691,45 @@ class OpenAICompatibleBackend(TranslationBackend):
         if not response_text:
             return None
 
-        # 尝试直接解析
-        try:
-            result = json.loads(response_text)
-            if isinstance(result, dict):
-                return result
-        except json.JSONDecodeError:
-            pass
+        # 收集候选 JSON 文本
+        candidates = [response_text]
 
-        # 尝试提取 JSON 代码块
+        # 尝试提取 markdown 代码块
         json_match = re.search(r"```(?:json)?\s*([\s\S]*?)\s*```", response_text)
         if json_match:
-            try:
-                result = json.loads(json_match.group(1))
-                if isinstance(result, dict):
-                    return result
-            except json.JSONDecodeError:
-                pass
+            candidates.append(json_match.group(1))
 
-        # 尝试找到 JSON 对象
+        # 尝试提取 JSON 对象
         brace_start = response_text.find("{")
         brace_end = response_text.rfind("}")
         if brace_start != -1 and brace_end != -1 and brace_end > brace_start:
+            candidates.append(response_text[brace_start : brace_end + 1])
+
+        for candidate in candidates:
             try:
-                result = json.loads(response_text[brace_start : brace_end + 1])
+                result = json.loads(candidate)
                 if isinstance(result, dict):
                     return result
-            except json.JSONDecodeError:
-                pass
+            except (json.JSONDecodeError, TypeError):
+                continue
 
         return None
 
     def _validate_keys(self, result: Dict[str, str], batch: List[str]) -> bool:
-        """验证结果键是否与输入匹配。
+        """验证结果键是否包含所有期望的键。
+
+        宽容匹配：LLM 可能返回额外的键，只要包含所有期望键即可。
 
         Args:
             result: 解析后的结果字典
             batch: 原始输入批次
 
         Returns:
-            True 如果键完全匹配，False 否则
+            True 如果包含所有期望键，False 否则
         """
         expected_keys = {str(i) for i in range(len(batch))}
         result_keys = set(result.keys())
-        return expected_keys == result_keys
+        return expected_keys.issubset(result_keys)
 
     def _get_batch_prompt(
         self, target_language: str, error_hint: Optional[str] = None

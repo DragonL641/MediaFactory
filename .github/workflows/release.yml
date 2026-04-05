@@ -64,7 +64,10 @@ jobs:
       - name: Install Node.js dependencies
         run: npm ci
 
-      - name: Build Electron app
+      - name: Build Electron frontend
+        run: npm run build
+
+      - name: Package Electron app
         run: npm run dist
 
       # ---- 源码归档（macOS 执行一次即可）----

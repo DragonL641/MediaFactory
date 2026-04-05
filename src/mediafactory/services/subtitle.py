@@ -28,6 +28,9 @@ class SubtitleService:
 
     def __init__(self):
         self.config = get_config()
+        self._audio_engine = None
+        self._recognition_engine = None
+        self._srt_engine = None
 
     async def generate_subtitle(
         self,
@@ -93,12 +96,19 @@ class SubtitleService:
                 },
             )
 
-            # 创建并执行 Pipeline（传入所有引擎）
+            # 创建并执行 Pipeline（传入所有引擎，延迟初始化）
+            if self._audio_engine is None:
+                self._audio_engine = AudioEngine()
+            if self._recognition_engine is None:
+                self._recognition_engine = RecognitionEngine()
+            if self._srt_engine is None:
+                self._srt_engine = SRTEngine()
+
             pipeline = Pipeline.create_default(
-                AudioEngine(),
-                RecognitionEngine(),
+                self._audio_engine,
+                self._recognition_engine,
                 translation_engine,
-                SRTEngine(),
+                self._srt_engine,
             )
 
             # 在线程池中执行 Pipeline（因为它是同步的）

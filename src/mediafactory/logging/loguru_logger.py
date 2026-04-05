@@ -160,14 +160,8 @@ class LoguruAppLogger:
         return self._initialized
 
     def _get_log_config(self) -> tuple[int, int]:
-        """获取日志清理配置（retention_days, max_files）"""
-        try:
-            from mediafactory.config import get_config
-
-            config = get_config()
-            return config.logging.retention_days, config.logging.max_files
-        except Exception:
-            return 30, 20
+        """获取日志清理配置（retention_days, max_files）。"""
+        return _get_logging_config()
 
     def _cleanup_old_logs(self, log_dir: Path) -> None:
         """清理过期日志文件
@@ -571,5 +565,7 @@ def open_log_folder() -> None:
 
     if platform.system() == "Windows":
         os.startfile(folder)
-    else:
+    elif platform.system() == "Darwin":
         subprocess.run(["open", folder])
+    else:
+        subprocess.run(["xdg-open", folder])

@@ -28,6 +28,43 @@ from ..config import get_config_manager
 from ..logging import log_debug, log_error, log_info, log_warning, log_success
 
 
+class HeartbeatProgress:
+    """后台线程，在阻塞操作期间发送周期性进度更新以保持 UI 响应。"""
+
+    def __init__(self, progress_callback, interval: float = 2.0):
+        self.progress_callback = progress_callback
+        self.interval = interval
+        self._stop_event = threading.Event()
+        self._thread = None
+        self._counter = 0
+
+    def _heartbeat(self):
+        while not self._stop_event.is_set():
+            self._counter += 1
+            if self.progress_callback:
+                # Cycle progress between 8-12% to show activity
+                pct = 8 + (self._counter % 5)
+                elapsed = self._counter * self.interval
+                self.progress_callback.update(
+                    pct,
+                    f"Loading model weights... ({elapsed:.0f}s elapsed)",
+                )
+            self._stop_event.wait(self.interval)
+
+    def start(self):
+        self._thread = threading.Thread(target=self._heartbeat, daemon=True)
+        self._thread.start()
+
+    def stop(self):
+        self._stop_event.set()
+        if self._thread:
+            self._thread.join(timeout=5.0)
+            if self._thread.is_alive():
+                log_warning(
+                    "HeartbeatProgress thread did not stop gracefully within timeout"
+                )
+
+
 class LocalModelManager:
     """Unified manager for local Whisper and translation models.
 
@@ -244,43 +281,6 @@ class LocalModelManager:
             log_info(
                 f"[LocalModelManager] Model size: {model_info.model_size_mb / 1024:.1f} GB - please wait..."
             )
-
-            # Heartbeat progress mechanism to keep UI responsive during blocking load
-            class HeartbeatProgress:
-                """Background thread that sends periodic progress updates during blocking operations."""
-
-                def __init__(self, progress_callback, interval: float = 2.0):
-                    self.progress_callback = progress_callback
-                    self.interval = interval
-                    self._stop_event = threading.Event()
-                    self._thread = None
-                    self._counter = 0
-
-                def _heartbeat(self):
-                    while not self._stop_event.is_set():
-                        self._counter += 1
-                        if self.progress_callback:
-                            # Cycle progress between 8-12% to show activity
-                            pct = 8 + (self._counter % 5)
-                            elapsed = self._counter * self.interval
-                            self.progress_callback.update(
-                                pct,
-                                f"Loading model weights... ({elapsed:.0f}s elapsed)",
-                            )
-                        self._stop_event.wait(self.interval)
-
-                def start(self):
-                    self._thread = threading.Thread(target=self._heartbeat, daemon=True)
-                    self._thread.start()
-
-                def stop(self):
-                    self._stop_event.set()
-                    if self._thread:
-                        self._thread.join(timeout=5.0)  # 增加超时到 5 秒
-                        if self._thread.is_alive():
-                            log_warning(
-                                "HeartbeatProgress thread did not stop gracefully within timeout"
-                            )
 
             # Start heartbeat before blocking call
             heartbeat = HeartbeatProgress(progress, interval=2.0)

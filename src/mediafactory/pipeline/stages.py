@@ -124,6 +124,7 @@ class PostProcessStage(SkipableStage):
         progress = ctx.progress_callback or NO_OP_PROGRESS
         progress.update(0.0, "Post-processing...")
 
+        # 延迟导入：避免启动时加载 ML 依赖（stable-ts、torch 等）
         from ..engine.postprocess import PostProcessEngine
         from ..config import get_config_manager
 
@@ -300,6 +301,9 @@ class SRTGenerationStage(SkipableStage):
 
     name = "srt_generation"
 
+    # 格式到扩展名的映射
+    _FORMAT_EXT = {"srt": ".srt", "ass": ".ass", "vtt": ".vtt", "txt": ".txt"}
+
     def __init__(self, srt_engine, ass_engine=None):
         self.srt_engine = srt_engine
         self.ass_engine = ass_engine
@@ -329,19 +333,13 @@ class SRTGenerationStage(SkipableStage):
         if ctx.config and "output_path" in ctx.config:
             output_path = ctx.config["output_path"]
             # 如果配置了输出路径但格式是ASS，需要修改扩展名
-            if output_format == "ass" and not output_path.endswith(".ass"):
-                output_path = os.path.splitext(output_path)[0] + ".ass"
+            ext = self._FORMAT_EXT.get(output_format, ".srt")
+            if not output_path.endswith(ext):
+                output_path = os.path.splitext(output_path)[0] + ext
         else:
             video_dir = ctx.get_video_dir()
             video_name = ctx.get_video_name()
-            if output_format == "ass":
-                ext = ".ass"
-            elif output_format == "vtt":
-                ext = ".vtt"
-            elif output_format == "txt":
-                ext = ".txt"
-            else:
-                ext = ".srt"
+            ext = self._FORMAT_EXT.get(output_format, ".srt")
             output_filename = f"{video_name}_{output_lang}{ext}"
             output_path = os.path.join(video_dir, output_filename)
 

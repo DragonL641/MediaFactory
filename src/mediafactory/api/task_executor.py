@@ -26,7 +26,10 @@ def _check_readiness(requirement: str, message: str):
     """检查前置条件，不满足时抛出 ConfigurationError"""
     from mediafactory.services.models import ModelStatusService
 
-    readiness = ModelStatusService().get_readiness()
+    # 延迟初始化并缓存服务实例
+    if not hasattr(_check_readiness, "_service"):
+        _check_readiness._service = ModelStatusService()
+    readiness = _check_readiness._service.get_readiness()
 
     if requirement == "whisper" and not readiness["whisper_ready"]:
         raise ConfigurationError(message)
@@ -68,7 +71,12 @@ class SimpleProgressAdapter(ProgressCallback):
 
 
 def _run_async(coro: Coroutine) -> Any:
-    """在独立事件循环中运行异步协程"""
+    """在独立事件循环中运行异步协程。
+
+    这是将异步代码从同步上下文（task_manager 线程）调用的标准模式。
+    每次创建新事件循环是必要的，因为调用方不在异步上下文中，
+    不能使用 asyncio.run()（Python 3.10+ 才有可靠的嵌套循环支持）。
+    """
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
     try:

@@ -216,7 +216,7 @@ class TestConvertException:
         assert isinstance(result, ConfigurationError)
 
     def test_missing_keyword_produces_configuration_error(self):
-        exc = RuntimeError("missing required field")
+        exc = RuntimeError("missing configuration")
         result = convert_exception(exc)
         assert isinstance(result, ConfigurationError)
 
