@@ -35,5 +35,5 @@ repos:
         name: ESLint check
         entry: npx eslint src/electron/
         language: system
-        types: [ts, tsx]
+        files: ^src/electron/.*\.(ts|tsx)$
         pass_filenames: false
