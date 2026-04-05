@@ -50,9 +50,7 @@ class LocalModelFallback:
             },
         )
 
-    def translate_single(
-        self, text: str, tgt_lang: str, src_lang: str = "en"
-    ) -> str:
+    def translate_single(self, text: str, tgt_lang: str, src_lang: str = "en") -> str:
         """翻译单条文本。失败时抛出 ProcessingError。"""
         from ..models.translation_runtime import get_translation_model
 
@@ -66,9 +64,7 @@ class LocalModelFallback:
         result = model_callable(text, max_length=512, truncation=True)
         return self._extract_translation(result, text)
 
-    def translate_batch(
-        self, texts: list, tgt_lang: str, src_lang: str = "en"
-    ) -> list:
+    def translate_batch(self, texts: list, tgt_lang: str, src_lang: str = "en") -> list:
         """批量翻译（加载模型一次，逐句翻译）。失败时抛出 ProcessingError。"""
         from ..models.translation_runtime import get_translation_model
 

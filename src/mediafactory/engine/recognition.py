@@ -233,10 +233,16 @@ class RecognitionEngine:
                             if processed_duration > 0:
                                 progress.update(
                                     progress_value,
-                                    t("progress.processingAudio", processed=f"{processed_duration:.1f}s", total=f"{total_duration:.1f}s"),
+                                    t(
+                                        "progress.processingAudio",
+                                        processed=f"{processed_duration:.1f}s",
+                                        total=f"{total_duration:.1f}s",
+                                    ),
                                 )
                             else:
-                                progress.update(progress_value, t("progress.analyzingAudio"))
+                                progress.update(
+                                    progress_value, t("progress.analyzingAudio")
+                                )
                             last_progress_update_time = current_time
 
                         segment_count += 1

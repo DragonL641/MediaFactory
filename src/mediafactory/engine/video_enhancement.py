@@ -33,6 +33,7 @@ DEFAULT_BATCH_SIZE = 4
 @dataclass
 class EnhancementConfig:
     """视频增强配置"""
+
     # 超分辨率参数
     scale: int = 4  # 2 或 4
     model_type: str = "general"  # general 或 anime
@@ -141,7 +142,9 @@ class VideoEnhancementEngine:
         if output_path is None:
             video_dir, video_name = os.path.split(video_path)
             video_basename, video_ext = os.path.splitext(video_name)
-            output_path = os.path.join(video_dir, f"{video_basename}_enhanced{video_ext}")
+            output_path = os.path.join(
+                video_dir, f"{video_basename}_enhanced{video_ext}"
+            )
         output_path = os.path.abspath(output_path)
 
         with wrap_exceptions(
@@ -153,7 +156,9 @@ class VideoEnhancementEngine:
             operation="video_enhancement",
         ):
             log_step(f"开始视频增强: {video_path}")
-            log_info(f"配置: scale={self.config.scale}, model_type={self.config.model_type}")
+            log_info(
+                f"配置: scale={self.config.scale}, model_type={self.config.model_type}"
+            )
 
             # 阶段1: 读取视频 (0-5%)
             progress.update(0, t("progress.readingVideo"))
@@ -250,7 +255,9 @@ class VideoEnhancementEngine:
                         # 逐帧写入（时序平滑需要原始帧）
                         for orig, enhanced in frame_buffer:
                             if temporal_smoother is not None:
-                                output_frame = temporal_smoother.add_frame(orig, enhanced)
+                                output_frame = temporal_smoother.add_frame(
+                                    orig, enhanced
+                                )
                                 if output_frame is not None:
                                     out.write(output_frame)
                             else:
@@ -276,7 +283,11 @@ class VideoEnhancementEngine:
                     frame_progress = 10 + (frame_idx / total_frames) * 80
                     progress.update(
                         frame_progress,
-                        t("progress.processingFrames", current=frame_idx, total=total_frames),
+                        t(
+                            "progress.processingFrames",
+                            current=frame_idx,
+                            total=total_frames,
+                        ),
                     )
 
                 # 处理缓冲区剩余帧
@@ -311,7 +322,9 @@ class VideoEnhancementEngine:
                             out.write(enhanced)
 
                     frame_time = time.time() - frame_start
-                    log_info(f"Final batch ({len(frame_buffer)} frames): {frame_time:.2f}s")
+                    log_info(
+                        f"Final batch ({len(frame_buffer)} frames): {frame_time:.2f}s"
+                    )
 
                 # 刷新时序平滑器剩余帧
                 if temporal_smoother is not None and not progress.is_cancelled():
@@ -397,6 +410,7 @@ class VideoEnhancementEngine:
         """
         try:
             from imageio_ffmpeg import get_ffmpeg_exe
+
             ffmpeg_exe = get_ffmpeg_exe()
         except ImportError:
             raise ProcessingError(
@@ -407,14 +421,21 @@ class VideoEnhancementEngine:
         # 使用 FFmpeg 合并音频
         cmd = [
             ffmpeg_exe,
-            "-i", temp_video,           # 输入: 增强后的视频
-            "-i", source_video,         # 输入: 原始视频（提取音频）
-            "-c:v", "copy",             # 视频直接复制
-            "-c:a", "aac",              # 音频编码为 AAC
-            "-map", "0:v:0",            # 使用第一个输入的视频
-            "-map", "1:a:0?",           # 使用第二个输入的音频（如果存在）
-            "-y",                       # 覆盖输出
-            "-loglevel", "error",
+            "-i",
+            temp_video,  # 输入: 增强后的视频
+            "-i",
+            source_video,  # 输入: 原始视频（提取音频）
+            "-c:v",
+            "copy",  # 视频直接复制
+            "-c:a",
+            "aac",  # 音频编码为 AAC
+            "-map",
+            "0:v:0",  # 使用第一个输入的视频
+            "-map",
+            "1:a:0?",  # 使用第二个输入的音频（如果存在）
+            "-y",  # 覆盖输出
+            "-loglevel",
+            "error",
             output_path,
         ]
 
@@ -429,6 +450,7 @@ class VideoEnhancementEngine:
                 log_error(f"FFmpeg 音频合并失败: {result.stderr}")
                 # 如果音频合并失败，直接复制视频
                 import shutil
+
                 shutil.copy(temp_video, output_path)
                 log_info("已保存无音频的视频")
         except subprocess.TimeoutExpired:
@@ -440,6 +462,7 @@ class VideoEnhancementEngine:
             log_error(f"音频合并失败: {e}")
             # 如果音频合并失败，直接复制视频
             import shutil
+
             shutil.copy(temp_video, output_path)
             log_info("已保存无音频的视频")
 

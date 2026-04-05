@@ -400,7 +400,9 @@ class AppConfig(BaseModel):
                 section_dict = section
 
             # Path 转字符串
-            for key, value in section_dict.items() if isinstance(section_dict, dict) else []:
+            for key, value in (
+                section_dict.items() if isinstance(section_dict, dict) else []
+            ):
                 if isinstance(value, Path):
                     section_dict[key] = str(value)
 

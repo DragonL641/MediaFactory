@@ -26,10 +26,12 @@ def _get_logging_config() -> tuple[int, int]:
     """从配置获取日志保留参数，返回 (retention_days, max_files)"""
     try:
         from ..config import get_config
+
         config = get_config()
         return config.logging.retention_days, config.logging.max_files
     except Exception:
         return _LOG_RETENTION_DAYS, _LOG_MAX_FILES
+
 
 # Remove default handler
 _loguru_logger.remove()
@@ -56,6 +58,7 @@ class LoguruAppLogger:
         # Primary: app root
         try:
             from ..config import get_app_root_dir
+
             app_root = get_app_root_dir()
             candidates.append(app_root / "logs")
         except (ImportError, AttributeError):
@@ -121,6 +124,7 @@ class LoguruAppLogger:
             file_handler_added = True
         except Exception as e:
             import sys
+
             # Fallback to stderr if file logging fails
             _loguru_logger.add(
                 sys.stderr,
@@ -133,7 +137,9 @@ class LoguruAppLogger:
         _loguru_logger.info("=" * 60)
         _loguru_logger.info("MediaFactory Application Logger Initialized (Loguru)")
         _loguru_logger.info(f"Log file: {log_file}")
-        _loguru_logger.info(f"File logging: {'enabled' if file_handler_added else 'disabled (using stderr)'}")
+        _loguru_logger.info(
+            f"File logging: {'enabled' if file_handler_added else 'disabled (using stderr)'}"
+        )
         _loguru_logger.info("=" * 60)
 
         # 清理过期日志文件
@@ -157,6 +163,7 @@ class LoguruAppLogger:
         """获取日志清理配置（retention_days, max_files）"""
         try:
             from mediafactory.config import get_config
+
             config = get_config()
             return config.logging.retention_days, config.logging.max_files
         except Exception:

@@ -211,19 +211,27 @@ class TranslationStage(SkipableStage):
         log_step("Translation")
         ctx.set_stage("translation")
         progress = ctx.progress_callback or NO_OP_PROGRESS
-        log_debug(f"[TranslationStage] progress_callback: {ctx.progress_callback is not None}, type: {type(progress).__name__}")
+        log_debug(
+            f"[TranslationStage] progress_callback: {ctx.progress_callback is not None}, type: {type(progress).__name__}"
+        )
         progress.update(0.0, t("progress.translationPrepare"))
 
         src_lang = ctx.detected_lang or ctx.src_lang
-        log_info(f"[TranslationStage] Source language: {src_lang}, Target language: {ctx.tgt_lang}")
+        log_info(
+            f"[TranslationStage] Source language: {src_lang}, Target language: {ctx.tgt_lang}"
+        )
 
         # 检查本地模型是否可用
         if not ctx.use_local_models_only:
             from ..models.local_models import local_model_manager
 
-            log_info("[TranslationStage] Checking available local translation models...")
+            log_info(
+                "[TranslationStage] Checking available local translation models..."
+            )
             downloaded_models = local_model_manager.get_downloaded_translation_models()
-            log_info(f"[TranslationStage] Found {len(downloaded_models)} downloaded models: {downloaded_models}")
+            log_info(
+                f"[TranslationStage] Found {len(downloaded_models)} downloaded models: {downloaded_models}"
+            )
 
             # 如果用户指定了特定模型，检查是否可用
             if ctx.translation_model:
@@ -340,7 +348,9 @@ class SRTGenerationStage(SkipableStage):
         segments = result.get("segments", [])
 
         # 里程碑进度：开始生成文件
-        progress.update(30, t("progress.generatingSubtitleFile", format=output_format.upper()))
+        progress.update(
+            30, t("progress.generatingSubtitleFile", format=output_format.upper())
+        )
 
         # 根据格式生成输出
         if output_format == "txt":
@@ -433,9 +443,7 @@ class ModelLoadingStage(SkipableStage):
             progress.update(60, t("progress.loadingModelWeights"))
 
             log_success(f"Faster Whisper model {ctx.whisper_model} loaded successfully")
-            progress.update(
-                100.0, t("progress.modelLoaded", model=ctx.whisper_model)
-            )
+            progress.update(100.0, t("progress.modelLoaded", model=ctx.whisper_model))
             return ctx
 
         except Exception as e:
@@ -518,6 +526,7 @@ class VideoEnhancementStage(SkipableStage):
     def validate(self, ctx: ProcessingContext) -> bool:
         """验证输出文件"""
         import os
+
         if not ctx.output_path:
             self._log("Output path not set", "error")
             return False

@@ -27,10 +27,7 @@ class BaseEnhancer(ABC):
     DEFAULT_CONFIG: Dict[str, Any] = {}
 
     def __init__(
-        self,
-        device: Optional[str] = None,
-        half_precision: bool = False,
-        **kwargs
+        self, device: Optional[str] = None, half_precision: bool = False, **kwargs
     ):
         """
         初始化增强器
@@ -51,7 +48,11 @@ class BaseEnhancer(ABC):
         if device:
             if device == "cuda" and torch.cuda.is_available():
                 return "cuda"
-            elif device == "mps" and hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
+            elif (
+                device == "mps"
+                and hasattr(torch.backends, "mps")
+                and torch.backends.mps.is_available()
+            ):
                 return "mps"
             elif device == "cpu":
                 return "cpu"
@@ -87,9 +88,7 @@ class BaseEnhancer(ABC):
         pass
 
     def enhance_batch(
-        self,
-        frames: List[np.ndarray],
-        batch_size: Optional[int] = None
+        self, frames: List[np.ndarray], batch_size: Optional[int] = None
     ) -> List[np.ndarray]:
         """
         批量增强帧
@@ -146,7 +145,7 @@ class BaseEnhancer(ABC):
 
         return {
             "allocated": torch.cuda.memory_allocated() / 1024**3,  # GB
-            "reserved": torch.cuda.memory_reserved() / 1024**3,    # GB
+            "reserved": torch.cuda.memory_reserved() / 1024**3,  # GB
             "max_allocated": torch.cuda.max_memory_allocated() / 1024**3,  # GB
         }
 

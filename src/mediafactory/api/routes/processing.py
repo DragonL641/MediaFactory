@@ -33,6 +33,7 @@ router = APIRouter()
 def _get_task_manager():
     """延迟导入以避免循环依赖"""
     from mediafactory.api.main import get_task_manager as _get_tm
+
     return _get_tm()
 
 
@@ -204,7 +205,11 @@ async def start_task(task_id: str):
             detail=t("error.cannotStartTask"),
         )
 
-    return {"task_id": task_id, "status": TaskStatus.RUNNING.value, "message": t("task.started")}
+    return {
+        "task_id": task_id,
+        "status": TaskStatus.RUNNING.value,
+        "message": t("task.started"),
+    }
 
 
 @router.post("/cancel/{task_id}")
@@ -310,7 +315,7 @@ async def update_task_config(task_id: str, update: TaskConfigUpdateRequest):
     if status_info["status"] != TaskStatus.PENDING.value:
         raise HTTPException(
             status_code=400,
-            detail=t("error.canOnlyEditPending", status=status_info['status']),
+            detail=t("error.canOnlyEditPending", status=status_info["status"]),
         )
 
     update_data = update.model_dump(exclude_unset=True)
@@ -330,7 +335,11 @@ async def batch_start_tasks():
     """启动所有 PENDING 任务（串行执行）"""
     task_manager = _get_task_manager()
     count = await task_manager.start_all_pending()
-    return {"success": True, "started": count, "message": t("task.queuedForExecution", count=count)}
+    return {
+        "success": True,
+        "started": count,
+        "message": t("task.queuedForExecution", count=count),
+    }
 
 
 @router.post("/batch/cancel")

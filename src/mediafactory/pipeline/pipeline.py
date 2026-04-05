@@ -93,6 +93,7 @@ class Pipeline:
                 except Exception as cleanup_error:
                     # 清理失败不应该影响主流程
                     from ..logging import log_warning
+
                     log_warning(f"Context cleanup failed: {cleanup_error}")
 
     @classmethod

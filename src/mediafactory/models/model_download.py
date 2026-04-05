@@ -111,6 +111,7 @@ def _patch_hf_tqdm(callback):
 
     class _ProgressTqdm(_hf_tqdm):
         """自定义 tqdm，每次 update 时通过 callback 上报下载进度。"""
+
         def update(self, n=1):
             result = super().update(n)
             if self.total and self.total > 0:
@@ -120,14 +121,25 @@ def _patch_hf_tqdm(callback):
             return result
 
     def _patched_get_ctx(
-        *, desc, log_level, total=None, initial=0,
-        unit="B", unit_scale=True, name=None, _tqdm_bar=None,
+        *,
+        desc,
+        log_level,
+        total=None,
+        initial=0,
+        unit="B",
+        unit_scale=True,
+        name=None,
+        _tqdm_bar=None,
     ):
         if _tqdm_bar is not None:
             return nullcontext(_tqdm_bar)
         return _ProgressTqdm(
-            unit=unit, unit_scale=unit_scale, total=total,
-            initial=initial, desc=desc, name=name,
+            unit=unit,
+            unit_scale=unit_scale,
+            total=total,
+            initial=initial,
+            desc=desc,
+            name=name,
             disable=False,
             file=_io.StringIO(),  # 抑制终端输出
         )
@@ -137,6 +149,7 @@ def _patch_hf_tqdm(callback):
     class _Patcher:
         def __enter__(self):
             return self
+
         def __exit__(self, *args):
             _fd._get_progress_bar_context = _original_fn
 
@@ -170,7 +183,9 @@ def download_model(
         raise ValueError(f"Unknown model ID '{huggingface_id}'")
 
     is_file_mode = model_info.download_mode == DownloadMode.FILE
-    log_info(f"Starting download: {huggingface_id} ({'file' if is_file_mode else 'repo'} mode)...")
+    log_info(
+        f"Starting download: {huggingface_id} ({'file' if is_file_mode else 'repo'} mode)..."
+    )
 
     # 确定本地保存路径
     if custom_path is not None:
@@ -179,7 +194,11 @@ def download_model(
         # 单文件模型保存到 enhancement 目录
         enhancement_dir = get_enhancement_models_dir()
         enhancement_dir.mkdir(parents=True, exist_ok=True)
-        filename = model_info.local_filename or model_info.huggingface_filename or huggingface_id
+        filename = (
+            model_info.local_filename
+            or model_info.huggingface_filename
+            or huggingface_id
+        )
         local_path = enhancement_dir / filename
     else:
         # 仓库模型使用 huggingface_id 作为子目录（保留斜杠）
@@ -193,7 +212,9 @@ def download_model(
     with _patch_hf_tqdm(progress_callback):
         for attempt in range(MAX_RETRIES):
             if attempt > 0:
-                log_info(f"Retrying download ({attempt + 1}/{MAX_RETRIES}) for {huggingface_id}...")
+                log_info(
+                    f"Retrying download ({attempt + 1}/{MAX_RETRIES}) for {huggingface_id}..."
+                )
                 time.sleep(RETRY_DELAY)
 
             try:
@@ -233,11 +254,16 @@ def download_model(
 
             except Exception as ex:
                 last_error = ex
-                log_error(f"Download failed for {huggingface_id} (attempt {attempt + 1}/{MAX_RETRIES}): {ex}")
+                log_error(
+                    f"Download failed for {huggingface_id} (attempt {attempt + 1}/{MAX_RETRIES}): {ex}"
+                )
 
                 # Gated repo 权限错误不重试（重试不会改变结果）
                 err_msg = str(ex)
-                if "not in the authorized list" in err_msg or "gated repo" in err_msg.lower():
+                if (
+                    "not in the authorized list" in err_msg
+                    or "gated repo" in err_msg.lower()
+                ):
                     raise Exception(
                         f"Access denied for {huggingface_id}. "
                         f"This is a gated model — please: "
@@ -344,7 +370,9 @@ def delete_model(huggingface_id: str) -> Tuple[bool, str]:
 
         except PermissionError as e:
             if attempt < max_retries - 1:
-                log_info(f"Delete failed (attempt {attempt + 1}/{max_retries}), retrying in {retry_delay}s...")
+                log_info(
+                    f"Delete failed (attempt {attempt + 1}/{max_retries}), retrying in {retry_delay}s..."
+                )
                 time.sleep(retry_delay)
                 retry_delay *= 2  # 指数退避
             else:

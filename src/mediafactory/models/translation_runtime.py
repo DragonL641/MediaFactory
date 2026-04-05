@@ -37,7 +37,9 @@ def get_translation_model(
         Model callable object or None if loading fails
     """
     log_info(f"[TranslationRuntime] Starting model loading process...")
-    log_info(f"[TranslationRuntime] Parameters: src_lang={src_lang}, tgt_lang={tgt_lang}, device={device}")
+    log_info(
+        f"[TranslationRuntime] Parameters: src_lang={src_lang}, tgt_lang={tgt_lang}, device={device}"
+    )
 
     # The only supported translation model
     target_model_id = "facebook/m2m100_1.2B"
@@ -54,7 +56,9 @@ def get_translation_model(
     available_memory = get_available_memory_for_device(device)
     memory_type = "VRAM" if device == "cuda" else "RAM"
     required_memory = get_required_memory_for_model(target_model_id, device)
-    log_info(f"[TranslationRuntime] Available {memory_type}: {available_memory:.1f} GB, required: {required_memory:.1f} GB")
+    log_info(
+        f"[TranslationRuntime] Available {memory_type}: {available_memory:.1f} GB, required: {required_memory:.1f} GB"
+    )
 
     actual_device = device
 
@@ -82,11 +86,17 @@ def get_translation_model(
     log_debug(
         f"[TranslationRuntime] Loading model with src_lang={src_lang}, tgt_lang={tgt_lang}, device={actual_device}"
     )
-    log_debug(f"[TranslationRuntime] progress callback: {progress is not None}, type: {type(progress).__name__ if progress else 'N/A'}")
+    log_debug(
+        f"[TranslationRuntime] progress callback: {progress is not None}, type: {type(progress).__name__ if progress else 'N/A'}"
+    )
 
     try:
-        log_info(f"[TranslationRuntime] Calling local_model_manager.get_model_with_fallback()...")
-        log_debug(f"[TranslationRuntime] Passing progress to get_model_with_fallback: {progress is not None}")
+        log_info(
+            f"[TranslationRuntime] Calling local_model_manager.get_model_with_fallback()..."
+        )
+        log_debug(
+            f"[TranslationRuntime] Passing progress to get_model_with_fallback: {progress is not None}"
+        )
         model_obj, _ = local_model_manager.get_model_with_fallback(
             target_model_id,
             device=actual_device,

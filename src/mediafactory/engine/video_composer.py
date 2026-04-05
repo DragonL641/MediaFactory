@@ -32,6 +32,7 @@ class VideoComposer:
         """从配置获取 FFmpeg 超时时间"""
         try:
             from ..config import get_config
+
             config = get_config()
             if timeout_type == "hard":
                 return config.ffmpeg.hard_subtitle_timeout
@@ -167,7 +168,9 @@ class VideoComposer:
                     )
                     log_error(f"[VideoComposer] FFmpeg 错误: {error_msg}")
                     raise ProcessingError(
-                        message=t("error.softSubtitleEmbedFailed", error=error_msg[:200]),
+                        message=t(
+                            "error.softSubtitleEmbedFailed", error=error_msg[:200]
+                        ),
                         context={
                             "video_path": video_path,
                             "subtitle_path": subtitle_path,
@@ -264,7 +267,9 @@ class VideoComposer:
                     )
                     log_error(f"[VideoComposer] FFmpeg 错误: {error_msg}")
                     raise ProcessingError(
-                        message=t("error.hardSubtitleBurnFailed", error=error_msg[:200]),
+                        message=t(
+                            "error.hardSubtitleBurnFailed", error=error_msg[:200]
+                        ),
                         context={
                             "video_path": video_path,
                             "subtitle_path": subtitle_path,
@@ -380,7 +385,9 @@ class VideoComposer:
                     )
                     log_error(f"[VideoComposer] FFmpeg 错误: {error_msg}")
                     raise ProcessingError(
-                        message=t("error.multiSubtitleEmbedFailed", error=error_msg[:200]),
+                        message=t(
+                            "error.multiSubtitleEmbedFailed", error=error_msg[:200]
+                        ),
                         context={"ffmpeg_error": error_msg},
                     )
 

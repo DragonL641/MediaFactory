@@ -35,7 +35,9 @@ def sanitize_error(error: Exception) -> str:
     if isinstance(error, PermissionError):
         logger.error(f"Permission denied: {error}")
         return t("error.generic.permissionDenied")
-    if isinstance(error, (ConnectionError, ConnectionRefusedError, ConnectionResetError)):
+    if isinstance(
+        error, (ConnectionError, ConnectionRefusedError, ConnectionResetError)
+    ):
         logger.error(f"Connection error: {error}")
         return t("error.generic.connectionError")
     if isinstance(error, TimeoutError):

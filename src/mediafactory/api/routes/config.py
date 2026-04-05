@@ -59,7 +59,9 @@ async def get_config_section(section: str):
     config_dict = config.to_toml_dict()
 
     if section not in config_dict:
-        raise HTTPException(status_code=404, detail=t("error.configSectionNotExist", section=section))
+        raise HTTPException(
+            status_code=404, detail=t("error.configSectionNotExist", section=section)
+        )
 
     return {section: config_dict[section]}
 
@@ -103,6 +105,7 @@ async def update_full_config(request: PartialConfigUpdate):
         # 如果语言发生变化，同步 i18n
         if request.app and "language" in request.app:
             from mediafactory.i18n import set_language
+
             set_language(request.app["language"])
 
         # 返回更新后的配置
@@ -207,14 +210,18 @@ async def update_llm_preset(preset_id: str, request: LLMPresetUpdateRequest):
     from mediafactory.constants import BackendConfigMapping
 
     if preset_id not in BackendConfigMapping.BASE_URL_PRESETS:
-        raise HTTPException(status_code=404, detail=t("error.unknownPreset", preset=preset_id))
+        raise HTTPException(
+            status_code=404, detail=t("error.unknownPreset", preset=preset_id)
+        )
 
     try:
         # 构建更新参数
         update_kwargs = {f"openai_compatible__{preset_id}__api_key": request.api_key}
 
         if request.base_url is not None:
-            update_kwargs[f"openai_compatible__{preset_id}__base_url"] = request.base_url
+            update_kwargs[f"openai_compatible__{preset_id}__base_url"] = (
+                request.base_url
+            )
 
         if request.model is not None:
             update_kwargs[f"openai_compatible__{preset_id}__model"] = request.model
@@ -223,15 +230,16 @@ async def update_llm_preset(preset_id: str, request: LLMPresetUpdateRequest):
 
         # 如果当前预设无效（未配置），自动将新配置的预设设为当前预设
         from mediafactory.config import get_config
+
         current_cfg = get_config()
-        oa_config = getattr(current_cfg, 'openai_compatible', None)
+        oa_config = getattr(current_cfg, "openai_compatible", None)
         if oa_config:
-            current_preset = getattr(oa_config, 'current_preset', None)
+            current_preset = getattr(oa_config, "current_preset", None)
             current_valid = False
             if current_preset:
                 try:
                     preset_cfg = oa_config.get_preset_config(current_preset)
-                    api_key = getattr(preset_cfg, 'api_key', '')
+                    api_key = getattr(preset_cfg, "api_key", "")
                     current_valid = bool(api_key and api_key != "sk-xxx")
                 except (ValueError, AttributeError):
                     pass
@@ -242,7 +250,10 @@ async def update_llm_preset(preset_id: str, request: LLMPresetUpdateRequest):
 
     except Exception as e:
         logger.exception(f"更新预设失败: {e}")
-        raise HTTPException(status_code=500, detail=t("error.presetUpdateFailed", error=sanitize_error(e)))
+        raise HTTPException(
+            status_code=500,
+            detail=t("error.presetUpdateFailed", error=sanitize_error(e)),
+        )
 
 
 @router.delete("/llm/preset/{preset_id}")
@@ -255,7 +266,9 @@ async def delete_llm_preset(preset_id: str):
     from mediafactory.constants import BackendConfigMapping
 
     if preset_id not in BackendConfigMapping.BASE_URL_PRESETS:
-        raise HTTPException(status_code=404, detail=t("error.unknownPreset", preset=preset_id))
+        raise HTTPException(
+            status_code=404, detail=t("error.unknownPreset", preset=preset_id)
+        )
 
     try:
         update_kwargs = {
@@ -268,7 +281,10 @@ async def delete_llm_preset(preset_id: str):
 
     except Exception as e:
         logger.exception(f"删除预设失败: {e}")
-        raise HTTPException(status_code=500, detail=t("error.presetDeleteFailed", error=sanitize_error(e)))
+        raise HTTPException(
+            status_code=500,
+            detail=t("error.presetDeleteFailed", error=sanitize_error(e)),
+        )
 
 
 @router.put("/llm/current-preset")
@@ -279,11 +295,16 @@ async def set_current_llm_preset(request: SetCurrentPresetRequest):
     from mediafactory.constants import BackendConfigMapping
 
     if request.preset not in BackendConfigMapping.BASE_URL_PRESETS:
-        raise HTTPException(status_code=404, detail=t("error.unknownPreset", preset=request.preset))
+        raise HTTPException(
+            status_code=404, detail=t("error.unknownPreset", preset=request.preset)
+        )
 
     try:
         update_config(openai_compatible__current_preset=request.preset)
         return {"success": True, "current_preset": request.preset}
     except Exception as e:
         logger.exception(f"设置当前预设失败: {e}")
-        raise HTTPException(status_code=500, detail=t("error.setCurrentPresetFailed", error=sanitize_error(e)))
+        raise HTTPException(
+            status_code=500,
+            detail=t("error.setCurrentPresetFailed", error=sanitize_error(e)),
+        )

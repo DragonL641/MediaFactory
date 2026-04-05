@@ -124,8 +124,6 @@ class TaskResult(BaseModel):
     metadata: Dict[str, Any] = Field(default_factory=dict)
 
 
-
-
 # ==================== 模型相关 ====================
 
 

@@ -101,6 +101,7 @@ class AppConfigManager:
             )
         """
         import copy
+
         # 先在深拷贝上验证所有更新
         config_copy = copy.deepcopy(self._config)
         self._apply_updates(config_copy, changes)
@@ -306,7 +307,6 @@ class AppConfigManager:
                     model_section[new_name] = value
                 else:
                     model_section[new_name] = []
-
 
 
 # ==================== 单例管理 ====================

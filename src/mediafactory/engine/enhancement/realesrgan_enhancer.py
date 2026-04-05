@@ -5,7 +5,11 @@ import numpy as np
 import torch
 from typing import List, Optional, Tuple
 
-from .base_enhancer import BaseEnhancer, PIXEL_NORMALIZATION_FACTOR, PIXEL_DENORMALIZATION_FACTOR
+from .base_enhancer import (
+    BaseEnhancer,
+    PIXEL_NORMALIZATION_FACTOR,
+    PIXEL_DENORMALIZATION_FACTOR,
+)
 from mediafactory.logging import log_info
 
 # 分块处理常量（此类特有）
@@ -43,7 +47,7 @@ class RealESRGANEnhancer(BaseEnhancer):
         tile: int = 0,
         tile_pad: int = DEFAULT_TILE_PAD,
         pre_pad: int = DEFAULT_PRE_PAD,
-        **kwargs
+        **kwargs,
     ):
         """
         初始化 Real-ESRGAN 增强器
@@ -65,7 +69,7 @@ class RealESRGANEnhancer(BaseEnhancer):
             tile=tile,
             tile_pad=tile_pad,
             pre_pad=pre_pad,
-            **kwargs
+            **kwargs,
         )
 
         self.scale = scale
@@ -84,8 +88,7 @@ class RealESRGANEnhancer(BaseEnhancer):
             from spandrel import ModelLoader, ImageModelDescriptor
         except ImportError as e:
             raise ImportError(
-                "请安装依赖: pip install spandrel\n"
-                "或运行: pip install -e '.[ml]'"
+                "请安装依赖: pip install spandrel\n" "或运行: pip install -e '.[ml]'"
             ) from e
 
         # 获取模型路径（使用统一注册表）
@@ -113,7 +116,9 @@ class RealESRGANEnhancer(BaseEnhancer):
 
         # 验证是图像模型
         if not isinstance(self._model, ImageModelDescriptor):
-            raise RuntimeError(f"加载的模型不是有效的图像超分辨率模型: {type(self._model)}")
+            raise RuntimeError(
+                f"加载的模型不是有效的图像超分辨率模型: {type(self._model)}"
+            )
 
         # 移动到设备
         self._model.to(self.device)
@@ -126,7 +131,9 @@ class RealESRGANEnhancer(BaseEnhancer):
             self._model.float()
 
         self._is_loaded = True
-        log_info(f"Real-ESRGAN 模型加载成功: scale={self.scale}, type={self.model_type}")
+        log_info(
+            f"Real-ESRGAN 模型加载成功: scale={self.scale}, type={self.model_type}"
+        )
         log_info(f"设备: {self.device}, 半精度: {self.half_precision}")
 
     def _get_or_create_input_tensor(self, frame: np.ndarray) -> torch.Tensor:
@@ -134,13 +141,18 @@ class RealESRGANEnhancer(BaseEnhancer):
         height, width = frame.shape[:2]
 
         # 检查是否需要重新分配
-        if (self._cached_frame_shape != (height, width) or
-            self._input_tensor_cache is None):
+        if (
+            self._cached_frame_shape != (height, width)
+            or self._input_tensor_cache is None
+        ):
             # 重新分配缓存
             self._input_tensor_cache = torch.empty(
-                1, 3, height, width,
+                1,
+                3,
+                height,
+                width,
                 dtype=torch.float16 if self.half_precision else torch.float32,
-                device=self.device
+                device=self.device,
             )
             self._cached_frame_shape = (height, width)
 
@@ -148,9 +160,15 @@ class RealESRGANEnhancer(BaseEnhancer):
         rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
         # 直接写入缓存 tensor
-        self._input_tensor_cache[0, 0] = torch.from_numpy(rgb_frame[:, :, 0]) / PIXEL_NORMALIZATION_FACTOR
-        self._input_tensor_cache[0, 1] = torch.from_numpy(rgb_frame[:, :, 1]) / PIXEL_NORMALIZATION_FACTOR
-        self._input_tensor_cache[0, 2] = torch.from_numpy(rgb_frame[:, :, 2]) / PIXEL_NORMALIZATION_FACTOR
+        self._input_tensor_cache[0, 0] = (
+            torch.from_numpy(rgb_frame[:, :, 0]) / PIXEL_NORMALIZATION_FACTOR
+        )
+        self._input_tensor_cache[0, 1] = (
+            torch.from_numpy(rgb_frame[:, :, 1]) / PIXEL_NORMALIZATION_FACTOR
+        )
+        self._input_tensor_cache[0, 2] = (
+            torch.from_numpy(rgb_frame[:, :, 2]) / PIXEL_NORMALIZATION_FACTOR
+        )
 
         return self._input_tensor_cache
 
@@ -249,15 +267,19 @@ class RealESRGANEnhancer(BaseEnhancer):
                 in_y_end_valid = in_y_start + (out_y_end_valid - out_y_start_valid)
                 in_x_end_valid = in_x_start + (out_x_end_valid - out_x_start_valid)
 
-                output[:, :, out_y_start_valid:out_y_end_valid, out_x_start_valid:out_x_end_valid] = \
-                    tile_output[:, :, in_y_start:in_y_end_valid, in_x_start:in_x_end_valid]
+                output[
+                    :,
+                    :,
+                    out_y_start_valid:out_y_end_valid,
+                    out_x_start_valid:out_x_end_valid,
+                ] = tile_output[
+                    :, :, in_y_start:in_y_end_valid, in_x_start:in_x_end_valid
+                ]
 
         return output
 
     def enhance_batch(
-        self,
-        frames: List[np.ndarray],
-        batch_size: Optional[int] = None
+        self, frames: List[np.ndarray], batch_size: Optional[int] = None
     ) -> List[np.ndarray]:
         """
         批量增强帧 - 实现真正的批量推理
@@ -293,21 +315,30 @@ class RealESRGANEnhancer(BaseEnhancer):
 
         # 预分配批量 tensor
         batch_tensor = torch.empty(
-            batch_size, 3, height, width,
+            batch_size,
+            3,
+            height,
+            width,
             dtype=torch.float16 if self.half_precision else torch.float32,
-            device=self.device
+            device=self.device,
         )
 
         for i in range(0, len(frames), batch_size):
             actual_batch_size = min(batch_size, len(frames) - i)
-            batch_frames = frames[i:i + actual_batch_size]
+            batch_frames = frames[i : i + actual_batch_size]
 
             # 准备批量输入
             for j, frame in enumerate(batch_frames):
                 rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-                batch_tensor[j, 0] = torch.from_numpy(rgb_frame[:, :, 0]) / PIXEL_NORMALIZATION_FACTOR
-                batch_tensor[j, 1] = torch.from_numpy(rgb_frame[:, :, 1]) / PIXEL_NORMALIZATION_FACTOR
-                batch_tensor[j, 2] = torch.from_numpy(rgb_frame[:, :, 2]) / PIXEL_NORMALIZATION_FACTOR
+                batch_tensor[j, 0] = (
+                    torch.from_numpy(rgb_frame[:, :, 0]) / PIXEL_NORMALIZATION_FACTOR
+                )
+                batch_tensor[j, 1] = (
+                    torch.from_numpy(rgb_frame[:, :, 1]) / PIXEL_NORMALIZATION_FACTOR
+                )
+                batch_tensor[j, 2] = (
+                    torch.from_numpy(rgb_frame[:, :, 2]) / PIXEL_NORMALIZATION_FACTOR
+                )
 
             # 只取实际批量大小
             input_tensor = batch_tensor[:actual_batch_size]
@@ -322,7 +353,9 @@ class RealESRGANEnhancer(BaseEnhancer):
 
             for j in range(actual_batch_size):
                 out_frame = output[j].permute(1, 2, 0).cpu().numpy()
-                out_frame = np.clip(out_frame * PIXEL_DENORMALIZATION_FACTOR, 0, 255).astype(np.uint8)
+                out_frame = np.clip(
+                    out_frame * PIXEL_DENORMALIZATION_FACTOR, 0, 255
+                ).astype(np.uint8)
                 out_frame = cv2.cvtColor(out_frame, cv2.COLOR_RGB2BGR)
                 results.append(out_frame)
 

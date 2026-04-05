@@ -41,7 +41,9 @@ class LocalModelManager:
         self.config_manager = get_config_manager()
         self.config = self.config_manager.config
         # 跟踪已加载的模型，用于卸载时清理
-        self._loaded_models: dict[str, tuple[Any, Any]] = {}  # huggingface_id -> (model, tokenizer)
+        self._loaded_models: dict[str, tuple[Any, Any]] = (
+            {}
+        )  # huggingface_id -> (model, tokenizer)
         self._models_lock = threading.Lock()
 
     def get_model_path(self) -> str:
@@ -161,10 +163,15 @@ class LocalModelManager:
             if huggingface_id in self._loaded_models:
                 cached_model, cached_tokenizer = self._loaded_models[huggingface_id]
                 if cached_model is not None and cached_tokenizer is not None:
-                    log_info(f"[LocalModelManager] 模型已加载，直接复用: {huggingface_id}")
+                    log_info(
+                        f"[LocalModelManager] 模型已加载，直接复用: {huggingface_id}"
+                    )
                     translate_callable = self._create_translate_callable(
-                        cached_model, cached_tokenizer, huggingface_id,
-                        src_lang, tgt_lang,
+                        cached_model,
+                        cached_tokenizer,
+                        huggingface_id,
+                        src_lang,
+                        tgt_lang,
                     )
                     return translate_callable, True
 
@@ -172,7 +179,9 @@ class LocalModelManager:
         import torch
 
         log_info(f"[LocalModelManager] Starting model loading for: {huggingface_id}")
-        log_info(f"[LocalModelManager] Device: {device}, src_lang: {src_lang}, tgt_lang: {tgt_lang}")
+        log_info(
+            f"[LocalModelManager] Device: {device}, src_lang: {src_lang}, tgt_lang: {tgt_lang}"
+        )
 
         from transformers import AutoModelForSeq2SeqLM, AutoTokenizer
 
@@ -182,7 +191,9 @@ class LocalModelManager:
             log_warning(f"Unknown model ID: {huggingface_id}")
             return None, False
 
-        log_info(f"[LocalModelManager] Model info: {model_info.display_name}, size: {model_info.model_size_mb / 1024:.1f} GB")
+        log_info(
+            f"[LocalModelManager] Model info: {model_info.display_name}, size: {model_info.model_size_mb / 1024:.1f} GB"
+        )
 
         # Try to load from local storage
         log_info(f"[LocalModelManager] Checking local model path...")
@@ -196,18 +207,24 @@ class LocalModelManager:
 
         try:
             log_info(f"[LocalModelManager] Loading model {model_info.display_name}...")
-            log_info(f"[LocalModelManager] This may take a few minutes for large models...")
+            log_info(
+                f"[LocalModelManager] This may take a few minutes for large models..."
+            )
             log_debug(f"[LocalModelManager] progress callback: {progress is not None}")
 
             # Determine torch dtype based on precision
             torch_dtype = torch.float32
             if model_info.precision == "fp16":
                 torch_dtype = torch.float16
-            log_info(f"[LocalModelManager] Using precision: {model_info.precision}, torch_dtype: {torch_dtype}")
+            log_info(
+                f"[LocalModelManager] Using precision: {model_info.precision}, torch_dtype: {torch_dtype}"
+            )
 
             # Load tokenizer and model directly (safetensors format)
             if progress:
-                log_debug("[LocalModelManager] Calling progress.update(6, 'Loading tokenizer...')")
+                log_debug(
+                    "[LocalModelManager] Calling progress.update(6, 'Loading tokenizer...')"
+                )
                 progress.update(6, "Loading tokenizer...")
             log_info(f"[LocalModelManager] Loading tokenizer...")
             tokenizer = AutoTokenizer.from_pretrained(local_path)
@@ -215,10 +232,18 @@ class LocalModelManager:
 
             # Model loading - this is the slow step, provide more frequent updates
             if progress:
-                log_debug("[LocalModelManager] Calling progress.update(8, 'Loading model weights...')")
-                progress.update(8, "Loading model weights (this may take a few minutes)...")
-            log_info(f"[LocalModelManager] Loading model weights (this is the slow step)...")
-            log_info(f"[LocalModelManager] Model size: {model_info.model_size_mb / 1024:.1f} GB - please wait...")
+                log_debug(
+                    "[LocalModelManager] Calling progress.update(8, 'Loading model weights...')"
+                )
+                progress.update(
+                    8, "Loading model weights (this may take a few minutes)..."
+                )
+            log_info(
+                f"[LocalModelManager] Loading model weights (this is the slow step)..."
+            )
+            log_info(
+                f"[LocalModelManager] Model size: {model_info.model_size_mb / 1024:.1f} GB - please wait..."
+            )
 
             # Heartbeat progress mechanism to keep UI responsive during blocking load
             class HeartbeatProgress:
@@ -239,7 +264,8 @@ class LocalModelManager:
                             pct = 8 + (self._counter % 5)
                             elapsed = self._counter * self.interval
                             self.progress_callback.update(
-                                pct, f"Loading model weights... ({elapsed:.0f}s elapsed)"
+                                pct,
+                                f"Loading model weights... ({elapsed:.0f}s elapsed)",
                             )
                         self._stop_event.wait(self.interval)
 
@@ -252,13 +278,16 @@ class LocalModelManager:
                     if self._thread:
                         self._thread.join(timeout=5.0)  # 增加超时到 5 秒
                         if self._thread.is_alive():
-                            log_warning("HeartbeatProgress thread did not stop gracefully within timeout")
+                            log_warning(
+                                "HeartbeatProgress thread did not stop gracefully within timeout"
+                            )
 
             # Start heartbeat before blocking call
             heartbeat = HeartbeatProgress(progress, interval=2.0)
             heartbeat.start()
 
             import time
+
             start_time = time.time()
             try:
                 model = AutoModelForSeq2SeqLM.from_pretrained(
@@ -268,16 +297,22 @@ class LocalModelManager:
                 # Always stop heartbeat, even if loading fails
                 heartbeat.stop()
             elapsed = time.time() - start_time
-            log_info(f"[LocalModelManager] Model weights loaded into memory in {elapsed:.1f} seconds")
+            log_info(
+                f"[LocalModelManager] Model weights loaded into memory in {elapsed:.1f} seconds"
+            )
 
             # Update progress after model is loaded
             if progress:
-                log_debug("[LocalModelManager] Calling progress.update(10, 'Model weights loaded')")
+                log_debug(
+                    "[LocalModelManager] Calling progress.update(10, 'Model weights loaded')"
+                )
                 progress.update(10, "Model weights loaded into memory")
 
             # Move model to specified device
             if progress:
-                log_debug(f"[LocalModelManager] Calling progress.update(12, 'Moving model to {device}...')")
+                log_debug(
+                    f"[LocalModelManager] Calling progress.update(12, 'Moving model to {device}...')"
+                )
                 progress.update(12, f"Moving model to {device}...")
             log_info(f"[LocalModelManager] Moving model to device: {device}")
             if device == "cuda" and torch.cuda.is_available():
@@ -285,7 +320,9 @@ class LocalModelManager:
                 model = model.to("cuda")
                 log_info(f"[LocalModelManager] Model moved to CUDA successfully")
             elif device == "mps" and torch.backends.mps.is_available():
-                log_info(f"[LocalModelManager] MPS available, moving model to Apple Silicon GPU...")
+                log_info(
+                    f"[LocalModelManager] MPS available, moving model to Apple Silicon GPU..."
+                )
                 model = model.to("mps")
                 log_info(f"[LocalModelManager] Model moved to MPS successfully")
             else:
@@ -294,11 +331,17 @@ class LocalModelManager:
             # 记录已加载的模型，用于卸载
             with self._models_lock:
                 self._loaded_models[huggingface_id] = (model, tokenizer)
-            log_debug(f"[LocalModelManager] Model tracked for cleanup: {huggingface_id}")
+            log_debug(
+                f"[LocalModelManager] Model tracked for cleanup: {huggingface_id}"
+            )
 
             # 使用预解析语言代码的 callable
             translate_callable = self._create_translate_callable(
-                model, tokenizer, huggingface_id, src_lang, tgt_lang,
+                model,
+                tokenizer,
+                huggingface_id,
+                src_lang,
+                tgt_lang,
             )
 
             if progress:
@@ -324,13 +367,74 @@ class LocalModelManager:
         # M2M100 支持的语言代码（ISO 639-1）
         # 参考: https://huggingface.co/facebook/m2m100_1.2B
         m2m100_supported = {
-            "zh", "en", "ja", "ko", "fr", "de", "es", "ru", "it", "pt",
-            "nl", "ar", "hi", "vi", "th", "tr", "pl", "uk", "id", "ms",
-            "cs", "da", "el", "fi", "hu", "no", "ro", "sk", "sv", "bg",
-            "bn", "ca", "hr", "he", "lt", "lv", "sr", "sl", "ta", "te",
-            "ml", "mr", "ne", "pa", "si", "sw", "ur", "af", "am", "az",
-            "eu", "gl", "ka", "kk", "km", "ky", "lo", "mk", "mn", "my",
-            "ps", "sq", "tg", "tk", "uz", "xh", "yo", "zu"
+            "zh",
+            "en",
+            "ja",
+            "ko",
+            "fr",
+            "de",
+            "es",
+            "ru",
+            "it",
+            "pt",
+            "nl",
+            "ar",
+            "hi",
+            "vi",
+            "th",
+            "tr",
+            "pl",
+            "uk",
+            "id",
+            "ms",
+            "cs",
+            "da",
+            "el",
+            "fi",
+            "hu",
+            "no",
+            "ro",
+            "sk",
+            "sv",
+            "bg",
+            "bn",
+            "ca",
+            "hr",
+            "he",
+            "lt",
+            "lv",
+            "sr",
+            "sl",
+            "ta",
+            "te",
+            "ml",
+            "mr",
+            "ne",
+            "pa",
+            "si",
+            "sw",
+            "ur",
+            "af",
+            "am",
+            "az",
+            "eu",
+            "gl",
+            "ka",
+            "kk",
+            "km",
+            "ky",
+            "lo",
+            "mk",
+            "mn",
+            "my",
+            "ps",
+            "sq",
+            "tg",
+            "tk",
+            "uz",
+            "xh",
+            "yo",
+            "zu",
         }
         # 提取主语言代码，忽略 locale 标签（如 zh-CN → zh）
         primary = lang.lower().split("-")[0].split("_")[0]
@@ -393,11 +497,15 @@ class LocalModelManager:
         # 创建时预解析语言代码
         src_code = self._get_lang_code(src_lang) if src_lang else "en"
         if src_code is None:
-            log_warning(f"Unsupported source language for M2M100: {src_lang}, using 'en'")
+            log_warning(
+                f"Unsupported source language for M2M100: {src_lang}, using 'en'"
+            )
             src_code = "en"
         tgt_code = self._get_lang_code(tgt_lang) if tgt_lang else "en"
         if tgt_code is None:
-            log_warning(f"Unsupported target language for M2M100: {tgt_lang}, using 'en'")
+            log_warning(
+                f"Unsupported target language for M2M100: {tgt_lang}, using 'en'"
+            )
             tgt_code = "en"
 
         # 使用弱引用避免循环引用
@@ -463,9 +571,7 @@ class LocalModelManager:
 
             decoded = t.batch_decode(translated, skip_special_tokens=True)
 
-            log_debug(
-                f"[Translation] Batch output: {len(decoded)} result(s)"
-            )
+            log_debug(f"[Translation] Batch output: {len(decoded)} result(s)")
 
             results = [{"translation_text": d} for d in decoded]
 
@@ -490,7 +596,9 @@ class LocalModelManager:
 
         with self._models_lock:
             if huggingface_id not in self._loaded_models:
-                log_debug(f"[LocalModelManager] Model not loaded, nothing to unload: {huggingface_id}")
+                log_debug(
+                    f"[LocalModelManager] Model not loaded, nothing to unload: {huggingface_id}"
+                )
                 return False
 
             model, tokenizer = self._loaded_models.pop(huggingface_id)

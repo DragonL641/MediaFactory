@@ -73,13 +73,13 @@ class ModelInfo:
         license: Model license type
         language_support: Description of language support
         precision: Model precision (fp32, fp16, q4k, q8k)
-        
+
         # Download configuration
         download_mode: REPO for full repository, FILE for single file
         huggingface_repo: HuggingFace repository ID (required for download)
         huggingface_filename: Filename for single file download (optional)
         local_filename: Local filename after download (optional, defaults to huggingface_filename)
-        
+
         # Optional fields
         recommended_system_mb: Recommended system RAM in MB (0 = auto-calculate)
         requires_prompt: Whether the model requires special prompt formatting
@@ -96,13 +96,13 @@ class ModelInfo:
     model_size_mb: int  # 统一使用 MB
     runtime_memory_mb: int
     license: LicenseType
-    
+
     # 下载配置
     download_mode: DownloadMode = DownloadMode.REPO
     huggingface_repo: str = ""  # 默认与 huggingface_id 相同
     huggingface_filename: Optional[str] = None  # 单文件下载时的文件名
     local_filename: Optional[str] = None  # 本地保存的文件名
-    
+
     # 可选字段
     language_support: str = ""
     precision: str = ""
@@ -120,28 +120,30 @@ class ModelInfo:
         # 默认 huggingface_repo 与 huggingface_id 相同
         if not self.huggingface_repo:
             self.huggingface_repo = self.huggingface_id
-        
+
         # 默认 local_filename 与 huggingface_filename 相同
         if self.huggingface_filename and not self.local_filename:
             self.local_filename = self.huggingface_filename
-        
+
         # Calculate recommended system memory if not manually set
         if self.recommended_system_mb == 0 and self.runtime_memory_mb > 0:
             # Formula: runtime_memory × 4, rounded up to nearest tier
-            self.recommended_system_mb = get_memory_tier(self.runtime_memory_mb / 1024 * 4) * 1024
+            self.recommended_system_mb = (
+                get_memory_tier(self.runtime_memory_mb / 1024 * 4) * 1024
+            )
 
     def __hash__(self):
         return hash(self.huggingface_id)
-    
+
     # 兼容属性（GB 单位）
     @property
     def model_size_gb(self) -> float:
         return self.model_size_mb / 1024
-    
+
     @property
     def runtime_memory_gb(self) -> float:
         return self.runtime_memory_mb / 1024
-    
+
     @property
     def recommended_system_gb(self) -> int:
         return self.recommended_system_mb // 1024 if self.recommended_system_mb else 0
@@ -231,7 +233,7 @@ MODEL_REGISTRY: dict[str, ModelInfo] = {
         metadata={"scale": 4, "type": "anime"},
     ),
     # ========== Enhancement Models: Denoise (NAFNet) ==========
-"NAFNet-GoPro-width64": ModelInfo(
+    "NAFNet-GoPro-width64": ModelInfo(
         huggingface_id="NAFNet-GoPro-width64",
         display_name="NAFNet Denoiser (GoPro)",
         model_type=ModelType.DENOISE,
@@ -538,6 +540,7 @@ def get_display_name(huggingface_id: str) -> str:
 
 # ==================== Enhancement Model Functions ====================
 
+
 def get_all_enhancement_models() -> List[ModelInfo]:
     """获取所有增强模型。
 
@@ -546,8 +549,7 @@ def get_all_enhancement_models() -> List[ModelInfo]:
     """
     enhancement_types = {ModelType.SUPER_RESOLUTION, ModelType.DENOISE}
     return [
-        info for info in MODEL_REGISTRY.values()
-        if info.model_type in enhancement_types
+        info for info in MODEL_REGISTRY.values() if info.model_type in enhancement_types
     ]
 
 
@@ -560,15 +562,11 @@ def get_enhancement_models_by_type(model_type: ModelType) -> List[ModelInfo]:
     Returns:
         List of ModelInfo objects of the specified type
     """
-    return [
-        info for info in MODEL_REGISTRY.values()
-        if info.model_type == model_type
-    ]
+    return [info for info in MODEL_REGISTRY.values() if info.model_type == model_type]
 
 
 def get_enhancement_model_by_scale_and_type(
-    scale: int,
-    model_subtype: str = "general"
+    scale: int, model_subtype: str = "general"
 ) -> Optional[str]:
     """根据放大倍数和类型获取超分辨率模型名称。
 
@@ -581,8 +579,10 @@ def get_enhancement_model_by_scale_and_type(
     """
     for model_id, info in MODEL_REGISTRY.items():
         if info.model_type == ModelType.SUPER_RESOLUTION:
-            if (info.metadata.get("scale") == scale and
-                info.metadata.get("type") == model_subtype):
+            if (
+                info.metadata.get("scale") == scale
+                and info.metadata.get("type") == model_subtype
+            ):
                 return model_id
     return None
 
@@ -604,9 +604,11 @@ def is_enhancement_model(model_id: str) -> bool:
 
 # ==================== Model Storage Paths ====================
 
+
 def get_models_base_dir() -> Path:
     """获取模型存储基础目录。"""
     from ..config import get_app_root_dir
+
     return get_app_root_dir() / "models"
 
 
@@ -627,7 +629,7 @@ def get_model_local_path(model_id: str) -> Optional[Path]:
     info = MODEL_REGISTRY.get(model_id)
     if info is None:
         return None
-    
+
     if info.download_mode == DownloadMode.FILE:
         # 单文件模型存储在 enhancement 目录
         filename = info.local_filename or info.huggingface_filename
@@ -638,7 +640,7 @@ def get_model_local_path(model_id: str) -> Optional[Path]:
         # 仓库模型存储在以 huggingface_id 命名的目录
         path = get_models_base_dir() / model_id
         return path if path.exists() else None
-    
+
     return None
 
 
@@ -666,11 +668,11 @@ def is_model_complete(model_id: str) -> bool:
     info = MODEL_REGISTRY.get(model_id)
     if info is None:
         return False
-    
+
     path = get_model_local_path(model_id)
     if path is None:
         return False
-    
+
     if info.download_mode == DownloadMode.FILE:
         # 单文件模型：校验文件大小（至少达到期望大小的 95%）
         if not path.is_file():
@@ -691,13 +693,21 @@ def is_model_complete(model_id: str) -> bool:
         # 单次扫描目录，过滤模型文件后缀
         valid_suffixes = {".bin", ".safetensors", ".gguf", ".onnx", ".pt", ".ckpt"}
         for entry in path.iterdir():
-            if entry.is_file() and entry.suffix in valid_suffixes and entry.stat().st_size >= 1_000_000:
+            if (
+                entry.is_file()
+                and entry.suffix in valid_suffixes
+                and entry.stat().st_size >= 1_000_000
+            ):
                 return True
 
         # 某些 pipeline 模型（如 pyannote）没有权重文件，只有配置 + handler
         # 检查目录中是否有实质性内容（非隐藏文件、非 README）
         for entry in path.iterdir():
-            if entry.is_file() and not entry.name.startswith(".") and entry.name != "README.md":
+            if (
+                entry.is_file()
+                and not entry.name.startswith(".")
+                and entry.name != "README.md"
+            ):
                 return True
 
         return False
@@ -714,6 +724,7 @@ def get_all_model_statuses() -> Dict[str, bool]:
 
 # Backward compatibility alias
 ENHANCEMENT_MODEL_REGISTRY = {
-    model_id: info for model_id, info in MODEL_REGISTRY.items()
+    model_id: info
+    for model_id, info in MODEL_REGISTRY.items()
     if is_enhancement_model(model_id)
 }

@@ -44,11 +44,13 @@ def _invalidate_models_status_cache():
 
 class DownloadRequest(BaseModel):
     """下载请求"""
+
     pass
 
 
 class LLMTestRequest(BaseModel):
     """LLM 测试请求"""
+
     preset: str = "openai"
 
 
@@ -63,7 +65,10 @@ async def get_models_status() -> Dict[str, Any]:
     global _models_status_cache, _models_status_cache_time
 
     # 检查缓存
-    if _models_status_cache and (time.time() - _models_status_cache_time) < _MODELS_STATUS_CACHE_TTL:
+    if (
+        _models_status_cache
+        and (time.time() - _models_status_cache_time) < _MODELS_STATUS_CACHE_TTL
+    ):
         return _models_status_cache
 
     whisper_status = _status_service.get_whisper_status()
@@ -75,6 +80,7 @@ async def get_models_status() -> Dict[str, Any]:
 
     # 一次性获取 config，传递给子函数
     from mediafactory.config import get_config
+
     config = get_config()
 
     enhancement_models = _get_enhancement_model_statuses(config)
@@ -141,35 +147,42 @@ def _get_model_statuses_by_type(model_type) -> List[Dict[str, Any]]:
         if info.model_type != model_type:
             continue
         downloaded = is_model_downloaded(model_id)
-        result.append({
-            "id": model_id,
-            "name": info.display_name,
-            "purpose": info.purpose or info.display_name,
-            "size": _format_size(info.model_size_mb),
-            "memory": _format_size(info.runtime_memory_mb),
-            "vram": _format_size(info.runtime_vram_mb) if info.runtime_vram_mb else "",
-            "description": info.description or "",
-            "downloaded": downloaded,
-            "complete": is_model_complete(model_id) if downloaded else False,
-        })
+        result.append(
+            {
+                "id": model_id,
+                "name": info.display_name,
+                "purpose": info.purpose or info.display_name,
+                "size": _format_size(info.model_size_mb),
+                "memory": _format_size(info.runtime_memory_mb),
+                "vram": (
+                    _format_size(info.runtime_vram_mb) if info.runtime_vram_mb else ""
+                ),
+                "description": info.description or "",
+                "downloaded": downloaded,
+                "complete": is_model_complete(model_id) if downloaded else False,
+            }
+        )
     return result
 
 
 def _get_whisper_model_statuses() -> List[Dict[str, Any]]:
     """获取 Whisper 模型状态列表"""
     from mediafactory.models.model_registry import ModelType
+
     return _get_model_statuses_by_type(ModelType.WHISPER)
 
 
 def _get_enhancement_model_statuses(config) -> List[Dict[str, Any]]:
     """获取 Real-ESRGAN 增强模型状态"""
     from mediafactory.models.model_registry import ModelType
+
     return _get_model_statuses_by_type(ModelType.SUPER_RESOLUTION)
 
 
 def _get_denoise_model_statuses(config) -> List[Dict[str, Any]]:
     """获取 NAFNet 降噪模型状态"""
     from mediafactory.models.model_registry import ModelType
+
     return _get_model_statuses_by_type(ModelType.DENOISE)
 
 
@@ -249,6 +262,7 @@ async def start_model_download(
 
     # 从配置读取下载源
     from mediafactory.config import get_config
+
     download_config = get_config()
     download_source = download_config.model.download_source
     endpoint = None if download_source == "https://huggingface.co" else download_source
@@ -293,6 +307,7 @@ async def start_model_download(
             def sync_progress(p: float, m: str = ""):
                 # 从下载线程安全地调度到主事件循环
                 import time as _time
+
                 now = _time.monotonic()
                 # 节流：非 100% 进度时，限制最小间隔
                 if p < 0.99 and (now - _last_progress_time[0]) < _PROGRESS_THROTTLE_SEC:
@@ -316,9 +331,13 @@ async def start_model_download(
 
             # 更新任务状态为 COMPLETED
             await task_manager.update_task_status(
-                task_id, TS.COMPLETED,
-                progress=100, stage="download",
-                result=TR(task_id=task_id, success=True, output_path=f"models/{model_id}"),
+                task_id,
+                TS.COMPLETED,
+                progress=100,
+                stage="download",
+                result=TR(
+                    task_id=task_id, success=True, output_path=f"models/{model_id}"
+                ),
             )
 
             await ws_manager.broadcast_task_complete(
@@ -331,9 +350,13 @@ async def start_model_download(
             logger.exception(f"Download failed: {e}")
             # 更新任务状态为 FAILED
             await task_manager.update_task_status(
-                task_id, TS.FAILED, stage="download",
+                task_id,
+                TS.FAILED,
+                stage="download",
                 result=TR(
-                    task_id=task_id, success=False, error=sanitize_error(e),
+                    task_id=task_id,
+                    success=False,
+                    error=sanitize_error(e),
                     error_type=type(e).__name__,
                 ),
             )

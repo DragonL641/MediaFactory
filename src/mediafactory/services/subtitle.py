@@ -71,7 +71,9 @@ class SubtitleService:
                         use_llm_backend=True,
                     )
                 else:
-                    log_error("LLM backend initialization failed, falling back to local model")
+                    log_error(
+                        "LLM backend initialization failed, falling back to local model"
+                    )
                     translation_engine = TranslationEngine()
             else:
                 translation_engine = TranslationEngine()

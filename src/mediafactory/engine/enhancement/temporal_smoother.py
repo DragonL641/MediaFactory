@@ -15,6 +15,7 @@ import numpy as np
 @dataclass
 class TemporalSmootherConfig:
     """时序平滑器配置"""
+
     # 窗口大小（必须是奇数，默认3：前一帧、当前帧、后一帧）
     window_size: int = 3
     # 混合强度（0.0-1.0，越大平滑效果越强）
@@ -81,7 +82,7 @@ class TemporalSmoother:
         sigma = center / 2.0 if center > 0 else 1.0
 
         for i in range(window_size):
-            weights[i] = np.exp(-((i - center) ** 2) / (2 * sigma ** 2))
+            weights[i] = np.exp(-((i - center) ** 2) / (2 * sigma**2))
 
         # 归一化
         weights /= weights.sum()
@@ -207,13 +208,15 @@ class TemporalSmoother:
             weights = np.zeros(n, dtype=np.float32)
             sigma = center / 2.0 if center > 0 else 1.0
             for i in range(n):
-                weights[i] = np.exp(-((i - center) ** 2) / (2 * sigma ** 2))
+                weights[i] = np.exp(-((i - center) ** 2) / (2 * sigma**2))
             weights /= weights.sum()
 
         # 根据混合强度调整权重
         # strength=0 时只有中心帧，strength=1 时完全混合
         adjusted_weights = np.copy(weights)
-        adjusted_weights[center] += (1 - adjusted_weights[center]) * (1 - self.config.strength)
+        adjusted_weights[center] += (1 - adjusted_weights[center]) * (
+            1 - self.config.strength
+        )
         # 重新归一化
         adjusted_weights /= adjusted_weights.sum()
 
@@ -255,17 +258,19 @@ class TemporalSmoother:
                 None,
                 fx=self.config.flow_resolution_scale,
                 fy=self.config.flow_resolution_scale,
-                interpolation=cv2.INTER_AREA
+                interpolation=cv2.INTER_AREA,
             )
         else:
             flow_gray = gray
 
         # 添加到缓冲区
-        self._buffer.append((
-            original_frame.copy(),
-            enhanced_frame.copy(),
-            flow_gray,
-        ))
+        self._buffer.append(
+            (
+                original_frame.copy(),
+                enhanced_frame.copy(),
+                flow_gray,
+            )
+        )
 
         # 缓冲区未满，延迟输出
         half_window = self.config.window_size // 2
@@ -338,8 +343,10 @@ class TemporalSmoother:
                 # 剩余两帧，简单平均
                 frames = list(self._buffer)
                 result = cv2.addWeighted(
-                    frames[0][1], 0.5,
-                    frames[1][1], 0.5,
+                    frames[0][1],
+                    0.5,
+                    frames[1][1],
+                    0.5,
                     0,
                 )
                 results.append(result)

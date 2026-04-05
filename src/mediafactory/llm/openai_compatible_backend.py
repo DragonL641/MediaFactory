@@ -502,24 +502,20 @@ class OpenAICompatibleBackend(TranslationBackend):
         result = self._parse_json_response(response)
 
         if result and self._validate_keys(result, batch):
-            return BatchResult(
-                translations=[result[str(i)] for i in range(len(batch))]
-            )
+            return BatchResult(translations=[result[str(i)] for i in range(len(batch))])
 
         # 2. 行数不匹配，尝试纠正
-        log_warning(
-            f"[OpenAI-Compatible] 批次验证失败（{len(batch)} 句），尝试纠正..."
-        )
+        log_warning(f"[OpenAI-Compatible] 批次验证失败（{len(batch)} 句），尝试纠正...")
         corrected = self._call_llm_batch(
-            batch, tgt_name, cancelled_callback,
-            error_hint=f"上次返回行数不正确，期望{len(batch)}行，请严格按JSON格式返回"
+            batch,
+            tgt_name,
+            cancelled_callback,
+            error_hint=f"上次返回行数不正确，期望{len(batch)}行，请严格按JSON格式返回",
         )
         result = self._parse_json_response(corrected)
 
         if result and self._validate_keys(result, batch):
-            return BatchResult(
-                translations=[result[str(i)] for i in range(len(batch))]
-            )
+            return BatchResult(translations=[result[str(i)] for i in range(len(batch))])
 
         # 3. 纠正失败，尝试二分
         if allow_split and len(batch) >= self._split_threshold:
@@ -540,15 +536,12 @@ class OpenAICompatibleBackend(TranslationBackend):
             return BatchResult(
                 translations=first.translations + second.translations,
                 failed_indices=(
-                    first.failed_indices
-                    + [half + i for i in second.failed_indices]
+                    first.failed_indices + [half + i for i in second.failed_indices]
                 ),
             )
 
         # 4. 不再二分，记录失败
-        log_warning(
-            f"[OpenAI-Compatible] 批次 {len(batch)} 句无法翻译，记录失败位置"
-        )
+        log_warning(f"[OpenAI-Compatible] 批次 {len(batch)} 句无法翻译，记录失败位置")
         return BatchResult(
             translations=list(batch),
             failed_indices=list(range(len(batch))),
@@ -616,8 +609,7 @@ class OpenAICompatibleBackend(TranslationBackend):
             return BatchResult(
                 translations=first.translations + second.translations,
                 failed_indices=(
-                    first.failed_indices
-                    + [half + i for i in second.failed_indices]
+                    first.failed_indices + [half + i for i in second.failed_indices]
                 ),
             )
 
@@ -678,8 +670,7 @@ class OpenAICompatibleBackend(TranslationBackend):
         """
         prompt = self._get_batch_prompt(tgt_name, error_hint)
         input_json = json.dumps(
-            {str(i): t for i, t in enumerate(batch)},
-            ensure_ascii=False
+            {str(i): t for i, t in enumerate(batch)}, ensure_ascii=False
         )
         user_content = f"请将以下内容翻译为{tgt_name}：\n{input_json}"
         return self._call_llm(prompt, user_content, cancelled_callback)
@@ -743,7 +734,9 @@ class OpenAICompatibleBackend(TranslationBackend):
         result_keys = set(result.keys())
         return expected_keys == result_keys
 
-    def _get_batch_prompt(self, target_language: str, error_hint: Optional[str] = None) -> str:
+    def _get_batch_prompt(
+        self, target_language: str, error_hint: Optional[str] = None
+    ) -> str:
         """获取批量翻译 prompt。"""
         from ..utils.prompt_loader import get_prompt
 

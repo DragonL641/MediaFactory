@@ -43,11 +43,13 @@ async def lifespan(app: FastAPI):
 
     # 启动时：初始化 i18n
     from mediafactory.i18n import init_i18n
+
     init_i18n()
 
     # 启动时：后台异步同步本地模型列表到配置文件（避免阻塞启动）
     import asyncio
     from mediafactory.config import get_config_manager
+
     config_manager = get_config_manager()
     loop = asyncio.get_event_loop()
 
@@ -68,7 +70,9 @@ async def lifespan(app: FastAPI):
     # 关闭时：清理所有任务
     logger.info("FastAPI application shutting down...")
     await task_manager.shutdown()
-    await ws_manager.broadcast({"type": "server_shutdown", "message": "Server is shutting down"})
+    await ws_manager.broadcast(
+        {"type": "server_shutdown", "message": "Server is shutting down"}
+    )
 
 
 def create_app() -> FastAPI:
@@ -155,6 +159,7 @@ def start_server(port: int = 8765):
 
     # 初始化 loguru 统一日志（确保日志文件已创建）
     from mediafactory.logging import setup_app_logging, setup_logging_intercept
+
     setup_app_logging()
     setup_logging_intercept()
 

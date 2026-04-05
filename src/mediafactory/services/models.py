@@ -17,6 +17,7 @@ from mediafactory.api.error_handler import sanitize_error
 @dataclass
 class ModelStatusInfo:
     """模型状态信息"""
+
     name: str
     loaded: bool = False
     available: bool = False
@@ -26,6 +27,7 @@ class ModelStatusInfo:
 @dataclass
 class ModelInfo:
     """模型信息"""
+
     id: str
     name: str
     tier: str  # light, standard, heavy
@@ -119,31 +121,35 @@ class ModelStatusService:
             else:
                 tier = "light"
 
-            models.append({
-                "id": model_id,
-                "name": info.display_name,
-                "purpose": info.purpose or info.display_name,
-                "tier": tier,
-                "memory": f"{info.runtime_memory_gb:.0f} GB",
-                "size": f"{info.model_size_mb // 1024} GB",
-                "vram": f"{info.runtime_vram_gb:.0f} GB" if info.runtime_vram_mb else "",
-                "downloaded": downloaded,
-                "complete": complete,
-            })
+            models.append(
+                {
+                    "id": model_id,
+                    "name": info.display_name,
+                    "purpose": info.purpose or info.display_name,
+                    "tier": tier,
+                    "memory": f"{info.runtime_memory_gb:.0f} GB",
+                    "size": f"{info.model_size_mb // 1024} GB",
+                    "vram": (
+                        f"{info.runtime_vram_gb:.0f} GB" if info.runtime_vram_mb else ""
+                    ),
+                    "downloaded": downloaded,
+                    "complete": complete,
+                }
+            )
 
         return models
 
     def get_llm_status(self) -> ModelStatusInfo:
         """获取 LLM API 状态"""
         try:
-            oa_config = getattr(self.config, 'openai_compatible', None)
+            oa_config = getattr(self.config, "openai_compatible", None)
             current_preset = oa_config.current_preset if oa_config else None
 
             # 检查是否配置了 API key
             available = False
             if current_preset and oa_config:
                 preset_config = oa_config.get_preset_config(current_preset)
-                api_key = getattr(preset_config, 'api_key', '')
+                api_key = getattr(preset_config, "api_key", "")
                 available = bool(api_key and api_key != "sk-xxx")
 
             return ModelStatusInfo(
@@ -164,8 +170,8 @@ class ModelStatusService:
     def get_llm_config(self) -> Optional[Dict[str, Any]]:
         """获取 LLM 配置"""
         try:
-            oa_config = getattr(self.config, 'openai_compatible', None)
-            llm_config = getattr(self.config, 'llm_api', None)
+            oa_config = getattr(self.config, "openai_compatible", None)
+            llm_config = getattr(self.config, "llm_api", None)
             if not oa_config:
                 return None
 
@@ -222,12 +228,13 @@ class ModelStatusService:
         results = {}
 
         try:
-            llm_config = getattr(self.config, 'openai_compatible', None)
+            llm_config = getattr(self.config, "openai_compatible", None)
             if not llm_config:
                 return {"error": "LLM config not found"}
 
             preset_names = [
-                name for name in ("openai", "deepseek", "glm", "qwen", "moonshot", "custom")
+                name
+                for name in ("openai", "deepseek", "glm", "qwen", "moonshot", "custom")
                 if getattr(llm_config, name, None) and getattr(llm_config, name).api_key
             ]
             if not preset_names:
@@ -290,19 +297,17 @@ class ModelStatusService:
             # 增强: 所有 SUPER_RESOLUTION + DENOISE 模型都必须已下载且完整
             enhancement_types = {ModelType.SUPER_RESOLUTION, ModelType.DENOISE}
             enhancement_models = [
-                (mid, info) for mid, info in MODEL_REGISTRY.items()
+                (mid, info)
+                for mid, info in MODEL_REGISTRY.items()
                 if info.model_type in enhancement_types
             ]
-            enhancement_ready = (
-                len(enhancement_models) > 0
-                and all(
-                    is_model_downloaded(mid) and is_model_complete(mid)
-                    for mid, _ in enhancement_models
-                )
+            enhancement_ready = len(enhancement_models) > 0 and all(
+                is_model_downloaded(mid) and is_model_complete(mid)
+                for mid, _ in enhancement_models
             )
 
             # LLM: 检查预设配置状态
-            oa_config = getattr(self.config, 'openai_compatible', None)
+            oa_config = getattr(self.config, "openai_compatible", None)
             preset_names = ("openai", "deepseek", "glm", "qwen", "moonshot", "custom")
 
             configured_presets: List[str] = []
@@ -310,18 +315,18 @@ class ModelStatusService:
             current_ready = False
 
             if oa_config:
-                current_preset = getattr(oa_config, 'current_preset', None)
+                current_preset = getattr(oa_config, "current_preset", None)
 
                 for name in preset_names:
                     preset_cfg = getattr(oa_config, name, None)
-                    if preset_cfg and getattr(preset_cfg, 'api_key', ''):
+                    if preset_cfg and getattr(preset_cfg, "api_key", ""):
                         configured_presets.append(name)
 
                 # 当前预设是否已配置（有 api_key）
                 if current_preset:
                     try:
                         preset_config = oa_config.get_preset_config(current_preset)
-                        api_key = getattr(preset_config, 'api_key', '')
+                        api_key = getattr(preset_config, "api_key", "")
                         current_ready = bool(api_key and api_key != "sk-xxx")
                     except (ValueError, AttributeError):
                         current_ready = False

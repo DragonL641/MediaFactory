@@ -65,9 +65,7 @@ class ConnectionManager:
             task_id = data.get("task_id")
             if task_id:
                 await self.subscribe(websocket, task_id)
-                await websocket.send_json(
-                    {"type": "subscribed", "task_id": task_id}
-                )
+                await websocket.send_json({"type": "subscribed", "task_id": task_id})
         elif msg_type == "unsubscribe":
             task_id = data.get("task_id")
             if task_id:

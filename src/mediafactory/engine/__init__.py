@@ -18,7 +18,11 @@ def __getattr__(name):
     """Lazy import for video enhancement that requires torch."""
     global VideoEnhancementEngine, EnhancementConfig, create_enhancement_engine
 
-    if name in ("VideoEnhancementEngine", "EnhancementConfig", "create_enhancement_engine"):
+    if name in (
+        "VideoEnhancementEngine",
+        "EnhancementConfig",
+        "create_enhancement_engine",
+    ):
         from .video_enhancement import (
             VideoEnhancementEngine as _VideoEnhancementEngine,
             EnhancementConfig as _EnhancementConfig,

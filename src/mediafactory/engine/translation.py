@@ -55,6 +55,7 @@ class TranslationEngine:
         # 自动检测设备
         if device == "auto":
             from ..models.whisper_runtime import select_device
+
             self.device = select_device()
         else:
             self.device = device
@@ -100,9 +101,7 @@ class TranslationEngine:
                 actual_src_lang = detection_result.primary_language
 
                 if not actual_src_lang:
-                    log_warning(
-                        t("error.sourceLanguageNotDetected")
-                    )
+                    log_warning(t("error.sourceLanguageNotDetected"))
                     return result
 
                 if actual_src_lang == tgt_lang:
@@ -223,14 +222,20 @@ class TranslationEngine:
         )
         log_info(f"[TranslationEngine] Using device: {self.device}")
         log_info(f"[TranslationEngine] Model type: {self.model_type}")
-        log_debug(f"[TranslationEngine] progress callback: {progress is not None}, type: {type(progress).__name__}")
+        log_debug(
+            f"[TranslationEngine] progress callback: {progress is not None}, type: {type(progress).__name__}"
+        )
 
         # 加载模型
         log_info(
             f"[TranslationEngine] Loading translation model for {src_lang} -> {tgt_lang}..."
         )
-        log_info(f"[TranslationEngine] This may take a while for large models (e.g., M2M100-1.2B)")
-        log_debug(f"[TranslationEngine] Calling progress.update(5, 'Loading translation model...')")
+        log_info(
+            f"[TranslationEngine] This may take a while for large models (e.g., M2M100-1.2B)"
+        )
+        log_debug(
+            f"[TranslationEngine] Calling progress.update(5, 'Loading translation model...')"
+        )
         progress.update(5, t("progress.loadingTranslationModel"))
 
         model_callable = get_translation_model(
@@ -298,7 +303,10 @@ class TranslationEngine:
             if progress.is_cancelled():
                 raise OperationCancelledError(
                     message=t("error.translationCancelled"),
-                    context={"model_type": self.model_type, "segment_index": batch_start},
+                    context={
+                        "model_type": self.model_type,
+                        "segment_index": batch_start,
+                    },
                 )
 
             batch_end = min(batch_start + batch_size, total_segments)
@@ -630,7 +638,9 @@ class TranslationEngine:
                     log_debug("[TranslationEngine] Calling llm_backend.cleanup()")
                     self.llm_backend.cleanup()
                 except Exception as e:
-                    log_warning(f"[TranslationEngine] Error cleaning up LLM backend: {e}")
+                    log_warning(
+                        f"[TranslationEngine] Error cleaning up LLM backend: {e}"
+                    )
             self.llm_backend = None
 
         # 3. 触发垃圾回收

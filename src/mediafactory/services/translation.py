@@ -12,7 +12,12 @@ from mediafactory.engine.srt import SRTEngine
 from mediafactory.llm import initialize_llm_backend
 from mediafactory.pipeline import Pipeline
 from mediafactory.pipeline.context import ProcessingContext, ProcessingResult
-from mediafactory.logging import log_info, log_error, log_error_with_context, log_warning
+from mediafactory.logging import (
+    log_info,
+    log_error,
+    log_error_with_context,
+    log_warning,
+)
 from mediafactory.core.progress_protocol import ProgressCallback, NO_OP_PROGRESS
 from mediafactory.api.error_handler import sanitize_error
 
@@ -82,10 +87,16 @@ class TranslationService:
                         if result.success:
                             translated_text = result.translated_text
                         else:
-                            raise Exception(result.error_message or "LLM translation failed")
+                            raise Exception(
+                                result.error_message or "LLM translation failed"
+                            )
                     except Exception as e:
-                        log_warning(f"LLM text translation failed: {e}, falling back to local model")
-                        translated_text = await self._translate_locally(text, target_lang)
+                        log_warning(
+                            f"LLM text translation failed: {e}, falling back to local model"
+                        )
+                        translated_text = await self._translate_locally(
+                            text, target_lang
+                        )
                 else:
                     log_error("LLM backend 不可用，回退到本地模型")
                     translated_text = await self._translate_locally(text, target_lang)
@@ -177,7 +188,9 @@ class TranslationService:
                         use_llm_backend=True,
                     )
                 else:
-                    log_error("LLM backend initialization failed, falling back to local model")
+                    log_error(
+                        "LLM backend initialization failed, falling back to local model"
+                    )
                     translation_engine = self.local_engine
             else:
                 translation_engine = self.local_engine

@@ -27,6 +27,7 @@ class ASSEngine:
     # 默认样式配置
     # 平台感知默认字体
     import sys
+
     _DEFAULT_FONT = "PingFang SC" if sys.platform == "darwin" else "Microsoft YaHei"
 
     DEFAULT_STYLE = {

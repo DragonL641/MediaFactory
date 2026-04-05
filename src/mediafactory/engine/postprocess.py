@@ -85,9 +85,7 @@ class PostProcessEngine:
             return result_segments
 
         except ImportError as e:
-            log_warning(
-                f"stable-ts not installed, skipping resegmentation: {e}"
-            )
+            log_warning(f"stable-ts not installed, skipping resegmentation: {e}")
             return segments
 
         except Exception as e:
@@ -97,9 +95,7 @@ class PostProcessEngine:
                 context={"operation": "resegmentation", "segment_count": len(segments)},
             ) from e
 
-    def _whisper_result_to_segments(
-        self, whisper_result: Any
-    ) -> List[Dict[str, Any]]:
+    def _whisper_result_to_segments(self, whisper_result: Any) -> List[Dict[str, Any]]:
         """将 stable-ts WhisperResult 转换为 MediaFactory segments 格式
 
         Args:

@@ -14,7 +14,13 @@ import uuid
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Optional
 
-from mediafactory.api.schemas import TaskConfig, TaskProgress, TaskResult, TaskStatus, TaskType
+from mediafactory.api.schemas import (
+    TaskConfig,
+    TaskProgress,
+    TaskResult,
+    TaskStatus,
+    TaskType,
+)
 from mediafactory.api.websocket import manager as ws_manager
 from mediafactory.core.progress_protocol import ProgressCallback
 from mediafactory.core.tool import CancellationToken
@@ -89,9 +95,7 @@ class TaskManager:
                 return False
 
             if task.status != TaskStatus.PENDING:
-                logger.warning(
-                    f"Task {task_id} is not PENDING (status: {task.status})"
-                )
+                logger.warning(f"Task {task_id} is not PENDING (status: {task.status})")
                 return False
 
             if self._running_task_id:
@@ -119,9 +123,7 @@ class TaskManager:
         """启动所有 PENDING 任务（串行执行）"""
         async with self._lock:
             pending_ids = [
-                tid
-                for tid, t in self._tasks.items()
-                if t.status == TaskStatus.PENDING
+                tid for tid, t in self._tasks.items() if t.status == TaskStatus.PENDING
             ]
             # 添加到队列（去重）
             for tid in pending_ids:
@@ -170,9 +172,7 @@ class TaskManager:
                 if executor:
                     asyncio.create_task(self._execute_task(task_id_to_run, executor))
                 else:
-                    logger.error(
-                        f"No executor for task type: {task.config.task_type}"
-                    )
+                    logger.error(f"No executor for task type: {task.config.task_type}")
                     async with self._lock:
                         self._running_task_id = None
                         self._is_processing_queue = False
@@ -243,7 +243,11 @@ class TaskManager:
                     task.result = TaskResult(
                         task_id=task_id,
                         success=False,
-                        error=result.get("error", "Unknown error") if result else t("error.noResultReturned"),
+                        error=(
+                            result.get("error", "Unknown error")
+                            if result
+                            else t("error.noResultReturned")
+                        ),
                         error_type="ProcessingError",
                     )
                     task.status = TaskStatus.FAILED
@@ -292,7 +296,11 @@ class TaskManager:
         if not task:
             return False
 
-        if task.status in (TaskStatus.COMPLETED, TaskStatus.FAILED, TaskStatus.CANCELLED):
+        if task.status in (
+            TaskStatus.COMPLETED,
+            TaskStatus.FAILED,
+            TaskStatus.CANCELLED,
+        ):
             return False
 
         # 从队列中移除
@@ -393,9 +401,7 @@ class TaskManager:
             return False
 
         if task.status != TaskStatus.PENDING:
-            logger.warning(
-                f"Cannot edit task {task_id}: status is {task.status.value}"
-            )
+            logger.warning(f"Cannot edit task {task_id}: status is {task.status.value}")
             return False
 
         # 处理嵌套子模型更新
@@ -481,12 +487,16 @@ class TaskManager:
         """
         async with self._lock:
             if task_id not in self._tasks:
-                logger.warning(f"remove_task: task {task_id} not found in _tasks, "
-                               f"existing keys: {list(self._tasks.keys())}")
+                logger.warning(
+                    f"remove_task: task {task_id} not found in _tasks, "
+                    f"existing keys: {list(self._tasks.keys())}"
+                )
                 return "not_found"
             task = self._tasks[task_id]
             if task.status == TaskStatus.RUNNING:
-                logger.warning(f"remove_task: task {task_id} is still RUNNING, cannot remove")
+                logger.warning(
+                    f"remove_task: task {task_id} is still RUNNING, cannot remove"
+                )
                 return "running"
             # 同时从队列中移除
             if task_id in self._queue:

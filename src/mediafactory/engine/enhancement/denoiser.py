@@ -5,7 +5,11 @@ import numpy as np
 import torch
 from typing import List, Optional
 
-from .base_enhancer import BaseEnhancer, PIXEL_NORMALIZATION_FACTOR, PIXEL_DENORMALIZATION_FACTOR
+from .base_enhancer import (
+    BaseEnhancer,
+    PIXEL_NORMALIZATION_FACTOR,
+    PIXEL_DENORMALIZATION_FACTOR,
+)
 from mediafactory.logging import log_info
 
 
@@ -31,7 +35,7 @@ class Denoiser(BaseEnhancer):
         model_name: str = "NAFNet-GoPro-width64",
         device: Optional[str] = None,
         half_precision: bool = False,
-        **kwargs
+        **kwargs,
     ):
         """
         初始化去噪器
@@ -47,7 +51,7 @@ class Denoiser(BaseEnhancer):
             half_precision=half_precision,
             strength=strength,
             model_name=model_name,
-            **kwargs
+            **kwargs,
         )
 
         self.strength = max(0.0, min(1.0, strength))
@@ -59,8 +63,7 @@ class Denoiser(BaseEnhancer):
             from spandrel import ModelLoader, ImageModelDescriptor
         except ImportError as e:
             raise ImportError(
-                "请安装依赖: pip install spandrel\n"
-                "或运行: pip install -e '.[ml]'"
+                "请安装依赖: pip install spandrel\n" "或运行: pip install -e '.[ml]'"
             ) from e
 
         # 获取模型路径（使用统一注册表）
@@ -142,9 +145,7 @@ class Denoiser(BaseEnhancer):
         return output
 
     def enhance_batch(
-        self,
-        frames: List[np.ndarray],
-        batch_size: Optional[int] = None
+        self, frames: List[np.ndarray], batch_size: Optional[int] = None
     ) -> List[np.ndarray]:
         """
         批量去噪
@@ -175,19 +176,25 @@ class Denoiser(BaseEnhancer):
         height, width = first_shape
 
         for i in range(0, len(frames), batch_size):
-            actual_batch = frames[i:i + batch_size]
+            actual_batch = frames[i : i + batch_size]
             actual_size = len(actual_batch)
 
             # 准备批量 tensor
             batch_tensor = torch.zeros(
-                actual_size, 3, height, width,
+                actual_size,
+                3,
+                height,
+                width,
                 dtype=torch.float16 if self.half_precision else torch.float32,
-                device=self.device
+                device=self.device,
             )
 
             for j, frame in enumerate(actual_batch):
                 rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-                batch_tensor[j] = torch.from_numpy(rgb_frame).float().permute(2, 0, 1) / PIXEL_NORMALIZATION_FACTOR
+                batch_tensor[j] = (
+                    torch.from_numpy(rgb_frame).float().permute(2, 0, 1)
+                    / PIXEL_NORMALIZATION_FACTOR
+                )
 
             # 批量推理
             with torch.no_grad():
@@ -203,7 +210,9 @@ class Denoiser(BaseEnhancer):
             # 转换结果
             for j in range(actual_size):
                 out_frame = output[j].permute(1, 2, 0).cpu().numpy()
-                out_frame = np.clip(out_frame * PIXEL_DENORMALIZATION_FACTOR, 0, 255).astype(np.uint8)
+                out_frame = np.clip(
+                    out_frame * PIXEL_DENORMALIZATION_FACTOR, 0, 255
+                ).astype(np.uint8)
                 out_frame = cv2.cvtColor(out_frame, cv2.COLOR_RGB2BGR)
                 results.append(out_frame)
 

@@ -89,8 +89,12 @@ class TranscriptionService:
             # 提取 metadata
             metadata = {"audio_path": str(audio_path)}
             if result.context:
-                metadata["segments"] = result.context.transcription_result.get("segments", [])
-                metadata["language"] = result.context.transcription_result.get("language")
+                metadata["segments"] = result.context.transcription_result.get(
+                    "segments", []
+                )
+                metadata["language"] = result.context.transcription_result.get(
+                    "language"
+                )
 
             return ProcessingResult(
                 success=True,

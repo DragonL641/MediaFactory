@@ -8,7 +8,13 @@ import asyncio
 import logging
 from typing import Any, Callable, Coroutine, Dict, Optional
 
-from mediafactory.api.schemas import AudioConfig, EnhancementConfig, SubtitleConfig, TaskConfig, TaskType
+from mediafactory.api.schemas import (
+    AudioConfig,
+    EnhancementConfig,
+    SubtitleConfig,
+    TaskConfig,
+    TaskType,
+)
 from mediafactory.core.progress_protocol import ProgressCallback
 from mediafactory.core.tool import CancellationToken
 from mediafactory.exceptions import ConfigurationError
@@ -37,7 +43,11 @@ def _check_readiness(requirement: str, message: str):
 class SimpleProgressAdapter(ProgressCallback):
     """简单的进度回调适配器，委托 CancellationToken 实现取消检查"""
 
-    def __init__(self, callback: Callable[[float, str, str], None], cancel_token: CancellationToken):
+    def __init__(
+        self,
+        callback: Callable[[float, str, str], None],
+        cancel_token: CancellationToken,
+    ):
         self._callback = callback
         self._cancel_token = cancel_token
         self._current_stage: str = ""
@@ -81,7 +91,9 @@ def _make_result(result) -> Dict[str, Any]:
 # =============================================================================
 
 
-async def _execute_subtitle_async(config: TaskConfig, progress: ProgressCallback) -> Dict[str, Any]:
+async def _execute_subtitle_async(
+    config: TaskConfig, progress: ProgressCallback
+) -> Dict[str, Any]:
     from mediafactory.services.subtitle import SubtitleService
 
     sub = config.subtitle_config or SubtitleConfig()
@@ -101,7 +113,9 @@ async def _execute_subtitle_async(config: TaskConfig, progress: ProgressCallback
     return _make_result(result)
 
 
-async def _execute_audio_async(config: TaskConfig, progress: ProgressCallback) -> Dict[str, Any]:
+async def _execute_audio_async(
+    config: TaskConfig, progress: ProgressCallback
+) -> Dict[str, Any]:
     from mediafactory.services.audio import AudioService
 
     audio = config.audio_config or AudioConfig()
@@ -121,7 +135,9 @@ async def _execute_audio_async(config: TaskConfig, progress: ProgressCallback) -
     return _make_result(result)
 
 
-async def _execute_transcribe_async(config: TaskConfig, progress: ProgressCallback) -> Dict[str, Any]:
+async def _execute_transcribe_async(
+    config: TaskConfig, progress: ProgressCallback
+) -> Dict[str, Any]:
     from mediafactory.services.transcription import TranscriptionService
 
     sub = config.subtitle_config or SubtitleConfig()
@@ -135,7 +151,9 @@ async def _execute_transcribe_async(config: TaskConfig, progress: ProgressCallba
     return _make_result(result)
 
 
-async def _execute_translate_async(config: TaskConfig, progress: ProgressCallback) -> Dict[str, Any]:
+async def _execute_translate_async(
+    config: TaskConfig, progress: ProgressCallback
+) -> Dict[str, Any]:
     from mediafactory.services.translation import TranslationService
 
     service = TranslationService()
@@ -158,12 +176,16 @@ async def _execute_translate_async(config: TaskConfig, progress: ProgressCallbac
             progress=progress,
         )
     else:
-        raise ValueError("Translation task requires either input_path (SRT file) or input_text")
+        raise ValueError(
+            "Translation task requires either input_path (SRT file) or input_text"
+        )
 
     return _make_result(result)
 
 
-async def _execute_enhance_async(config: TaskConfig, progress: ProgressCallback) -> Dict[str, Any]:
+async def _execute_enhance_async(
+    config: TaskConfig, progress: ProgressCallback
+) -> Dict[str, Any]:
     from mediafactory.services.video_enhancement import VideoEnhancementService
 
     enh = config.enhancement_config or EnhancementConfig()
@@ -217,7 +239,10 @@ def _create_executor(
 
 # 前置条件检查函数
 def _check_whisper(_config: TaskConfig):
-    _check_readiness("whisper", "Whisper model not downloaded. Please go to Settings to download a Whisper model.")
+    _check_readiness(
+        "whisper",
+        "Whisper model not downloaded. Please go to Settings to download a Whisper model.",
+    )
 
 
 def _check_translation(config: TaskConfig):
@@ -237,11 +262,19 @@ def _check_enhancement(_config: TaskConfig):
 
 # 任务类型到执行器的映射
 TASK_EXECUTORS = {
-    TaskType.SUBTITLE: _create_executor(_execute_subtitle_async, _check_whisper, "Subtitle"),
+    TaskType.SUBTITLE: _create_executor(
+        _execute_subtitle_async, _check_whisper, "Subtitle"
+    ),
     TaskType.AUDIO: _create_executor(_execute_audio_async, task_name="Audio"),
-    TaskType.TRANSCRIBE: _create_executor(_execute_transcribe_async, _check_whisper, "Transcribe"),
-    TaskType.TRANSLATE: _create_executor(_execute_translate_async, _check_translation, "Translate"),
-    TaskType.ENHANCE: _create_executor(_execute_enhance_async, _check_enhancement, "Enhance"),
+    TaskType.TRANSCRIBE: _create_executor(
+        _execute_transcribe_async, _check_whisper, "Transcribe"
+    ),
+    TaskType.TRANSLATE: _create_executor(
+        _execute_translate_async, _check_translation, "Translate"
+    ),
+    TaskType.ENHANCE: _create_executor(
+        _execute_enhance_async, _check_enhancement, "Enhance"
+    ),
 }
 
 
