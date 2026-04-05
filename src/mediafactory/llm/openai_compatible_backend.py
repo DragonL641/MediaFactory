@@ -681,7 +681,8 @@ class OpenAICompatibleBackend(TranslationBackend):
             {str(i): t for i, t in enumerate(batch)},
             ensure_ascii=False
         )
-        return self._call_llm(prompt, input_json, cancelled_callback)
+        user_content = f"请将以下内容翻译为{tgt_name}：\n{input_json}"
+        return self._call_llm(prompt, user_content, cancelled_callback)
 
     # ==================== 辅助方法 ====================
 

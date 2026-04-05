@@ -36,15 +36,10 @@ def open_file_location(file_path: str) -> bool:
 
         if system == "Windows":
             # Windows: select file in Explorer
-            # Note: /select, flag tells Explorer to select the specified file
             subprocess.run(["explorer", "/select,", abs_path], check=False)
-        elif system == "Darwin":
+        else:
             # macOS: reveal file in Finder (using -R flag)
             subprocess.run(["open", "-R", abs_path], check=False)
-        else:
-            # Linux: open parent directory
-            # Note: Linux file managers generally don't support file selection via command line
-            subprocess.run(["xdg-open", os.path.dirname(abs_path)], check=False)
 
         log_info(f"Opened location: {abs_path}")
         return True

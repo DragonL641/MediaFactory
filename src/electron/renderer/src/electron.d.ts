@@ -29,7 +29,6 @@ interface PlatformInfo {
   arch: string;
   isMac: boolean;
   isWindows: boolean;
-  isLinux: boolean;
 }
 
 interface ElectronAPI {

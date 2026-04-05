@@ -8,8 +8,10 @@
 - 委托给 local_model_manager 单例管理模型生命周期
 - 自动继承 CUDA/MPS/CPU 设备支持
 - 无需维护独立的语言代码表
+- 模型不可用或翻译失败时抛出异常，不静默返回原文
 """
 
+from ..exceptions import ProcessingError
 from ..logging import log_debug, log_error, log_info, log_warning
 
 
@@ -18,11 +20,13 @@ class LocalModelFallback:
 
     用于在 LLM API 翻译失败时提供本地翻译能力。
     通过 local_model_manager 获取翻译 callable，避免重复加载模型。
+
+    翻译失败时抛出 ProcessingError，由上层决定是否终止任务。
     """
 
     @staticmethod
     def _extract_translation(result, fallback_text: str) -> str:
-        """从翻译模型输出中提取译文，失败返回 fallback_text。"""
+        """从翻译模型输出中提取译文，失败抛出 ProcessingError。"""
         if (
             result
             and isinstance(result, list)
@@ -38,47 +42,47 @@ class LocalModelFallback:
             )
             return translated
 
-        log_warning("[LocalFallback] 翻译结果格式异常，返回原文")
-        return fallback_text
+        raise ProcessingError(
+            message="本地翻译模型返回格式异常",
+            context={
+                "fallback_text": fallback_text[:100],
+                "result_type": type(result).__name__,
+            },
+        )
 
     def translate_single(
         self, text: str, tgt_lang: str, src_lang: str = "en"
     ) -> str:
-        """翻译单条文本。"""
-        try:
-            from ..models.translation_runtime import get_translation_model
-
-            model_callable = get_translation_model(src_lang, tgt_lang)
-            if not model_callable:
-                log_warning("[LocalFallback] 本地翻译模型不可用，返回原文")
-                return text
-
-            result = model_callable(text, max_length=512, truncation=True)
-            return self._extract_translation(result, text)
-
-        except Exception as e:
-            log_error(f"[LocalFallback] 翻译失败: {e}")
-            return text
-
-    def translate_batch(
-        self, texts: list, tgt_lang: str, src_lang: str = "en"
-    ) -> list:
-        """批量翻译（加载模型一次，逐句翻译）。"""
+        """翻译单条文本。失败时抛出 ProcessingError。"""
         from ..models.translation_runtime import get_translation_model
 
         model_callable = get_translation_model(src_lang, tgt_lang)
         if not model_callable:
-            log_warning("[LocalFallback] 本地翻译模型不可用，返回原文")
-            return list(texts)
+            raise ProcessingError(
+                message="本地翻译模型不可用，请前往设置页面下载翻译模型",
+                context={"src_lang": src_lang, "tgt_lang": tgt_lang},
+            )
+
+        result = model_callable(text, max_length=512, truncation=True)
+        return self._extract_translation(result, text)
+
+    def translate_batch(
+        self, texts: list, tgt_lang: str, src_lang: str = "en"
+    ) -> list:
+        """批量翻译（加载模型一次，逐句翻译）。失败时抛出 ProcessingError。"""
+        from ..models.translation_runtime import get_translation_model
+
+        model_callable = get_translation_model(src_lang, tgt_lang)
+        if not model_callable:
+            raise ProcessingError(
+                message="本地翻译模型不可用，请前往设置页面下载翻译模型",
+                context={"src_lang": src_lang, "tgt_lang": tgt_lang},
+            )
 
         results = []
         for text in texts:
-            try:
-                result = model_callable(text, max_length=512, truncation=True)
-                results.append(self._extract_translation(result, text))
-            except Exception as e:
-                log_error(f"[LocalFallback] 翻译失败: {e}")
-                results.append(text)
+            result = model_callable(text, max_length=512, truncation=True)
+            results.append(self._extract_translation(result, text))
         return results
 
     def release(self):

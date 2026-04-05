@@ -548,7 +548,7 @@ def open_log_folder() -> None:
     """Open the folder containing the log file.
 
     Opens the folder in the system file manager (Finder on macOS,
-    Explorer on Windows, or xdg-open on Linux).
+    Explorer on Windows).
     """
     import os
     import subprocess
@@ -564,7 +564,5 @@ def open_log_folder() -> None:
 
     if platform.system() == "Windows":
         os.startfile(folder)
-    elif platform.system() == "Darwin":
-        subprocess.run(["open", folder])
     else:
-        subprocess.run(["xdg-open", folder])
+        subprocess.run(["open", folder])

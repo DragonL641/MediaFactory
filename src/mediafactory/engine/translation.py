@@ -406,7 +406,7 @@ class TranslationEngine:
     def _perform_multilingual_translation(
         self, text: str, src_code: str, tgt_code: str, model_callable: Any
     ) -> str:
-        """执行单条多语言翻译"""
+        """执行单条多语言翻译。失败时抛出异常，不静默返回原文。"""
         try:
             translation = model_callable(
                 text,
@@ -422,15 +422,27 @@ class TranslationEngine:
             ):
                 return translation[0]["translation_text"]
 
-            log_warning(f"Segment translation result is empty: '{text[:50]}...'")
-            log_warning("Translation model may not support this language pair")
-            return text
+            raise ProcessingError(
+                message="本地翻译模型返回格式异常",
+                context={
+                    "src_code": src_code,
+                    "tgt_code": tgt_code,
+                    "text_preview": text[:100],
+                    "result_type": type(translation).__name__,
+                },
+            )
         except ProcessingError:
             raise
         except Exception as e:
-            log_error(f"Error translating segment: {e}")
-            log_info("Try remote LLM translation instead")
-            return text
+            raise ProcessingError(
+                message=f"本地翻译失败: {e}",
+                context={
+                    "src_code": src_code,
+                    "tgt_code": tgt_code,
+                    "text_preview": text[:100],
+                    "error": str(e),
+                },
+            ) from e
 
     def _validate_translation_result(
         self,

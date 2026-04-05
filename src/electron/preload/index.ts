@@ -65,7 +65,6 @@ export interface PlatformInfo {
   arch: string;
   isMac: boolean;
   isWindows: boolean;
-  isLinux: boolean;
 }
 
 // 暴露 API 给渲染进程
