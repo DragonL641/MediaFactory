@@ -215,6 +215,9 @@ def download_model(
                 log_info(
                     f"Retrying download ({attempt + 1}/{MAX_RETRIES}) for {huggingface_id}..."
                 )
+                # 重试前通知前端
+                if progress_callback is not None:
+                    progress_callback(0.0, f"Retrying ({attempt + 1}/{MAX_RETRIES})...")
                 time.sleep(RETRY_DELAY)
 
             try:

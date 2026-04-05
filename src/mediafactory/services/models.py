@@ -50,9 +50,9 @@ class ModelStatusService:
     def get_whisper_status(self) -> ModelStatusInfo:
         """获取 Whisper 模型状态"""
         try:
-            from mediafactory.models.model_registry import is_model_downloaded
+            from mediafactory.models.model_registry import is_model_downloaded, is_model_complete
 
-            available = is_model_downloaded("Systran/faster-whisper-large-v3")
+            available = is_model_downloaded("Systran/faster-whisper-large-v3") and is_model_complete("Systran/faster-whisper-large-v3")
 
             return ModelStatusInfo(
                 name="faster-whisper-large-v3",
@@ -75,10 +75,11 @@ class ModelStatusService:
             from mediafactory.models.model_registry import (
                 get_all_translation_models,
                 is_model_downloaded,
+                is_model_complete,
             )
 
             available = any(
-                is_model_downloaded(m.huggingface_id)
+                is_model_downloaded(m.huggingface_id) and is_model_complete(m.huggingface_id)
                 for m in get_all_translation_models()
             )
 
@@ -210,9 +211,17 @@ class ModelStatusService:
             start_time = time.time()
             result = backend.test_connection()
             latency_ms = int((time.time() - start_time) * 1000)
+            is_success = result.get("success", False)
+
+            # 更新配置中的连接状态
+            oa_config = getattr(self.config, "openai_compatible", None)
+            if oa_config:
+                preset_config = getattr(oa_config, preset, None)
+                if preset_config:
+                    preset_config.connection_available = is_success
 
             return {
-                "success": result.get("success", False),
+                "success": is_success,
                 "latency_ms": latency_ms,
                 "message": result.get("message", ""),
                 "error": result.get("error"),

@@ -504,6 +504,8 @@ const SettingsPage: React.FC = () => {
                       logging: data.config.logging,
                     });
                   }
+                  refetchModels();
+                  refetchPresets();
                 },
               })
             }

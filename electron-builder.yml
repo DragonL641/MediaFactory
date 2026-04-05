@@ -33,9 +33,9 @@ mac:
       arch:
         - x64
         - arm64
-  hardenedRuntime: true
+  hardenedRuntime: false
   gatekeeperAssess: false
-  entitlements: src/electron/resources/entitlements.mac.plist
+  identity: null
   artifactName: ${productName}-${version}-${arch}.${ext}
 
 win:

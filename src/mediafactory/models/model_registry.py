@@ -680,7 +680,7 @@ def is_model_complete(model_id: str) -> bool:
         expected_size = info.model_size_mb * 1024 * 1024
         return actual_size >= expected_size * 0.95
     else:
-        # 仓库模型：检查配置文件和模型文件
+        # 仓库模型：必须同时有配置文件和模型权重文件
         if not path.is_dir():
             return False
         # 支持多种配置文件格式
@@ -689,21 +689,20 @@ def is_model_complete(model_id: str) -> bool:
         if not has_config:
             return False
 
-        # 单次扫描目录，同时检查模型权重文件和一般文件
+        # 检查模型权重文件（>= 1MB）
         valid_suffixes = {".bin", ".safetensors", ".gguf", ".onnx", ".pt", ".ckpt"}
-        has_content_file = False
         for entry in path.iterdir():
-            if not entry.is_file():
-                continue
-            # 检查模型权重文件（>= 1MB）
-            if entry.suffix in valid_suffixes and entry.stat().st_size >= 1_000_000:
+            if entry.is_file() and entry.suffix in valid_suffixes and entry.stat().st_size >= 1_000_000:
                 return True
-            # 记录是否有实质性内容文件（非隐藏、非 README）
-            if not entry.name.startswith(".") and entry.name != "README.md":
-                has_content_file = True
 
-        # 某些 pipeline 模型（如 pyannote）没有权重文件，只有配置 + handler
-        return has_content_file
+        # 递归检查子目录（某些模型权重在子目录中）
+        for entry in path.iterdir():
+            if entry.is_dir() and not entry.name.startswith("."):
+                for sub in entry.iterdir():
+                    if sub.is_file() and sub.suffix in valid_suffixes and sub.stat().st_size >= 1_000_000:
+                        return True
+
+        return False
 
 
 def get_all_model_statuses() -> Dict[str, bool]:
