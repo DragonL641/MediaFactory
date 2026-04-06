@@ -19,7 +19,7 @@ from mediafactory.logging import (
     log_warning,
 )
 from mediafactory.core.progress_protocol import ProgressCallback, NO_OP_PROGRESS
-from mediafactory.api.error_handler import sanitize_error
+from mediafactory.core.error_utils import sanitize_error
 
 
 class TranslationService:

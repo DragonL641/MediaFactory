@@ -10,5 +10,5 @@
     "types": ["node"]
   },
   "include": ["main/**/*"],
-  "exclude": ["node_modules", "renderer", "preload"]
+  "exclude": ["node_modules", "preload"]
 }

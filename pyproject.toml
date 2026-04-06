@@ -53,7 +53,6 @@ dependencies = [
     "fastapi>=0.109.0",
     "uvicorn[standard]>=0.27.0",
     "websockets>=12.0",
-    "torchcodec>=0.10,<0.11",
 ]
 requires-python = ">=3.11,<3.14"
 
@@ -130,10 +129,7 @@ core = [
     "torchvision>=0.20.0",         # PyTorch Vision（CUDA 12.8）
     "torchaudio>=2.5.0",           # PyTorch Audio（CUDA 12.8）
     "faster-whisper>=1.0.0,<2.0.0",  # Whisper（使用 faster-whisper）
-    "gguf>=0.10.0",                 # GGUF 模型加载支持
     "transformers>=4.52.1,<5.0.0",  # Transformers（修复 CVE-2025-3933）
-    "sentencepiece>=0.1.99",        # 支持库
-    "accelerate>=1.0.0",            # 支持库
     "spandrel>=0.4.0",              # 统一模型加载库（视频增强）
     "stable-ts>=2.17.0",                 # Whisper 后处理（regroup、分句）
 ]

@@ -158,32 +158,21 @@ temp/
 # Video processing temporary files
 temp_audio.wav
 *.srt
-/VideoDub.iml
+/MediaFactory.iml
 /bandit_*
 
 # AI Models
 /models/
+!models/.gitkeep
 
 /True
-build/          # PyInstaller 构建临时文件
-cache/
-src/cache/
-
-# Application logs (generated at runtime)
-LOG-*.log
-logs/
-# User configuration (auto-created from config.toml.ini.example on first run)
-/config.toml.backup
-/config.toml
-/DEPENDENCY_AUDIT_REPORT*.md
-/COMPLEXITY_REPORT.md
-/CONSISTENCY_REPORT.md
-/PRE_RELEASE_CHECK.md
-build/
 !scripts/build/
+cache/
 dist/
 .serena/
 .qoder/
 openspec/
 node_modules
 /docs/superpowers/
+/build/
+/config.toml*

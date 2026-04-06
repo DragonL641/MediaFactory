@@ -11,7 +11,7 @@ from typing import Any, Dict, List, Optional
 
 from mediafactory.config import get_config
 from mediafactory.logging import log_info, log_error
-from mediafactory.api.error_handler import sanitize_error
+from mediafactory.core.error_utils import sanitize_error
 
 
 @dataclass
@@ -22,19 +22,6 @@ class ModelStatusInfo:
     loaded: bool = False
     available: bool = False
     enabled: bool = True
-
-
-@dataclass
-class ModelInfo:
-    """模型信息"""
-
-    id: str
-    name: str
-    tier: str  # light, standard, heavy
-    memory: str
-    downloaded: bool = False
-    loading: bool = False
-    progress: float = 0.0
 
 
 class ModelStatusService:
@@ -209,7 +196,8 @@ class ModelStatusService:
                 }
 
             start_time = time.time()
-            result = backend.test_connection()
+            loop = asyncio.get_running_loop()
+            result = await loop.run_in_executor(None, backend.test_connection)
             latency_ms = int((time.time() - start_time) * 1000)
             is_success = result.get("success", False)
 

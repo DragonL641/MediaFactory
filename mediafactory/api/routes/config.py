@@ -11,7 +11,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 from mediafactory.config import get_config, reload_config, save_config, update_config
-from mediafactory.api.error_handler import sanitize_error
+from mediafactory.core.error_utils import sanitize_error
 from mediafactory.i18n import t
 
 logger = logging.getLogger(__name__)

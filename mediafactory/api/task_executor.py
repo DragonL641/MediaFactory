@@ -4,9 +4,8 @@
 桥接 API 层和现有 Service 层，
 """
 
-import asyncio
 import logging
-from typing import Any, Callable, Coroutine, Dict, Optional
+from typing import Any, Callable, Dict, Optional
 
 from mediafactory.api.schemas import (
     AudioConfig,
@@ -68,21 +67,6 @@ class SimpleProgressAdapter(ProgressCallback):
 
     def cancel(self):
         self._cancel_token.cancel()
-
-
-def _run_async(coro: Coroutine) -> Any:
-    """在独立事件循环中运行异步协程。
-
-    这是将异步代码从同步上下文（task_manager 线程）调用的标准模式。
-    每次创建新事件循环是必要的，因为调用方不在异步上下文中，
-    不能使用 asyncio.run()（Python 3.10+ 才有可靠的嵌套循环支持）。
-    """
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-    try:
-        return loop.run_until_complete(coro)
-    finally:
-        loop.close()
 
 
 def _make_result(result) -> Dict[str, Any]:
@@ -220,7 +204,7 @@ def _create_executor(
     readiness_check: Optional[Callable[[TaskConfig], None]] = None,
     task_name: str = "",
 ):
-    """创建同步任务执行器（通用模板）。
+    """创建异步任务执行器（通用模板）。
 
     Args:
         async_fn: 异步执行函数，签名为 (config, progress_adapter) -> Dict
@@ -228,7 +212,7 @@ def _create_executor(
         task_name: 任务名称，用于日志
     """
 
-    def executor(
+    async def executor(
         config: TaskConfig,
         progress_callback: Callable[[float, str, str], None],
         cancel_token: CancellationToken,
@@ -237,7 +221,7 @@ def _create_executor(
             readiness_check(config)
         adapter = SimpleProgressAdapter(progress_callback, cancel_token)
         try:
-            return _run_async(async_fn(config, adapter))
+            return await async_fn(config, adapter)
         except Exception as e:
             logger.exception(f"{task_name} task failed: {e}")
             raise

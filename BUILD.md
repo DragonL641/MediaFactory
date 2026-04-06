@@ -347,8 +347,8 @@ release/{version}/
 
 ## 图标文件
 
-- **Windows**: 使用 `.ico` 格式，放置在 `src/mediafactory/resources/icon.ico`（electron-builder 使用 `src/electron/resources/icon.ico`）
-- **macOS**: 需要 `.icns` 格式，放置在 `src/mediafactory/resources/icon.icns`
+- **Windows**: 使用 `.ico` 格式，放置在 `mediafactory/resources/icon.ico`（electron-builder 使用 `electron/resources/icon.ico`）
+- **macOS**: 需要 `.icns` 格式，放置在 `mediafactory/resources/icon.icns`
 - **Linux**: 通常不需要图标文件
 
 如果没有对应的图标文件，构建会自动跳过图标设置。
@@ -364,7 +364,7 @@ PyInstaller 通过以下方式减小产物体积：
 ## Transformers 缓存配置
 
 在冻结环境中，transformers 缓存被重定向：
-- `src/mediafactory/utils/transformers_config.py`：将缓存目录设置为 `./cache` 文件夹
+- `mediafactory/utils/transformers_config.py`：将缓存目录设置为 `./cache` 文件夹
 - 使用 `HF_HOME` 而非已弃用的 `TRANSFORMERS_CACHE`（transformers v5+）
 
 ## 故障排除
@@ -392,7 +392,7 @@ datas += collect_data_files('faster_whisper')
 
 ### macOS 图标不显示
 
-1. 确保 `src/mediafactory/resources/icon.icns` 存在
+1. 确保 `mediafactory/resources/icon.icns` 存在
 2. 检查 `.spec` 文件中的图标路径是否正确
 3. macOS 不支持 UPX，确保未启用
 

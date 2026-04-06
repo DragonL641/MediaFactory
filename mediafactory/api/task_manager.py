@@ -24,7 +24,7 @@ from mediafactory.api.schemas import (
 from mediafactory.api.websocket import manager as ws_manager
 from mediafactory.core.progress_protocol import ProgressCallback
 from mediafactory.core.tool import CancellationToken
-from mediafactory.api.error_handler import sanitize_error
+from mediafactory.core.error_utils import sanitize_error
 from mediafactory.i18n import t
 
 logger = logging.getLogger(__name__)
@@ -180,7 +180,7 @@ class TaskManager:
     async def _execute_task(
         self,
         task_id: str,
-        executor: Callable[[TaskConfig, ProgressCallback], Any],
+        executor: Callable,
     ):
         """内部方法：执行单个任务，完成后自动触发队列下一个"""
         task = self._tasks.get(task_id)
@@ -219,13 +219,9 @@ class TaskManager:
             )
 
         try:
-            result = await asyncio.get_running_loop().run_in_executor(
-                None,
-                executor,
-                task.config,
-                progress_callback,
-                task.cancel_token,
-            )
+            # 直接 await 异步执行器，无需 run_in_executor
+            # Service 层内部已通过 run_in_executor 运行同步 Pipeline
+            result = await executor(task.config, progress_callback, task.cancel_token)
 
             # 仅在未被取消时才处理结果（避免覆盖 CANCELLED 状态）
             if task.status != TaskStatus.CANCELLED:
