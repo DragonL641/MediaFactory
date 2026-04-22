@@ -26,7 +26,7 @@
 支持 5 种任务类型：音频提取、语音转文字、字幕生成、字幕翻译、视频增强。每个任务卡片显示状态、进度和预计剩余时间。
 
 <p align="center">
-  <img src="docs/images/TaskTypes.png" alt="任务类型" width="350"/>
+  <img src="docs/images/TaskTypes.png" alt="任务类型" width="500"/>
 </p>
 
 ### 📦 批量添加任务
@@ -49,25 +49,28 @@
 
 ## 快速开始
 
-**前置条件**：Python 3.11+ 和 [uv](https://docs.astral.sh/uv/)
+**前置条件**：Python 3.11+、[uv](https://docs.astral.sh/uv/) 和 Node.js ≥20.19.0
 
 ```bash
 # 1. 克隆仓库
 git clone https://github.com/DragonL641/MediaFactory.git
 cd MediaFactory
 
-# 2. 安装依赖（包含 CUDA 12.8 版本的 PyTorch）
-uv sync --group core
+# 2. 安装依赖
+uv sync --group core          # Python 后端依赖（包含 CUDA 12.8 版本的 PyTorch）
+npm install                   # Electron 前端依赖
 
 # 3. 下载模型（首次运行前必须）
 uv run python scripts/utils/download_model.py facebook/m2m100_1.2B
 
 # 4. 运行应用
-uv run mediafactory
+npm run dev
 ```
 
-> **说明**：PyTorch 从 `download.pytorch.org`（而非 PyPI）下载，以确保 CUDA 支持。
+> **说明**：`npm run dev` 启动 Electron 桌面应用，自动拉起 Python 后端。
+> PyTorch 从 `download.pytorch.org`（而非 PyPI）下载，以确保 CUDA 支持。
 > CUDA 12.8 支持 Blackwell（RTX 50 系列）及更早架构。
+> 如只需后端 API 服务，可运行 `uv run mediafactory`。
 
 ---
 

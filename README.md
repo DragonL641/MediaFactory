@@ -49,25 +49,28 @@ Manage all models in one place — the Settings page. Download and configure loc
 
 ## Quick Start
 
-**Prerequisites**: Python 3.11+ and [uv](https://docs.astral.sh/uv/)
+**Prerequisites**: Python 3.11+, [uv](https://docs.astral.sh/uv/), and Node.js ≥20.19.0
 
 ```bash
 # 1. Clone the repository
 git clone https://github.com/DragonL641/MediaFactory.git
 cd MediaFactory
 
-# 2. Install dependencies (includes PyTorch with CUDA 12.8)
-uv sync --group core
+# 2. Install dependencies
+uv sync --group core          # Python backend deps (includes PyTorch with CUDA 12.8)
+npm install                   # Electron frontend deps
 
 # 3. Download models (required before first run)
 uv run python scripts/utils/download_model.py facebook/m2m100_1.2B
 
 # 4. Run the application
-uv run mediafactory
+npm run dev
 ```
 
-> **Note**: PyTorch is downloaded from `download.pytorch.org` (not PyPI) to ensure CUDA support.
+> **Note**: `npm run dev` launches the Electron desktop app, which automatically starts the Python backend.
+> PyTorch is downloaded from `download.pytorch.org` (not PyPI) to ensure CUDA support.
 > CUDA 12.8 supports Blackwell (RTX 50 series) and earlier architectures.
+> For backend API only, run `uv run mediafactory`.
 
 ---
 

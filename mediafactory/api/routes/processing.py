@@ -282,11 +282,10 @@ async def remove_task(task_id: str):
     task_manager = _get_task_manager()
     result = await task_manager.remove_task(task_id)
 
-    if result == "not_found":
-        raise HTTPException(status_code=404, detail=t("error.taskNotFound"))
     if result == "running":
         raise HTTPException(status_code=400, detail=t("error.cannotRemoveRunningTask"))
 
+    # "not_found" 也返回成功（幂等删除）
     return {"success": True}
 
 

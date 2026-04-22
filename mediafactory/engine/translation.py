@@ -3,7 +3,6 @@
 统一接口，内部实现本地翻译和 LLM 翻译。
 """
 
-import copy
 import threading
 from typing import Dict, List, Any, Optional, TYPE_CHECKING
 
@@ -25,18 +24,10 @@ if TYPE_CHECKING:
     from ..llm.base import TranslationBackend
 
 
-# =============================================================================
-# 翻译引擎常量（从 constants.py 移入）
-# =============================================================================
-
-
-class TranslationConstants:
-    """翻译引擎常量。"""
-
-    DEFAULT_MAX_LENGTH = 512  # 翻译模型最大序列长度
-    ENABLE_TRUNCATION = True  # 启用长序列截断
-    SEGMENT_NUMBER_OFFSET = 1  # 分段号从 1 开始
-    BATCH_SIZE = 8  # 本地翻译批量大小
+# 翻译模型最大序列长度
+DEFAULT_MAX_LENGTH = 512
+# 本地翻译批量大小
+DEFAULT_BATCH_SIZE = 8
 
 
 class TranslationEngine:
@@ -167,11 +158,6 @@ class TranslationEngine:
                     },
                 ) from e
 
-    @property
-    def engine_type(self) -> str:
-        """获取当前引擎类型"""
-        return "LLM" if self._use_llm else "Local"
-
     # ==================== 语言检测 ====================
 
     def _detect_source_language(
@@ -222,9 +208,6 @@ class TranslationEngine:
         )
         log_info(f"[TranslationEngine] Using device: {self.device}")
         log_info(f"[TranslationEngine] Model type: {self.model_type}")
-        log_debug(
-            f"[TranslationEngine] progress callback: {progress is not None}, type: {type(progress).__name__}"
-        )
 
         # 加载模型
         log_info(
@@ -232,9 +215,6 @@ class TranslationEngine:
         )
         log_info(
             f"[TranslationEngine] This may take a while for large models (e.g., M2M100-1.2B)"
-        )
-        log_debug(
-            f"[TranslationEngine] Calling progress.update(5, 'Loading translation model...')"
         )
         progress.update(5, t("progress.loadingTranslationModel"))
 
@@ -290,13 +270,13 @@ class TranslationEngine:
         log_debug(f"[LocalTranslation] src_lang={src_lang} -> src_code={src_code}")
         log_debug(f"[LocalTranslation] tgt_lang={tgt_lang} -> tgt_code={tgt_code}")
         log_debug(
-            f"[LocalTranslation] Batch mode: size={TranslationConstants.BATCH_SIZE}, "
+            f"[LocalTranslation] Batch mode: size={DEFAULT_BATCH_SIZE}, "
             f"total={total_segments} segments"
         )
 
         # 分批索引：记录每个 batch 对应的 segment 原始索引
         translated_segments = [None] * total_segments
-        batch_size = TranslationConstants.BATCH_SIZE
+        batch_size = DEFAULT_BATCH_SIZE
 
         batch_start = 0
         while batch_start < total_segments:
@@ -336,7 +316,7 @@ class TranslationEngine:
                 )
 
                 for j, idx in enumerate(batch_indices):
-                    new_segment = copy.deepcopy(segments[idx])
+                    new_segment = segments[idx].copy()
                     new_segment["original_text"] = batch_texts[j]
                     new_segment["text"] = translated_texts[j]
                     translated_segments[idx] = new_segment
@@ -344,7 +324,7 @@ class TranslationEngine:
             # 空文本直接复制
             for idx in range(batch_start, batch_end):
                 if translated_segments[idx] is None:
-                    translated_segments[idx] = copy.deepcopy(segments[idx])
+                    translated_segments[idx] = segments[idx].copy()
 
             batch_start = batch_end
 
@@ -362,8 +342,8 @@ class TranslationEngine:
         try:
             translations = model_callable(
                 texts,
-                max_length=TranslationConstants.DEFAULT_MAX_LENGTH,
-                truncation=TranslationConstants.ENABLE_TRUNCATION,
+                max_length=DEFAULT_MAX_LENGTH,
+                truncation=True,
             )
             if (
                 translations
@@ -418,8 +398,8 @@ class TranslationEngine:
         try:
             translation = model_callable(
                 text,
-                max_length=TranslationConstants.DEFAULT_MAX_LENGTH,
-                truncation=TranslationConstants.ENABLE_TRUNCATION,
+                max_length=DEFAULT_MAX_LENGTH,
+                truncation=True,
             )
             if (
                 translation
@@ -560,59 +540,37 @@ class TranslationEngine:
 
         if isinstance(translated_text, str):
             # 单个字符串，只更新第一个 segment
+            log_warning(
+                f"[TranslationEngine] 翻译结果为单个字符串，"
+                f"只有第 1/{len(segments)} 段被更新"
+            )
             for i, seg in enumerate(segments):
-                new_seg = copy.deepcopy(seg)
+                new_seg = seg.copy()
                 new_seg["original_text"] = seg.get("text", "")
                 if i == 0:
                     new_seg["text"] = translated_text
                 translated_segments.append(new_seg)
         elif isinstance(translated_text, list):
-            # 列表，按索引更新
+            if len(translated_text) != len(segments):
+                log_warning(
+                    f"[TranslationEngine] 翻译结果数量({len(translated_text)})"
+                    f"与段落数量({len(segments)})不匹配"
+                )
             for i, seg in enumerate(segments):
-                new_seg = copy.deepcopy(seg)
+                new_seg = seg.copy()
                 new_seg["original_text"] = seg.get("text", "")
                 if i < len(translated_text):
                     new_seg["text"] = translated_text[i]
+                else:
+                    new_seg["text"] = ""
                 translated_segments.append(new_seg)
         else:
-            # 未知类型，保留原文
-            translated_segments = [copy.deepcopy(seg) for seg in segments]
+            log_warning(
+                f"[TranslationEngine] 翻译结果类型异常: {type(translated_text).__name__}"
+            )
+            translated_segments = [seg.copy() for seg in segments]
 
         return translated_segments
-
-    def _test_api_connection(self) -> None:
-        """测试 LLM API 连接"""
-        log_step("Testing LLM API connection...")
-        test_result = self.llm_backend.test_connection()
-
-        log_debug(
-            f"[LLM] Connection test: success={test_result.get('success')}, "
-            f"message={test_result.get('message', 'N/A')}"
-        )
-
-        if not test_result.get("success"):
-            error_msg = test_result.get("message", "Unknown error")
-            backend_type = type(self.llm_backend).__name__
-            log_error(f"Connection test failed: {error_msg}")
-
-            error_lower = error_msg.lower()
-            if "api key" in error_lower or "auth" in error_lower:
-                suggestion = f"Check {backend_type} API key in config.toml"
-            elif "connection" in error_lower or "network" in error_lower:
-                suggestion = "Check internet connection and try again"
-            else:
-                suggestion = f"Check {backend_type} configuration in config.toml"
-
-            raise ProcessingError(
-                message=f"API connection test failed: {backend_type}",
-                context={
-                    "backend": backend_type,
-                    "details": error_msg,
-                    "suggestion": suggestion,
-                },
-            )
-
-        log_info("API connection test successful")
 
     # ==================== 资源清理 ====================
 

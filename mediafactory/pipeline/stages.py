@@ -3,9 +3,8 @@
 import os
 from .stage import SkipableStage
 from .context import ProcessingContext
-from ..core.progress_protocol import NO_OP_PROGRESS
 from ..utils.resources import get_language_name
-from ..logging import log_step, log_info, log_warning, log_success, log_debug
+from ..logging import log_step, log_info, log_warning, log_success
 from ..exceptions import ProcessingError
 from ..core.exception_wrapper import convert_exception
 from ..i18n import t
@@ -28,9 +27,7 @@ class AudioExtractionStage(SkipableStage):
 
     def execute(self, ctx: ProcessingContext) -> ProcessingContext:
         """提取音频"""
-        log_step("Audio Extraction")
-        ctx.set_stage("audio_extraction")
-        progress = ctx.progress_callback or NO_OP_PROGRESS
+        progress = self._begin(ctx, "Audio Extraction")
         progress.update(0.0, t("progress.audioExtractionStart"))
 
         # 从 ctx.config 读取额外参数（兼容 Pipeline 和直接调用）
@@ -77,9 +74,7 @@ class TranscriptionStage(SkipableStage):
 
     def execute(self, ctx: ProcessingContext) -> ProcessingContext:
         """执行语音转录"""
-        log_step("Speech Recognition")
-        ctx.set_stage("transcription")
-        progress = ctx.progress_callback or NO_OP_PROGRESS
+        progress = self._begin(ctx, "Speech Recognition")
         progress.update(0.0, t("progress.transcriptionPrepare"))
 
         result = self.recognition_engine.transcribe(
@@ -119,9 +114,7 @@ class PostProcessStage(SkipableStage):
 
     def execute(self, ctx: ProcessingContext) -> ProcessingContext:
         """执行后处理"""
-        log_step("Post-Processing")
-        ctx.set_stage("postprocess")
-        progress = ctx.progress_callback or NO_OP_PROGRESS
+        progress = self._begin(ctx, "Post-Processing")
         progress.update(0.0, "Post-processing...")
 
         # 延迟导入：避免启动时加载 ML 依赖（stable-ts、torch 等）
@@ -159,6 +152,7 @@ class PostProcessStage(SkipableStage):
                 merge_gap_threshold=pp_runtime.get(
                     "merge_gap_threshold", pp_config.merge_gap_threshold
                 ),
+                language=ctx.detected_lang,
             )
 
         # 更新转录结果中的 segments
@@ -199,6 +193,16 @@ class TranslationStage(SkipableStage):
             self._log("Translation already exists", "info")
             return False
         if ctx.detected_lang == ctx.tgt_lang:
+            if ctx.bilingual:
+                raise ProcessingError(
+                    message=f"双语字幕需要源语言和目标语言不同，"
+                    f"但检测到的语言和目标语言都是 {ctx.tgt_lang}",
+                    context={
+                        "detected_lang": ctx.detected_lang,
+                        "tgt_lang": ctx.tgt_lang,
+                        "bilingual": True,
+                    },
+                )
             self._log(
                 f"Source and target languages are the same ({ctx.detected_lang}), skipping translation",
                 "info",
@@ -209,12 +213,7 @@ class TranslationStage(SkipableStage):
 
     def execute(self, ctx: ProcessingContext) -> ProcessingContext:
         """执行翻译"""
-        log_step("Translation")
-        ctx.set_stage("translation")
-        progress = ctx.progress_callback or NO_OP_PROGRESS
-        log_debug(
-            f"[TranslationStage] progress_callback: {ctx.progress_callback is not None}, type: {type(progress).__name__}"
-        )
+        progress = self._begin(ctx, "Translation")
         progress.update(0.0, t("progress.translationPrepare"))
 
         src_lang = ctx.detected_lang or ctx.src_lang
@@ -308,11 +307,16 @@ class SRTGenerationStage(SkipableStage):
         self.srt_engine = srt_engine
         self.ass_engine = ass_engine
 
+    def should_execute(self, ctx: ProcessingContext) -> bool:
+        """没有翻译或转录结果则跳过"""
+        if not ctx.translation_result and not ctx.transcription_result:
+            self._log("No transcription or translation result available", "error")
+            return False
+        return True
+
     def execute(self, ctx: ProcessingContext) -> ProcessingContext:
         """生成字幕文件"""
-        log_step("Final Stage")
-        ctx.set_stage("srt_generation")
-        progress = ctx.progress_callback or NO_OP_PROGRESS
+        progress = self._begin(ctx, "Final Stage")
         progress.update(0.0, t("progress.subtitleGenerationPrepare"))
 
         # 优先使用翻译结果
@@ -376,6 +380,35 @@ class SRTGenerationStage(SkipableStage):
 
         ctx.output_path = output_path
 
+        # 翻译场景：额外生成源语言字幕文件
+        has_translation = (
+            ctx.translation_result is not None
+            and ctx.transcription_result is not None
+            and ctx.detected_lang
+            and ctx.detected_lang != ctx.tgt_lang
+        )
+        if has_translation:
+            src_lang = ctx.detected_lang
+            source_segments = ctx.transcription_result.get("segments", [])
+            if source_segments:
+                video_dir = ctx.get_video_dir()
+                video_name = ctx.get_video_name()
+                source_filename = f"{video_name}_{src_lang}{ext}"
+                source_path = os.path.join(video_dir, source_filename)
+
+                if output_format == "txt":
+                    self.srt_engine.generate_text_to_path(source_path, source_segments)
+                elif output_format == "ass":
+                    if self.ass_engine is None:
+                        from ..engine.ass_engine import ASSEngine
+                        self.ass_engine = ASSEngine()
+                    self.ass_engine.generate_to_path(source_path, source_segments)
+                else:
+                    self.srt_engine.generate_to_path(source_path, source_segments)
+
+                ctx.source_subtitle_path = source_path
+                log_success(f"Source subtitle generated: {source_path}")
+
         # 里程碑进度：文件写入完成
         progress.update(80, t("progress.finalizing"))
 
@@ -390,6 +423,9 @@ class SRTGenerationStage(SkipableStage):
             return False
         if not os.path.exists(ctx.output_path):
             self._log(f"Output file does not exist: {ctx.output_path}", "error")
+            return False
+        if os.path.getsize(ctx.output_path) == 0:
+            self._log(f"Output file is empty: {ctx.output_path}", "error")
             return False
         return True
 
@@ -408,9 +444,7 @@ class ModelLoadingStage(SkipableStage):
 
     def execute(self, ctx: ProcessingContext) -> ProcessingContext:
         """加载 Whisper 模型"""
-        log_step("Initialization")
-        ctx.set_stage("model_loading")
-        progress = ctx.progress_callback or NO_OP_PROGRESS
+        progress = self._begin(ctx, "Initialization")
 
         from ..models.whisper_runtime import select_device
         from ..models.model_registry import WHISPER_MODEL_ID
@@ -495,9 +529,7 @@ class VideoEnhancementStage(SkipableStage):
 
     def execute(self, ctx: ProcessingContext) -> ProcessingContext:
         """执行视频增强"""
-        log_step("Video Enhancement")
-        ctx.set_stage("video_enhancement")
-        progress = ctx.progress_callback or NO_OP_PROGRESS
+        progress = self._begin(ctx, "Video Enhancement")
         progress.update(0.0, t("progress.videoEnhancementStart"))
 
         # 延迟导入以避免启动时加载 ML 依赖

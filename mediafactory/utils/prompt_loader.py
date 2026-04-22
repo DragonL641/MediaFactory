@@ -10,7 +10,6 @@
 
     # 带参数替换
     prompt = get_prompt("translate/batch", target_language="中文")
-    prompt = get_prompt("translate/single", source_language="English", target_language="中文")
 """
 
 from pathlib import Path
@@ -54,7 +53,7 @@ def get_prompt(prompt_path: str, **kwargs) -> str:
     """获取 prompt 并进行变量替换。
 
     Args:
-        prompt_path: prompt 路径，如 "translate/batch", "translate/single"
+        prompt_path: prompt 路径，如 "translate/batch"
         **kwargs: 模板变量，用于替换 prompt 中的 ${variable}
 
     Returns:
@@ -62,8 +61,7 @@ def get_prompt(prompt_path: str, **kwargs) -> str:
 
     Examples:
         >>> get_prompt("translate/batch")
-        >>> get_prompt("translate/batch", target_language="中文", batch_size=20)
-        >>> get_prompt("translate/single", source_language="English", target_language="中文")
+        >>> get_prompt("translate/batch", target_language="中文")
     """
     # 加载原始 prompt
     raw_prompt = _load_prompt_file(prompt_path)

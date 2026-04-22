@@ -11,7 +11,6 @@ from .model_registry import (
     ModelInfo,
     ModelType,
     get_all_translation_models,
-    get_all_whisper_models,
     get_available_memory_for_device,
     get_available_memory_gb,
     get_available_vram_gb,
@@ -21,14 +20,10 @@ from .model_registry import (
     get_recommended_translation_models,
     get_required_memory_for_model,
     get_system_total_memory_gb,
-    get_total_vram_gb,
     get_translation_model_info,
     get_whisper_model_info,
-    is_model_commercial_use_allowed,
     select_best_translation_model,
     # 增强模型相关函数（统一注册表）
-    get_all_enhancement_models,
-    get_enhancement_models_by_type,
     get_enhancement_model_by_scale_and_type,
     is_enhancement_model,
     get_enhancement_models_dir,
@@ -36,7 +31,6 @@ from .model_registry import (
     is_model_downloaded,
     is_model_complete,
     get_all_model_statuses,
-    ENHANCEMENT_MODEL_REGISTRY,
 )
 from .model_download import (
     delete_model,
@@ -48,11 +42,7 @@ from .model_download import (
 from .memory_detection import (
     MemoryInfo,
     ModelRecommendation,
-    format_memory_size,
     get_memory_info,
-    get_memory_tier_description,
-    get_runtime_model_selection,
-    get_translation_model_recommendations,
 )
 from .whisper_runtime import get_compute_type, load_model, select_device
 from .translation_runtime import get_translation_model
@@ -66,7 +56,6 @@ __all__ = [
     "ModelInfo",
     "ModelType",
     "get_all_translation_models",
-    "get_all_whisper_models",
     "get_available_memory_for_device",
     "get_available_memory_gb",
     "get_available_vram_gb",
@@ -76,10 +65,8 @@ __all__ = [
     "get_recommended_translation_models",
     "get_required_memory_for_model",
     "get_system_total_memory_gb",
-    "get_total_vram_gb",
     "get_translation_model_info",
     "get_whisper_model_info",
-    "is_model_commercial_use_allowed",
     "select_best_translation_model",
     # Model Download
     "delete_model",
@@ -90,11 +77,7 @@ __all__ = [
     # Memory Detection
     "MemoryInfo",
     "ModelRecommendation",
-    "format_memory_size",
     "get_memory_info",
-    "get_memory_tier_description",
-    "get_runtime_model_selection",
-    "get_translation_model_recommendations",
     # Whisper Runtime
     "get_compute_type",
     "load_model",
@@ -105,8 +88,6 @@ __all__ = [
     "LocalModelManager",
     "local_model_manager",
     # 视频增强模型（统一注册表）
-    "get_all_enhancement_models",
-    "get_enhancement_models_by_type",
     "get_enhancement_model_by_scale_and_type",
     "is_enhancement_model",
     "get_enhancement_models_dir",
@@ -114,5 +95,4 @@ __all__ = [
     "is_model_downloaded",
     "is_model_complete",
     "get_all_model_statuses",
-    "ENHANCEMENT_MODEL_REGISTRY",
 ]

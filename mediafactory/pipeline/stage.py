@@ -2,6 +2,7 @@
 
 from abc import ABC, abstractmethod
 from .context import ProcessingContext
+from ..core.progress_protocol import NO_OP_PROGRESS
 
 
 class ProcessingStage(ABC):
@@ -40,6 +41,15 @@ class ProcessingStage(ABC):
         }
         logger = loggers.get(level, log_info)
         logger(f"[{self.name}] {message}")
+
+    def _begin(self, ctx: ProcessingContext, display_name: str):
+        """初始化阶段：记录日志、设置阶段名、获取进度回调。"""
+        from ..logging import log_step
+
+        log_step(display_name)
+        ctx.set_stage(self.name)
+        progress = ctx.progress_callback or NO_OP_PROGRESS
+        return progress
 
 
 class SkipableStage(ProcessingStage):

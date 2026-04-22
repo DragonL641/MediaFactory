@@ -20,6 +20,7 @@ class ProcessingContext:
     transcription_result: Optional[Dict[str, Any]] = None
     translation_result: Optional[Dict[str, Any]] = None
     output_path: Optional[str] = None
+    source_subtitle_path: Optional[str] = None
 
     # 语言设置
     src_lang: Optional[str] = None

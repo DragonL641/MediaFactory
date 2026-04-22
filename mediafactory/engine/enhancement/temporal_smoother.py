@@ -57,8 +57,6 @@ class TemporalSmoother:
         self._buffer: Deque[Tuple[np.ndarray, np.ndarray, np.ndarray]] = deque(
             maxlen=self.config.window_size
         )
-        # 延迟输出的帧队列
-        self._pending_frames: Deque[np.ndarray] = deque()
 
         # 高斯权重（预计算）
         self._weights = self._compute_gaussian_weights()
@@ -361,7 +359,6 @@ class TemporalSmoother:
     def reset(self) -> None:
         """重置平滑器状态"""
         self._buffer.clear()
-        self._pending_frames.clear()
 
     @property
     def delay(self) -> int:

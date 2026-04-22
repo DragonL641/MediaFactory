@@ -11,10 +11,11 @@
 
 特性：
 - 使用 OpenAI SDK 进行统一调用（SDK 内置重试）
-- 批量翻译 + 简化降级策略
-- 行数不匹配时：纠正 → 二分（仅一次）→ 记录失败位置
-- API 异常时：直接记录失败位置
+- 批量翻译 + 二分降级策略
+- 验证失败时：二分（递归至 split_threshold）→ 记录失败位置
+- API 异常时：content filter 二分递归，其他异常记录失败位置
 - 所有失败位置统一在末尾用本地模型翻译
+- 未翻译检测：日语假名残留自动标记为失败，触发本地回退
 - 支持可中断的翻译操作
 - Prompt 外置管理
 """
@@ -32,7 +33,7 @@ from .base import (
     restore_result,
 )
 from .local_fallback import LocalModelFallback
-from ..constants import LANGUAGE_NAMES
+from ..constants import LANGUAGE_NAMES, CHINESE_LANG_CODES
 from ..core.progress_protocol import ProgressCallback
 from ..exceptions import OperationCancelledError
 from ..logging import (
@@ -65,7 +66,8 @@ class OpenAICompatibleBackend(TranslationBackend):
     只需配置 base_url + api_key + model 即可使用。
 
     降级策略：
-    批量翻译 → 纠正重试 → 二分（仅一次）→ 记录失败位置 → 末尾本地翻译
+    批量翻译 → 二分（递归至最小批次）→ 记录失败位置 → 末尾本地翻译
+    未翻译检测：日语假名残留自动回退本地模型
     """
 
     def __init__(
@@ -391,7 +393,8 @@ class OpenAICompatibleBackend(TranslationBackend):
 
             try:
                 result = self._translate_batch(
-                    batch, tgt_lang, cancelled_callback, allow_split=True
+                    batch, tgt_lang, cancelled_callback, allow_split=True,
+                    src_lang=src_lang,
                 )
                 # 填入翻译结果
                 for i, text in enumerate(result.translations):
@@ -410,7 +413,7 @@ class OpenAICompatibleBackend(TranslationBackend):
                         f"触发内容过滤，开始二分处理..."
                     )
                     result = self._translate_batch_with_content_filter_split(
-                        batch, tgt_lang, cancelled_callback
+                        batch, tgt_lang, cancelled_callback, src_lang=src_lang,
                     )
                     for i, text in enumerate(result.translations):
                         all_translated[global_start + i] = text
@@ -475,64 +478,53 @@ class OpenAICompatibleBackend(TranslationBackend):
         tgt_lang: str,
         cancelled_callback: Optional[Callable] = None,
         allow_split: bool = True,
+        src_lang: str = "",
     ) -> BatchResult:
-        """单批次翻译，包含简化降级逻辑。
+        """单批次翻译，包含降级逻辑。
 
         降级策略：
         1. 尝试批量翻译
-        2. 行数不匹配 → 单次纠正重试
-        3. 纠正失败 → 二分（仅当 allow_split 且数量 >= split_threshold）
-        4. 不再二分 → 记录失败位置
+        2. 验证失败 → 二分（当 allow_split 且数量 >= split_threshold）
+        3. 不再二分 → 记录失败位置
 
-        注意：API 异常（SDK 已重试耗尽）直接抛出，由 _translate_all_texts 统一处理。
-
-        Args:
-            batch: 待翻译的文本批次
-            tgt_lang: 目标语言代码
-            cancelled_callback: 取消检查回调
-            allow_split: 是否允许二分降级
-
-        Returns:
-            BatchResult: 翻译结果和失败位置
+        API 异常直接抛出，由 _translate_all_texts 统一处理。
         """
         tgt_name = self.get_language_name(tgt_lang)
+        src_name = self.get_language_name(src_lang) if src_lang else ""
 
         # 1. 尝试批量翻译
-        response = self._call_llm_batch(batch, tgt_name, cancelled_callback)
+        response = self._call_llm_batch(batch, tgt_name, cancelled_callback, src_name=src_name)
         result = self._parse_json_response(response)
 
         if result and self._validate_keys(result, batch):
-            return BatchResult(translations=[result[str(i)] for i in range(len(batch))])
+            # 类型安全提取：确保所有值都是字符串
+            translations = [str(result.get(str(i), batch[i])) for i in range(len(batch))]
+            # 检测未翻译的条目，标记为失败以触发本地回退
+            untranslated_indices = self._flag_untranslated(translations, batch, tgt_lang)
+            if untranslated_indices:
+                return BatchResult(
+                    translations=translations,
+                    failed_indices=untranslated_indices,
+                )
+            return BatchResult(translations=translations)
 
-        # 2. 行数不匹配，尝试纠正
-        log_warning(f"[OpenAI-Compatible] 批次验证失败（{len(batch)} 句），尝试纠正...")
-        corrected = self._call_llm_batch(
-            batch,
-            tgt_name,
-            cancelled_callback,
-            error_hint=f"上次返回行数不正确，期望{len(batch)}行，请严格按JSON格式返回",
-        )
-        result = self._parse_json_response(corrected)
-
-        if result and self._validate_keys(result, batch):
-            return BatchResult(translations=[result[str(i)] for i in range(len(batch))])
-
-        # 3. 纠正失败，尝试二分
+        # 2. 验证失败，尝试二分
         if allow_split and len(batch) >= self._split_threshold:
             half = len(batch) // 2
             log_warning(
-                f"[OpenAI-Compatible] 纠正失败，二分处理: "
-                f"{len(batch)} → {half} + {len(batch) - half}"
+                f"[OpenAI-Compatible] 批次验证失败（{len(batch)} 句），二分处理: "
+                f"{half} + {len(batch) - half}"
             )
 
             first = self._translate_batch(
-                batch[:half], tgt_lang, cancelled_callback, allow_split=False
+                batch[:half], tgt_lang, cancelled_callback, allow_split=True,
+                src_lang=src_lang,
             )
             second = self._translate_batch(
-                batch[half:], tgt_lang, cancelled_callback, allow_split=False
+                batch[half:], tgt_lang, cancelled_callback, allow_split=True,
+                src_lang=src_lang,
             )
 
-            # 合并结果
             return BatchResult(
                 translations=first.translations + second.translations,
                 failed_indices=(
@@ -540,7 +532,7 @@ class OpenAICompatibleBackend(TranslationBackend):
                 ),
             )
 
-        # 4. 不再二分，记录失败
+        # 3. 不再二分，记录失败
         log_warning(f"[OpenAI-Compatible] 批次 {len(batch)} 句无法翻译，记录失败位置")
         return BatchResult(
             translations=list(batch),
@@ -563,6 +555,7 @@ class OpenAICompatibleBackend(TranslationBackend):
         batch: List[str],
         tgt_lang: str,
         cancelled_callback: Optional[Callable] = None,
+        src_lang: str = "",
     ) -> BatchResult:
         """contentFilter 错误的二分递归处理。
 
@@ -574,7 +567,8 @@ class OpenAICompatibleBackend(TranslationBackend):
 
         try:
             return self._translate_batch(
-                batch, tgt_lang, cancelled_callback, allow_split=False
+                batch, tgt_lang, cancelled_callback, allow_split=True,
+                src_lang=src_lang,
             )
         except OperationCancelledError:
             raise
@@ -601,10 +595,10 @@ class OpenAICompatibleBackend(TranslationBackend):
                 f"{len(batch)} → {half} + {len(batch) - half}"
             )
             first = self._translate_batch_with_content_filter_split(
-                batch[:half], tgt_lang, cancelled_callback
+                batch[:half], tgt_lang, cancelled_callback, src_lang=src_lang,
             )
             second = self._translate_batch_with_content_filter_split(
-                batch[half:], tgt_lang, cancelled_callback
+                batch[half:], tgt_lang, cancelled_callback, src_lang=src_lang,
             )
             return BatchResult(
                 translations=first.translations + second.translations,
@@ -655,7 +649,7 @@ class OpenAICompatibleBackend(TranslationBackend):
         batch: List[str],
         tgt_name: str,
         cancelled_callback: Optional[Callable] = None,
-        error_hint: Optional[str] = None,
+        src_name: str = "",
     ) -> str:
         """批量翻译 API 调用。
 
@@ -663,16 +657,17 @@ class OpenAICompatibleBackend(TranslationBackend):
             batch: 待翻译的文本批次
             tgt_name: 目标语言名称
             cancelled_callback: 取消检查回调
-            error_hint: 错误提示（用于纠正场景）
+            src_name: 源语言名称
 
         Returns:
             LLM 响应文本
         """
-        prompt = self._get_batch_prompt(tgt_name, error_hint)
+        prompt = self._get_batch_prompt(tgt_name, src_name)
         input_json = json.dumps(
             {str(i): t for i, t in enumerate(batch)}, ensure_ascii=False
         )
-        user_content = f"请将以下内容翻译为{tgt_name}：\n{input_json}"
+        src_hint = f"（从{src_name}）" if src_name else ""
+        user_content = f"请将以下{src_hint}内容翻译为{tgt_name}：\n{input_json}"
         return self._call_llm(prompt, user_content, cancelled_callback)
 
     # ==================== 辅助方法 ====================
@@ -731,18 +726,48 @@ class OpenAICompatibleBackend(TranslationBackend):
         result_keys = set(result.keys())
         return expected_keys.issubset(result_keys)
 
+    # 日语假名字符范围
+    _HIRAGANA = re.compile(r"[\u3040-\u309F]")
+    _KATAKANA = re.compile(r"[\u30A0-\u30FF]")
+
+
+    def _flag_untranslated(
+        self, translations: List[str], originals: List[str], tgt_lang: str
+    ) -> List[int]:
+        """检测未翻译的段落，返回应回退本地模型的索引列表。
+
+        检测规则：目标语言是中文时，如果译文仍包含日语假名，则视为未翻译。
+        """
+        if tgt_lang not in CHINESE_LANG_CODES:
+            return []
+
+        failed = []
+        for i, (trans, orig) in enumerate(zip(translations, originals)):
+            if trans == orig:
+                continue
+            if self._HIRAGANA.search(trans) or self._KATAKANA.search(trans):
+                failed.append(i)
+
+        if failed:
+            log_warning(
+                f"[OpenAI-Compatible] 检测到 {len(failed)} 条可能未翻译"
+                f"（包含日语假名），将回退本地模型"
+            )
+        return failed
+
     def _get_batch_prompt(
-        self, target_language: str, error_hint: Optional[str] = None
+        self,
+        target_language: str,
+        source_language: str = "",
     ) -> str:
         """获取批量翻译 prompt。"""
         from ..utils.prompt_loader import get_prompt
 
-        custom_instructions = error_hint if error_hint else ""
-
         return get_prompt(
             "translate/batch",
             target_language=target_language,
-            custom_instructions=custom_instructions,
+            source_language=source_language,
+            custom_instructions="",
         )
 
     def get_language_name(self, lang_code: str) -> str:

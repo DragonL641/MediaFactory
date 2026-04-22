@@ -388,14 +388,6 @@ def log_error_with_context(
 # ===== Structured logging functions =====
 
 
-def log_stage(stage_name: str) -> None:
-    """Log a processing stage header."""
-    _log = _ensure_logger()
-    _log.info("=" * 50)
-    _log.info(f"STAGE: {stage_name}")
-    _log.info("=" * 50)
-
-
 def log_step(step_msg: str) -> None:
     """Log a processing step."""
     _ensure_logger().info(f"  → {step_msg}")
@@ -444,58 +436,6 @@ def log_llm_response(
         _log.error(f"  Retries attempted: {retry_count}")
 
 
-def log_llm_retry(
-    backend: str,
-    attempt: int,
-    max_retries: int,
-    error: str,
-) -> None:
-    """Log LLM API retry attempt."""
-    _log = _ensure_logger()
-    _log.warning(f"LLM Retry: {backend} - Attempt {attempt}/{max_retries}")
-    _log.warning(f"  Error: {error}")
-
-
-def log_processing_start(
-    process_type: str,
-    video_path: str,
-    context: dict,
-) -> None:
-    """Log the start of a processing operation."""
-    _log = _ensure_logger()
-    _log.info("")
-    _log.info("=" * 60)
-    _log.info(f"START: {process_type}")
-    _log.info(f"  Video: {video_path}")
-    for key, value in context.items():
-        _log.info(f"  {key}: {value}")
-    _log.info("=" * 60)
-
-
-def log_processing_end(
-    process_type: str,
-    success: bool,
-    duration_sec: float,
-    output_path: Optional[str] = None,
-    error: Optional[str] = None,
-) -> None:
-    """Log the end of a processing operation."""
-    _log = _ensure_logger()
-    _log.info("")
-    _log.info("=" * 60)
-    if success:
-        _log.info(f"END: {process_type} - SUCCESS")
-        _log.info(f"  Duration: {duration_sec:.2f} seconds")
-        if output_path:
-            _log.info(f"  Output: {output_path}")
-    else:
-        _log.error(f"END: {process_type} - FAILED")
-        _log.error(f"  Duration: {duration_sec:.2f} seconds")
-        if error:
-            _log.error(f"  Error: {error}")
-    _log.info("=" * 60)
-
-
 def log_language_detection(result: Any, context: str = "") -> None:
     """Log language detection result."""
     from ..utils.resources import LANGUAGE_MAP
@@ -523,49 +463,3 @@ def log_language_detection(result: Any, context: str = "") -> None:
         _log.warning(
             f"{prefix}Mixed language content detected, translation quality may be affected"
         )
-
-
-# ===== Bind/context support for structured logging =====
-
-
-def bind_context(**kwargs) -> Any:
-    """Bind context to logger for structured logging."""
-    return _ensure_logger().bind(**kwargs)
-
-
-def log_with_context(level: str, msg: str, **kwargs) -> None:
-    """Log with additional context using loguru's bind."""
-    log_func = getattr(_ensure_logger(), level.lower(), None)
-    if log_func:
-        log_func.bind(**kwargs)(msg)
-    else:
-        _ensure_logger().info(msg)
-
-
-# ===== Utility functions =====
-
-
-def open_log_folder() -> None:
-    """Open the folder containing the log file.
-
-    Opens the folder in the system file manager (Finder on macOS,
-    Explorer on Windows).
-    """
-    import os
-    import subprocess
-    import platform
-
-    log_path = _loguru_app_logger.get_log_file_path()
-    if not log_path:
-        return
-
-    folder = os.path.dirname(log_path)
-    if not os.path.exists(folder):
-        return
-
-    if platform.system() == "Windows":
-        os.startfile(folder)
-    elif platform.system() == "Darwin":
-        subprocess.run(["open", folder])
-    else:
-        subprocess.run(["xdg-open", folder])

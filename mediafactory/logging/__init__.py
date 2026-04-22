@@ -9,7 +9,7 @@ All logging (CLI, batch, LLM, GUI, API) now goes through a single loguru-based s
 - Auto-initialization on first import
 
 Usage:
-    from mediafactory.logging import log_info, log_error, log_stage
+    from mediafactory.logging import log_info, log_error
 
     # All logging writes to the same unified log file
     # GUI does not display logs - only writes to backend file
@@ -39,7 +39,6 @@ from .loguru_logger import (
 
 # Structured logging functions
 from .loguru_logger import (
-    log_stage,
     log_step,
     log_success,
 )
@@ -48,24 +47,12 @@ from .loguru_logger import (
 from .loguru_logger import (
     log_llm_request,
     log_llm_response,
-    log_llm_retry,
 )
 
 # Processing operation logging
 from .loguru_logger import (
-    log_processing_start,
-    log_processing_end,
     log_language_detection,
 )
-
-# Context binding
-from .loguru_logger import (
-    bind_context,
-    log_with_context,
-)
-
-# Utility functions
-from .loguru_logger import open_log_folder
 
 __all__ = [
     # Core setup
@@ -82,20 +69,11 @@ __all__ = [
     "log_exception",
     "log_error_with_context",
     # Structured logging
-    "log_stage",
     "log_step",
     "log_success",
     # LLM API logging
     "log_llm_request",
     "log_llm_response",
-    "log_llm_retry",
     # Processing logging
-    "log_processing_start",
-    "log_processing_end",
     "log_language_detection",
-    # Context binding
-    "bind_context",
-    "log_with_context",
-    # GUI utility
-    "open_log_folder",
 ]

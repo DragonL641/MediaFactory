@@ -328,6 +328,9 @@ export function useDeleteTaskMutation() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.tasks });
     },
+    onError: (error) => {
+      console.error("[Tasks] Failed to delete task:", error);
+    },
   });
 }
 

@@ -15,80 +15,6 @@ class ErrorSeverity(Enum):
     WARNING = "warning"  # Continue with limitations
 
 
-# Exception types that are typically retryable
-RETRYABLE_EXCEPTIONS = (
-    TimeoutError,
-    ConnectionError,
-    ConnectionRefusedError,
-    ConnectionResetError,
-)
-
-
-def get_error_severity(exception: Exception) -> ErrorSeverity:
-    """Determine if error is fatal, recoverable, or warning.
-
-    Args:
-        exception: The exception to categorize
-
-    Returns:
-        ErrorSeverity category
-    """
-    # Check specific error types
-    if isinstance(
-        exception, (PermissionError, FileNotFoundError, ValueError, TypeError)
-    ):
-        return ErrorSeverity.FATAL
-
-    if isinstance(exception, RETRYABLE_EXCEPTIONS):
-        return ErrorSeverity.RECOVERABLE
-
-    # Check MediaFactory exceptions
-    if isinstance(exception, MediaFactoryError):
-        severity_str = exception.severity
-        if severity_str == ErrorSeverity.FATAL.value:
-            return ErrorSeverity.FATAL
-        elif severity_str == ErrorSeverity.RECOVERABLE.value:
-            return ErrorSeverity.RECOVERABLE
-        elif severity_str == ErrorSeverity.WARNING.value:
-            return ErrorSeverity.WARNING
-
-    # Check for HTTP/API errors (common in LLM backends)
-    error_str = str(exception).lower()
-
-    # Auth errors are fatal
-    if any(
-        kw in error_str
-        for kw in ["unauthorized", "authentication", "invalid api key", "401"]
-    ):
-        return ErrorSeverity.FATAL
-
-    # Rate limit and connection errors are recoverable
-    if any(
-        kw in error_str
-        for kw in ["rate limit", "429", "too many requests", "timeout", "connection"]
-    ):
-        return ErrorSeverity.RECOVERABLE
-
-    # Server errors may be recoverable
-    if any(kw in error_str for kw in ["500", "502", "503", "504"]):
-        return ErrorSeverity.RECOVERABLE
-
-    # Default to fatal for unknown errors
-    return ErrorSeverity.FATAL
-
-
-def is_retryable_error(exception: Exception) -> bool:
-    """Check if an exception is retryable.
-
-    Args:
-        exception: The exception to check
-
-    Returns:
-        True if the error is retryable
-    """
-    return get_error_severity(exception) == ErrorSeverity.RECOVERABLE
-
-
 # =============================================================================
 # Base Exception Class
 # =============================================================================
@@ -140,27 +66,6 @@ class MediaFactoryError(Exception):
     def __str__(self) -> str:
         """返回格式化的错误消息。"""
         return self._get_full_message()
-
-    def get_severity(self) -> str:
-        """获取错误严重程度。"""
-        return self.severity
-
-    def is_retryable(self) -> bool:
-        """检查错误是否可重试。"""
-        return self.severity in (
-            ErrorSeverity.RECOVERABLE.value,
-            ErrorSeverity.WARNING.value,
-        )
-
-    def to_dict(self) -> dict[str, Any]:
-        """转换为字典格式，便于序列化。"""
-        return {
-            "error_type": self.__class__.__name__,
-            "message": self.message,
-            "context": self.context,
-            "severity": self.severity,
-            "is_retryable": self.is_retryable(),
-        }
 
 
 # =============================================================================
@@ -223,10 +128,6 @@ class OperationCancelledError(MediaFactoryError):
 __all__ = [
     # Error severity
     "ErrorSeverity",
-    # Retry classification
-    "RETRYABLE_EXCEPTIONS",
-    "get_error_severity",
-    "is_retryable_error",
     # Base exception
     "MediaFactoryError",
     # Core exceptions (3 types)

@@ -366,34 +366,6 @@ class VideoEnhancementEngine:
 
             return output_path
 
-    def _process_frame(
-        self,
-        frame: np.ndarray,
-        sr_enhancer: RealESRGANEnhancer,
-        denoiser: Optional[Denoiser],
-    ) -> np.ndarray:
-        """
-        处理单帧
-
-        Args:
-            frame: 输入帧
-            sr_enhancer: 超分辨率增强器
-            denoiser: 去噪器
-
-        Returns:
-            增强后的帧
-        """
-        result = frame
-
-        # 1. 去噪（在低分辨率下进行）
-        if denoiser is not None:
-            result = denoiser.enhance_frame(result)
-
-        # 2. 超分辨率
-        result = sr_enhancer.enhance_frame(result)
-
-        return result
-
     def _merge_audio(
         self,
         source_video: str,
@@ -483,45 +455,7 @@ class VideoEnhancementEngine:
         log_info("视频增强引擎资源已清理")
 
 
-def create_enhancement_engine(
-    scale: int = 4,
-    model_type: str = "general",
-    denoise: bool = False,
-    denoise_strength: float = 1.0,
-    temporal: bool = False,
-    temporal_strength: float = 0.5,
-    device: Optional[str] = None,
-) -> VideoEnhancementEngine:
-    """
-    创建视频增强引擎的便捷函数
-
-    Args:
-        scale: 放大倍数 (2/4)
-        model_type: 模型类型 (general/anime)
-        denoise: 是否启用去噪
-        denoise_strength: 去噪强度 (0.0-1.0)
-        temporal: 是否启用时序平滑
-        temporal_strength: 时序平滑强度 (0.0-1.0)
-        device: 计算设备
-
-    Returns:
-        VideoEnhancementEngine 实例
-    """
-    config = EnhancementConfig(
-        scale=scale,
-        model_type=model_type,
-        denoise=denoise,
-        denoise_strength=denoise_strength,
-        temporal=temporal,
-        temporal_strength=temporal_strength,
-        device=device,
-    )
-
-    return VideoEnhancementEngine(config)
-
-
 __all__ = [
     "VideoEnhancementEngine",
     "EnhancementConfig",
-    "create_enhancement_engine",
 ]

@@ -182,17 +182,3 @@ class Pipeline:
 
         return cls([VideoEnhancementStage()])
 
-    def add_stage(self, stage: ProcessingStage) -> "Pipeline":
-        """添加阶段到末尾"""
-        self.stages.append(stage)
-        return self
-
-    def insert_stage(self, index: int, stage: ProcessingStage) -> "Pipeline":
-        """在指定位置插入阶段"""
-        self.stages.insert(index, stage)
-        return self
-
-    def remove_stage(self, stage_name: str) -> "Pipeline":
-        """按名称移除阶段"""
-        self.stages = [s for s in self.stages if s.name != stage_name]
-        return self

@@ -52,9 +52,10 @@ def restore_result(
     """
     result = []
     non_empty_idx = 0
+    empty_set = set(empty_indices)
 
     for i in range(original_count):
-        if i in empty_indices:
+        if i in empty_set:
             result.append("")  # 恢复空字符串
         else:
             result.append(translated_non_empty[non_empty_idx])
@@ -173,27 +174,6 @@ class TranslationBackend(ABC):
             return [text]
         return text
 
-    def _handle_empty_results(
-        self, results: list[str], request: TranslationRequest
-    ) -> TranslationResult | None:
-        """统一空结果处理逻辑。
-
-        Args:
-            results: 翻译结果列表
-            request: 原始翻译请求
-
-        Returns:
-            如果所有结果为空，返回失败的 TranslationResult；否则返回 None
-        """
-        if all(result.strip() == "" for result in results):
-            return TranslationResult(
-                translated_text=request.text,
-                backend_used=self.name,
-                success=False,
-                error_message="所有翻译结果均为空，请检查配置",
-            )
-        return None
-
     def _validate_connection_test_prerequisites(
         self, api_key: str | None, base_url: str | None, package_name: str
     ) -> dict | None:
@@ -225,35 +205,3 @@ class TranslationBackend(ABC):
 
         return None
 
-    def _create_translation_result(
-        self,
-        result: List[str],
-        original_texts: List[str],
-        success: bool = True,
-        error_message: str = "",
-    ) -> TranslationResult:
-        """创建翻译结果（统一处理单句/多句输出格式）。
-
-        Args:
-            result: 翻译结果列表
-            original_texts: 原始文本列表
-            success: 是否成功
-            error_message: 错误信息
-
-        Returns:
-            TranslationResult 对象
-        """
-        if len(original_texts) == 1:
-            return TranslationResult(
-                translated_text=result[0] if result else original_texts[0],
-                backend_used=self.name,
-                success=success,
-                error_message=error_message,
-            )
-        else:
-            return TranslationResult(
-                translated_text=result if success else original_texts,
-                backend_used=self.name,
-                success=success,
-                error_message=error_message,
-            )

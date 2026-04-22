@@ -287,22 +287,6 @@ def get_available_vram_gb() -> float:
     return 0.0
 
 
-def get_total_vram_gb() -> float:
-    """获取 GPU 总显存 (GB)。
-
-    Returns:
-        GPU 总显存 (GB)，无 GPU 时返回 0
-    """
-    try:
-        import torch
-
-        if torch.cuda.is_available():
-            return torch.cuda.get_device_properties(0).total_memory / (1024**3)
-    except Exception:
-        pass
-    return 0.0
-
-
 def get_available_memory_for_device(device: str = "cpu") -> float:
     """获取指定设备的可用内存 (GB)。
 
@@ -342,17 +326,6 @@ def get_whisper_model_info() -> ModelInfo:
         ModelInfo for Whisper Large V3
     """
     return MODEL_REGISTRY[WHISPER_MODEL_ID]
-
-
-def get_all_whisper_models() -> list[ModelInfo]:
-    """Get all Whisper models in the registry.
-
-    Returns:
-        List of Whisper ModelInfo objects
-    """
-    return [
-        info for info in MODEL_REGISTRY.values() if info.model_type == ModelType.WHISPER
-    ]
 
 
 def get_all_translation_models() -> list[ModelInfo]:
@@ -506,21 +479,6 @@ def select_best_translation_model(
     return None
 
 
-def is_model_commercial_use_allowed(model_id: str) -> bool:
-    """Check if a model allows commercial use.
-
-    Args:
-        model_id: Model identifier
-
-    Returns:
-        True if commercial use is allowed, False otherwise
-    """
-    info = MODEL_REGISTRY.get(model_id)
-    if info is None:
-        return False
-    return info.license in (LicenseType.APACHE_2_0, LicenseType.MIT)
-
-
 def get_display_name(huggingface_id: str) -> str:
     """获取模型的展示名称。
 
@@ -538,30 +496,6 @@ def get_display_name(huggingface_id: str) -> str:
 
 
 # ==================== Enhancement Model Functions ====================
-
-
-def get_all_enhancement_models() -> List[ModelInfo]:
-    """获取所有增强模型。
-
-    Returns:
-        List of enhancement ModelInfo objects
-    """
-    enhancement_types = {ModelType.SUPER_RESOLUTION, ModelType.DENOISE}
-    return [
-        info for info in MODEL_REGISTRY.values() if info.model_type in enhancement_types
-    ]
-
-
-def get_enhancement_models_by_type(model_type: ModelType) -> List[ModelInfo]:
-    """按类型获取增强模型。
-
-    Args:
-        model_type: 模型类型 (SUPER_RESOLUTION, DENOISE)
-
-    Returns:
-        List of ModelInfo objects of the specified type
-    """
-    return [info for info in MODEL_REGISTRY.values() if info.model_type == model_type]
 
 
 def get_enhancement_model_by_scale_and_type(
@@ -712,11 +646,3 @@ def get_all_model_statuses() -> Dict[str, bool]:
         {model_id: is_downloaded} 字典
     """
     return {model_id: is_model_downloaded(model_id) for model_id in MODEL_REGISTRY}
-
-
-# Backward compatibility alias
-ENHANCEMENT_MODEL_REGISTRY = {
-    model_id: info
-    for model_id, info in MODEL_REGISTRY.items()
-    if is_enhancement_model(model_id)
-}
