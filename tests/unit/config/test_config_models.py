@@ -9,7 +9,6 @@ from pathlib import Path
 from mediafactory.config.models import (
     AppConfig,
     AppSettingsConfig,
-    FFmpegConfig,
     LLMApiConfig,
     LoggingConfig,
     ModelConfig,
@@ -186,26 +185,7 @@ class TestLLMApiConfig:
 
 
 # ============================================================================
-# 5. FFmpegConfig 默认值与约束
-# ============================================================================
-
-
-class TestFFmpegConfig:
-    def test_defaults(self):
-        cfg = FFmpegConfig()
-        assert cfg.soft_subtitle_timeout == 300
-        assert cfg.hard_subtitle_timeout == 1800
-        assert cfg.multi_subtitle_timeout == 300
-
-    def test_soft_subtitle_timeout_constraint(self):
-        with pytest.raises(Exception):
-            FFmpegConfig(soft_subtitle_timeout=59)
-        with pytest.raises(Exception):
-            FFmpegConfig(soft_subtitle_timeout=3601)
-
-
-# ============================================================================
-# 6. LoggingConfig 默认值与约束
+# 5. LoggingConfig 默认值与约束
 # ============================================================================
 
 
@@ -229,7 +209,7 @@ class TestLoggingConfig:
 
 
 # ============================================================================
-# 7. AppConfig 默认值与 to_toml_dict
+# 6. AppConfig 默认值与 to_toml_dict
 # ============================================================================
 
 
@@ -241,7 +221,6 @@ class TestAppConfig:
         assert isinstance(cfg.model, ModelConfig)
         assert isinstance(cfg.openai_compatible, OpenAICompatibleConfig)
         assert isinstance(cfg.llm_api, LLMApiConfig)
-        assert isinstance(cfg.ffmpeg, FFmpegConfig)
         assert isinstance(cfg.logging, LoggingConfig)
 
     def test_app_language_default(self):
@@ -267,7 +246,6 @@ class TestAppConfig:
         assert "model" in d
         assert "openai_compatible" in d
         assert "llm_api" in d
-        assert "ffmpeg" in d
         assert "logging" in d
 
     def test_to_toml_dict_whisper_section(self):

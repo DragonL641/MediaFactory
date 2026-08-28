@@ -71,11 +71,6 @@ batch_size = 40
 split_threshold = 10
 temperature = 0.3
 
-[ffmpeg]
-soft_subtitle_timeout = 300
-hard_subtitle_timeout = 1800
-multi_subtitle_timeout = 300
-
 [logging]
 retention_days = 30
 max_files = 20

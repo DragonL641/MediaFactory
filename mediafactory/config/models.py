@@ -277,34 +277,6 @@ class LLMApiConfig(BaseModel):
 
 
 # ============================================================================
-# FFmpeg 配置
-# ============================================================================
-
-
-class FFmpegConfig(BaseModel):
-    """FFmpeg 子进程超时配置"""
-
-    soft_subtitle_timeout: int = Field(
-        default=300,
-        ge=60,
-        le=3600,
-        description="软字幕嵌入超时（秒）",
-    )
-    hard_subtitle_timeout: int = Field(
-        default=1800,
-        ge=300,
-        le=7200,
-        description="硬字幕烧录超时（秒）",
-    )
-    multi_subtitle_timeout: int = Field(
-        default=300,
-        ge=60,
-        le=3600,
-        description="多字幕嵌入超时（秒）",
-    )
-
-
-# ============================================================================
 # 日志配置
 # ============================================================================
 
@@ -375,10 +347,6 @@ class AppConfig(BaseModel):
     llm_api: LLMApiConfig = Field(
         default_factory=LLMApiConfig,
         description="LLM API 通用配置",
-    )
-    ffmpeg: FFmpegConfig = Field(
-        default_factory=FFmpegConfig,
-        description="FFmpeg 子进程超时配置",
     )
     logging: LoggingConfig = Field(
         default_factory=LoggingConfig,
