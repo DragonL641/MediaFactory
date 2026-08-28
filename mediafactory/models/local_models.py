@@ -637,7 +637,7 @@ class LocalModelManager:
         return count
 
     def cleanup(self) -> None:
-        """清理所有资源（实现 ResourceCleanupProtocol）。"""
+        """清理所有资源。"""
         self.unload_all_translation_models()
 
 

@@ -577,7 +577,6 @@ class TranslationEngine:
     def cleanup(self) -> None:
         """清理翻译引擎持有的所有资源。
 
-        实现 ResourceCleanupProtocol 接口。
         应该在引擎不再使用时调用，以释放内存和连接。
         """
         import gc

@@ -39,11 +39,6 @@ from .model_download import (
     get_model_total_size,
     get_models_dir,
 )
-from .memory_detection import (
-    MemoryInfo,
-    ModelRecommendation,
-    get_memory_info,
-)
 from .whisper_runtime import get_compute_type, load_model, select_device
 from .translation_runtime import get_translation_model
 from .local_models import LocalModelManager, local_model_manager
@@ -74,10 +69,6 @@ __all__ = [
     "get_downloaded_size",
     "get_model_total_size",
     "get_models_dir",
-    # Memory Detection
-    "MemoryInfo",
-    "ModelRecommendation",
-    "get_memory_info",
     # Whisper Runtime
     "get_compute_type",
     "load_model",
