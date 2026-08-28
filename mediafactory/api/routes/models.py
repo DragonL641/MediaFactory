@@ -4,7 +4,6 @@
 提供模型状态查询、下载、删除等端点。
 """
 
-import logging
 import time
 from typing import Any, Dict, List
 
@@ -13,10 +12,6 @@ from pydantic import BaseModel
 
 from mediafactory.services.models import ModelStatusService
 from mediafactory.i18n import t
-
-logger = logging.getLogger(__name__)
-# API 层使用标准 logging，通过 InterceptHandler 自动重定向到 loguru
-# 详见 mediafactory.logging.loguru_logger.setup_logging_intercept
 
 router = APIRouter()
 
