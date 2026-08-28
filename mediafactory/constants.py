@@ -71,6 +71,10 @@ THREAD_JOIN_TIMEOUT = 1
 # =============================================================================
 
 
+# LLM 服务预设名单（单一真相源；新增服务商在此与 BASE_URL_PRESETS 同步添加）
+PRESET_NAMES = ("openai", "deepseek", "glm", "qwen", "moonshot", "custom")
+
+
 class BackendConfigMapping:
     """LLM 后端配置映射 - 单一配置源。
 

@@ -10,6 +10,7 @@ from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
 from mediafactory.config import get_config
+from mediafactory.constants import PRESET_NAMES
 from mediafactory.logging import log_info, log_error
 from mediafactory.core.error_utils import sanitize_error
 
@@ -231,7 +232,7 @@ class ModelStatusService:
 
             preset_names = [
                 name
-                for name in ("openai", "deepseek", "glm", "qwen", "moonshot", "custom")
+                for name in PRESET_NAMES
                 if getattr(llm_config, name, None) and getattr(llm_config, name).api_key
             ]
             if not preset_names:
@@ -305,7 +306,7 @@ class ModelStatusService:
 
             # LLM: 检查预设配置状态
             oa_config = getattr(self.config, "openai_compatible", None)
-            preset_names = ("openai", "deepseek", "glm", "qwen", "moonshot", "custom")
+            preset_names = PRESET_NAMES
 
             configured_presets: List[str] = []
             current_preset: Optional[str] = None

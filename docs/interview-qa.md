@@ -124,7 +124,7 @@ Electron (React)  ──HTTP/WS──▶  FastAPI  ──▶  Service  ──▶
 |------|---------|---------|
 | **Pipeline 编排** | `ProcessingStage` → `Pipeline.execute()` | 阶段拆分、顺序执行、进度范围映射 |
 | **Protocol 接口** | `ProgressCallback`（`ResourceCleanupProtocol` 已删除） | Python Protocol vs ABC、依赖倒置 |
-| **桥接模式** | `GUIProgressBridge`（Engine 进度 → 总体进度） | 范围映射、批处理进度 |
+| **适配器模式** | `SimpleProgressAdapter` / `_StageProgress`（进度绑定与区间映射） | 回调绑定取消、区间映射 |
 | **单例模式** | `ModelResourceManager`、`AppConfigManager` | 线程安全双重检查锁、`__new__` |
 | **策略模式** | LLM 翻译 vs 本地翻译 | 统一接口、运行时切换 |
 | **发布-订阅** | WebSocket `ConnectionManager` | 连接管理、任务订阅、广播 |
@@ -299,30 +299,32 @@ OpenAI Whisper 的 Python 实现比较重，推理效率低。对于需要频繁
 
 **A:** 这是项目中比较有趣的设计。问题是：Engine 层只知道自己完成了多少（比如转录了 50/100 段），但前端需要的是 0-100% 的总体进度。
 
-解决方案是 **`GUIProgressBridge`**（进度桥接器）：
+解决方案是两个小协作组件：**`SimpleProgressAdapter`**（任务侧适配器）与 **`_StageProgress`**（阶段区间映射器）：
 
 ```
 Engine 报告: "转录进度 50/100 段"
     ↓
-GUIProgressBridge 映射:
-  TranscriptionStage 的范围是 20%-70%
-  所以 50/100 映射到 20% + (50/100) * 50% = 45%
+_StageProgress 区间映射:
+  transcription 权重 40，全 Pipeline 权重和 95
+  归一化区间 ≈ [15.8%, 57.9%]
+  所以 50/100 映射到 15.8 + (50/100) * (57.9 - 15.8) ≈ 36.8%
     ↓
-通过 ProgressCallback 回调到 Service 层
+SimpleProgressAdapter 附上当前 stage 并检查取消
     ↓
-Service 层通过 WebSocket 推送到前端
+TaskManager 通过 WebSocket 推送到前端
 ```
 
-每个 Stage 有一个预定义的进度范围：
-- ModelLoading: 0-10%
-- AudioExtraction: 10-20%
-- Transcription: 20-70%（主要耗时）
-- Translation: 70-95%
-- SRTGeneration: 95-100%
+每个 Stage 在 `STAGE_WEIGHTS` 权重表中声明相对耗时，Pipeline 启动时按实际包含的阶段组合归一化为 0-100 的连续区间：
+- model_loading: 5（热缓存下近瞬时）
+- audio_extraction: 10
+- transcription: 40（主要耗时）
+- postprocess: 10
+- translation: 25
+- srt_generation: 5
 
-这样不管内部怎么变，前端拿到的始终是 0-100 的连续进度。
+这样不管内部怎么变，前端拿到的始终是 0-100 的连续进度；且换一种阶段组合（如仅转录）时区间会自动重新归一化，无需硬编码范围。
 
-> **技术细节：** 进度桥接的数学原理是**线性映射**。假设当前 Stage 的全局范围是 `[stage_start, stage_end]`，引擎报告局部进度 `local_progress`（0-100），则全局进度 = `stage_start + (local_progress / 100) * (stage_end - stage_start)`。例如转录阶段 50% → `20 + 0.5 * 50 = 45%`。`GUIProgressBridge` 在 `core/progress_bridge.py` 中实现，还支持批处理嵌套：当一次处理多个文件时，外层进度按文件数分配，内层进度按当前文件的阶段分配。`ProgressCallback` 是一个 Python Protocol（类似 TypeScript 的 Interface），定义了 `update(progress, message)` 和 `is_cancelled()` 两个方法，所有引擎都依赖这个抽象而非具体的 UI 组件。
+> **技术细节：** 进度映射的数学原理是**线性映射**。`Pipeline._compute_ranges()` 按本 Pipeline 的阶段组合把 `STAGE_WEIGHTS` 权重归一化为各阶段的连续区间 `[start, end]`；`_StageProgress`（`pipeline/pipeline.py`）把阶段内局部进度 `local_progress`（0-100）映射为 `start + (local_progress / 100) * (end - start)`。取消能力由 `task_manager.SimpleProgressAdapter` 提供：它把 `(progress, message, stage)` 三元回调绑上 `CancellationToken`，`is_cancelled()` 直接委托令牌，取消后不再向外推送进度。`ProgressCallback` 是一个 Python Protocol（类似 TypeScript 的 Interface），定义了 `set_stage(stage)`、`update(progress, message)` 和 `is_cancelled()` 三个方法，所有引擎都依赖这个抽象而非具体的 UI 组件。
 
 ---
 
@@ -353,7 +355,7 @@ Service 层通过 WebSocket 推送到前端
 解决方案：
 1. 曾定义 `ResourceCleanupProtocol` 接口（后已删除：全仓零 isinstance 消费的过度设计，清理改由 Pipeline 的 `finally: context.cleanup()` 统一执行）
 2. 使用 `weakref` 弱引用打破循环引用
-3. 实现多层清理机制：Pipeline 完成后通知 Service → Service 释放资源 → GUI 关闭时触发全局清理
+3. 实现多层清理机制：`TaskManager.shutdown` 取消运行中任务；模型释放在 Pipeline `finally` 块的 `context.cleanup()`
 4. 调用 `torch.cuda.empty_cache()` 释放显存
 
 修复后关闭应用能正确释放 9-15GB 内存。

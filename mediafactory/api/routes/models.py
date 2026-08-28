@@ -68,13 +68,8 @@ async def get_models_status() -> Dict[str, Any]:
     # 获取翻译模型详情
     translation_models = _status_service.get_translation_model_statuses()
 
-    # 一次性获取 config，传递给子函数
-    from mediafactory.config import get_config
-
-    config = get_config()
-
-    enhancement_models = _get_enhancement_model_statuses(config)
-    denoise_models = _get_denoise_model_statuses(config)
+    enhancement_models = _get_enhancement_model_statuses()
+    denoise_models = _get_denoise_model_statuses()
 
     # 获取 Whisper 模型详情列表
     whisper_models = _get_whisper_model_statuses()
@@ -162,14 +157,14 @@ def _get_whisper_model_statuses() -> List[Dict[str, Any]]:
     return _get_model_statuses_by_type(ModelType.WHISPER)
 
 
-def _get_enhancement_model_statuses(config) -> List[Dict[str, Any]]:
+def _get_enhancement_model_statuses() -> List[Dict[str, Any]]:
     """获取 Real-ESRGAN 增强模型状态"""
     from mediafactory.models.model_registry import ModelType
 
     return _get_model_statuses_by_type(ModelType.SUPER_RESOLUTION)
 
 
-def _get_denoise_model_statuses(config) -> List[Dict[str, Any]]:
+def _get_denoise_model_statuses() -> List[Dict[str, Any]]:
     """获取 NAFNet 降噪模型状态"""
     from mediafactory.models.model_registry import ModelType
 

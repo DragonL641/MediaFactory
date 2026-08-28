@@ -9,6 +9,8 @@ from typing import Any, Dict, List
 
 from pydantic import BaseModel, Field
 
+from mediafactory.constants import PRESET_NAMES
+
 
 # ============================================================================
 # Whisper 配置
@@ -232,7 +234,7 @@ class OpenAICompatibleConfig(BaseModel):
         description="自定义服务配置",
     )
 
-    _VALID_PRESETS = {"openai", "deepseek", "glm", "qwen", "moonshot", "custom"}
+    _VALID_PRESETS = set(PRESET_NAMES)
 
     def get_preset_config(self, preset: str) -> PresetServiceConfig:
         """获取指定预设的配置"""

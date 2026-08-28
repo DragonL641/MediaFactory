@@ -24,7 +24,7 @@ def whisper_model(model_id: str, device: str):
     from .logging import log_info
 
     model = load_model(device=device)
-    log_info(f"Whisper model loaded on {device}")
+    log_info(f"Whisper model {model_id} loaded on {device}")
     try:
         yield model
     finally:
