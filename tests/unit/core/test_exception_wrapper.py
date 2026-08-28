@@ -1,6 +1,7 @@
 """exception_wrapper 模块测试
 
 覆盖异常层次结构、异常转换和上下文管理器功能。
+仅测试当前存在的 API（get_error_severity/is_retryable_error/to_dict 已随异常体系简化移除）。
 """
 
 import pytest
@@ -11,8 +12,6 @@ from mediafactory.exceptions import (
     MediaFactoryError,
     OperationCancelledError,
     ProcessingError,
-    get_error_severity,
-    is_retryable_error,
 )
 from mediafactory.core.exception_wrapper import convert_exception, wrap_exceptions
 
@@ -58,15 +57,6 @@ class TestExceptionHierarchy:
         err = MediaFactoryError("boom")
         assert err.context == {}
 
-    def test_to_dict(self):
-        err = ProcessingError("test", context={"key": "val"})
-        d = err.to_dict()
-        assert d["error_type"] == "ProcessingError"
-        assert d["message"] == "test"
-        assert d["context"] == {"key": "val"}
-        assert d["severity"] == "recoverable"
-        assert d["is_retryable"] is True
-
 
 # ============================================================================
 # 2. ErrorSeverity 枚举
@@ -87,111 +77,7 @@ class TestErrorSeverity:
 
 
 # ============================================================================
-# 3. get_error_severity()
-# ============================================================================
-
-
-class TestGetErrorSeverity:
-    """get_error_severity 函数分类测试"""
-
-    def test_media_factory_error_fatal(self):
-        err = ConfigurationError("bad config")
-        assert get_error_severity(err) == ErrorSeverity.FATAL
-
-    def test_media_factory_error_recoverable(self):
-        err = ProcessingError("transcription failed")
-        assert get_error_severity(err) == ErrorSeverity.RECOVERABLE
-
-    def test_media_factory_error_warning(self):
-        err = OperationCancelledError("user cancelled")
-        assert get_error_severity(err) == ErrorSeverity.WARNING
-
-    def test_permission_error_is_fatal(self):
-        assert get_error_severity(PermissionError("denied")) == ErrorSeverity.FATAL
-
-    def test_file_not_found_is_fatal(self):
-        assert get_error_severity(FileNotFoundError("missing")) == ErrorSeverity.FATAL
-
-    def test_value_error_is_fatal(self):
-        assert get_error_severity(ValueError("bad value")) == ErrorSeverity.FATAL
-
-    def test_type_error_is_fatal(self):
-        assert get_error_severity(TypeError("wrong type")) == ErrorSeverity.FATAL
-
-    def test_timeout_error_is_recoverable(self):
-        assert get_error_severity(TimeoutError("timed out")) == ErrorSeverity.RECOVERABLE
-
-    def test_connection_error_is_recoverable(self):
-        assert get_error_severity(ConnectionError("refused")) == ErrorSeverity.RECOVERABLE
-
-    def test_string_auth_keywords_are_fatal(self):
-        """包含认证关键词的普通异常应归类为 FATAL"""
-        err = RuntimeError("unauthorized access")
-        assert get_error_severity(err) == ErrorSeverity.FATAL
-
-    def test_string_auth_401_is_fatal(self):
-        err = RuntimeError("Got 401 response")
-        assert get_error_severity(err) == ErrorSeverity.FATAL
-
-    def test_string_invalid_api_key_is_fatal(self):
-        err = RuntimeError("invalid api key provided")
-        assert get_error_severity(err) == ErrorSeverity.FATAL
-
-    def test_string_timeout_keyword_is_recoverable(self):
-        err = RuntimeError("connection timeout occurred")
-        assert get_error_severity(err) == ErrorSeverity.RECOVERABLE
-
-    def test_string_connection_keyword_is_recoverable(self):
-        err = RuntimeError("connection reset by peer")
-        assert get_error_severity(err) == ErrorSeverity.RECOVERABLE
-
-    def test_string_server_error_500_is_recoverable(self):
-        err = RuntimeError("server returned 500")
-        assert get_error_severity(err) == ErrorSeverity.RECOVERABLE
-
-    def test_string_503_is_recoverable(self):
-        err = RuntimeError("service unavailable 503")
-        assert get_error_severity(err) == ErrorSeverity.RECOVERABLE
-
-    def test_unknown_error_defaults_to_fatal(self):
-        err = RuntimeError("something weird happened")
-        assert get_error_severity(err) == ErrorSeverity.FATAL
-
-
-# ============================================================================
-# 4. is_retryable_error()
-# ============================================================================
-
-
-class TestIsRetryableError:
-    """is_retryable_error 函数测试"""
-
-    def test_recoverable_is_retryable(self):
-        err = ProcessingError("fail")
-        assert is_retryable_error(err) is True
-
-    def test_timeout_is_retryable(self):
-        assert is_retryable_error(TimeoutError("timeout")) is True
-
-    def test_connection_error_is_retryable(self):
-        assert is_retryable_error(ConnectionError("lost")) is True
-
-    def test_fatal_is_not_retryable(self):
-        err = ConfigurationError("bad")
-        assert is_retryable_error(err) is False
-
-    def test_value_error_is_not_retryable(self):
-        assert is_retryable_error(ValueError("bad")) is False
-
-    def test_warning_is_not_retryable(self):
-        """WARNING 严重性不是 RECOVERABLE，所以 is_retryable 返回 False"""
-        err = OperationCancelledError("cancelled")
-        # is_retryable_error 检查的是 RECOVERABLE，不是 WARNING
-        assert is_retryable_error(err) is False
-
-
-# ============================================================================
-# 5. convert_exception()
+# 3. convert_exception()
 # ============================================================================
 
 
@@ -250,7 +136,6 @@ class TestConvertException:
         exc = RuntimeError("something went wrong")
         result = convert_exception(exc)
         assert isinstance(result, ProcessingError)
-        # 默认 ProcessingError 严重性是 RECOVERABLE
         assert result.severity == ErrorSeverity.RECOVERABLE.value
 
     def test_context_is_preserved(self):
@@ -272,7 +157,7 @@ class TestConvertException:
 
 
 # ============================================================================
-# 6. wrap_exceptions() 上下文管理器
+# 4. wrap_exceptions() 上下文管理器
 # ============================================================================
 
 
