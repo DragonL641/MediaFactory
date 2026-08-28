@@ -38,6 +38,8 @@ class ProcessingContext:
 
     # 进度回调
     progress_callback: Optional["ProgressCallback"] = None
+
+    # 配置
     config: Dict[str, Any] = field(default_factory=dict)
 
     # 双语字幕配置

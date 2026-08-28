@@ -2,21 +2,23 @@
 
 Provides a unified logging system for all application components using loguru.
 
-All logging (CLI, batch, LLM, GUI, API) now goes through a single loguru-based system:
+All logging (service, pipeline, engine, API, LLM) now goes through a single loguru-based system:
 - Log files stored in: logs/LOG-YYYY-MM-DD-HHMM.log (dedicated logs directory)
 - Thread-safe with enqueue
 - Auto-cleanup: retains logs for 30 days or max 20 files (whichever is stricter)
 - Auto-initialization on first import
+- API 层的标准 logging 通过 InterceptHandler 重定向到 loguru
 
 Usage:
     from mediafactory.logging import log_info, log_error
 
     # All logging writes to the same unified log file
-    # GUI does not display logs - only writes to backend file
+    # Electron 前端不直接写日志；日志仅由 FastAPI 后端写入，
+    # 进度与状态通过 WebSocket 推送给前端
 """
 
 # Auto-initialization removed - _ensure_logger() handles lazy init
-# This prevents multiple log initializations in Flet multiprocessing environment
+# This prevents multiple log initializations across repeated imports / threads
 from .loguru_logger import setup_app_logging
 
 # Core setup functions
@@ -27,7 +29,7 @@ from .loguru_logger import (
     setup_logging_intercept,
 )
 
-# Simple logging functions (unified for both app and GUI)
+# Simple logging functions (unified for all backend layers)
 from .loguru_logger import (
     log_debug,
     log_info,

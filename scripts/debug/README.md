@@ -8,24 +8,12 @@
 
 ```
 scripts/debug/
-├── whisper_debug.py      # Whisper 模型调测（需要 GPU/CPU）
-├── local_model_debug.py  # 本地翻译模型调测（NLLB/M2M）
 ├── openai_debug.py       # OpenAI API 调测
 ├── glm_debug.py          # GLM API 调测
 └── README.md
 ```
 
 ## 使用方法
-
-### Whisper 模型调测
-```bash
-python scripts/debug/whisper_debug.py
-```
-
-### 本地翻译模型调测
-```bash
-python scripts/debug/local_model_debug.py
-```
 
 ### OpenAI API 调测
 ```bash
@@ -38,14 +26,6 @@ python scripts/debug/glm_debug.py
 ```
 
 ## 前置条件
-
-### Whisper 模型
-- 已下载 Faster Whisper 模型
-- 足够的内存（small 模型约 1GB）
-
-### 本地翻译模型
-- 已下载 NLLB 或 M2M 模型（通过 `scripts/utils/download_model.py`）
-- 足够的内存（NLLB-600M 约 2GB）
 
 ### LLM API
 - 在 `config.toml` 中配置有效的 API Key

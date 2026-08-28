@@ -1163,7 +1163,7 @@ model = AutoModel.from_pretrained(
 │           引擎层 (Engine Layer)                              │
 │  AudioEngine, RecognitionEngine,                             │
 │  TranslationEngine, SRTEngine, ASSEngine,                   │
-│  VideoComposer, VideoEnhancementEngine                       │
+│  VideoEnhancementEngine                                      │
 │         mediafactory/engine/                             │
 └─────────────────────────────────────────────────────────────┘
 ```
