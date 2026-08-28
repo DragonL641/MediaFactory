@@ -4,7 +4,7 @@
 （不进任务队列，可与处理任务并行），进度经节流后通过 WebSocket 广播。
 
 注意：下载任务不支持取消/重试（cancel_task 置 CANCELLED 后下载仍会完成并
-覆写状态；retry_task 因 task_executor 无 DOWNLOAD 注册而卡在 PENDING）。
+覆写状态；retry_task 因 runner 无 DOWNLOAD 注册而卡在 PENDING）。
 """
 
 import asyncio

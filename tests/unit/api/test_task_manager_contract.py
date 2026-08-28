@@ -13,6 +13,7 @@ from mediafactory.api.schemas import TaskConfig, TaskStatus, TaskType
 from mediafactory.api.task_manager import TaskManager
 from mediafactory.api.websocket import manager as ws_manager
 from mediafactory.i18n import t
+from mediafactory.pipeline.context import ProcessingResult
 
 pytestmark = [pytest.mark.unit]
 
@@ -43,10 +44,11 @@ class TestTaskLifecycle:
             manager = TaskManager()
             task_id = await manager.create_task(make_config())
 
-            async def ok_executor(config, progress_callback, cancel_token):
-                progress_callback(10.0, "working", "audio_extraction")
+            async def ok_executor(config, progress):
+                progress.set_stage("audio_extraction")
+                progress.update(10.0, "working")
                 await asyncio.sleep(0)  # 让 call_soon_threadsafe 的调度得以执行
-                return {"success": True, "output_path": "out.wav", "error": None}
+                return ProcessingResult(success=True, output_path="out.wav")
 
             await manager._execute_task(task_id, ok_executor)
             await asyncio.sleep(0)
@@ -66,7 +68,7 @@ class TestTaskLifecycle:
             manager = TaskManager()
             task_id = await manager.create_task(make_config())
 
-            async def bad_executor(config, progress_callback, cancel_token):
+            async def bad_executor(config, progress):
                 raise RuntimeError("engine exploded")
 
             await manager._execute_task(task_id, bad_executor)
@@ -81,13 +83,17 @@ class TestTaskLifecycle:
         assert "engine exploded" not in status["error"]
         assert rec.complete_calls[0]["success"] is False
 
-    def test_execute_task_result_failure_dict_marks_failed(self, monkeypatch):
+    def test_execute_task_failed_result_marks_failed(self, monkeypatch):
         async def scenario():
             manager = TaskManager()
             task_id = await manager.create_task(make_config())
 
-            async def fail_executor(config, progress_callback, cancel_token):
-                return {"success": False, "output_path": None, "error": "boom"}
+            async def fail_executor(config, progress):
+                return ProcessingResult(
+                    success=False,
+                    error_message="boom",
+                    error_type="ProcessingError",
+                )
 
             await manager._execute_task(task_id, fail_executor)
             return manager, task_id
@@ -103,7 +109,7 @@ class TestTaskLifecycle:
             manager = TaskManager()
             task_id = await manager.create_task(make_config())
 
-            async def cancelling_executor(config, progress_callback, cancel_token):
+            async def cancelling_executor(config, progress):
                 raise asyncio.CancelledError()
 
             await manager._execute_task(task_id, cancelling_executor)
@@ -127,10 +133,11 @@ class TestProgressPassthrough:
             manager = TaskManager()
             task_id = await manager.create_task(make_config())
 
-            async def executor(config, progress_callback, cancel_token):
-                progress_callback(42.0, "m", "anything")
+            async def executor(config, progress):
+                progress.set_stage("anything")
+                progress.update(42.0, "m")
                 await asyncio.sleep(0)
-                return {"success": True, "output_path": "x", "error": None}
+                return ProcessingResult(success=True, output_path="x")
 
             await manager._execute_task(task_id, executor)
             await asyncio.sleep(0)
@@ -148,10 +155,11 @@ class TestProgressPassthrough:
             manager = TaskManager()
             task_id = await manager.create_task(make_config())
 
-            async def executor(config, progress_callback, cancel_token):
-                progress_callback(37.5, "msg", "download")
+            async def executor(config, progress):
+                progress.set_stage("download")
+                progress.update(37.5, "msg")
                 await asyncio.sleep(0)
-                return {"success": True, "output_path": "x", "error": None}
+                return ProcessingResult(success=True, output_path="x")
 
             await manager._execute_task(task_id, executor)
             await asyncio.sleep(0)
@@ -168,16 +176,16 @@ class TestProgressPassthrough:
 
 class TestCancelAndQueue:
     def test_cancel_pending_task_removes_from_queue(self, monkeypatch):
-        import mediafactory.api.task_executor as te
-
         calls = {"a.mp4": 0, "b.mp4": 0}
 
-        async def slow_executor(config, progress_callback, cancel_token):
+        async def slow_executor(config, progress):
             calls[config.input_path] += 1
             await asyncio.sleep(0.05)
-            return {"success": True, "output_path": "x", "error": None}
+            return ProcessingResult(success=True, output_path="x")
 
-        monkeypatch.setattr(te, "TASK_EXECUTORS", {TaskType.AUDIO: slow_executor})
+        monkeypatch.setattr(
+            "mediafactory.services.runner.RUNNERS", {TaskType.AUDIO: slow_executor}
+        )
 
         async def scenario():
             manager = TaskManager()
@@ -212,26 +220,26 @@ class TestCancelAndQueue:
         # A 不受影响，正常完成
         status_a = asyncio.run(manager.get_task_status(a_id))
         assert status_a["status"] == "completed"
-        # B 的 executor 从未执行
+        # B 的 runner 从未执行
         assert calls["a.mp4"] == 1
         assert calls["b.mp4"] == 0
 
     def test_cancel_running_task_result_does_not_override_cancelled(self, monkeypatch):
-        import mediafactory.api.task_executor as te
-
-        async def polling_executor(config, progress_callback, cancel_token):
-            while not cancel_token.is_cancelled():
+        async def polling_executor(config, progress):
+            while not progress.is_cancelled():
                 await asyncio.sleep(0.005)
             # 取消后仍返回 success=True —— 锁定"取消的结果不得被覆盖"不变量
-            return {"success": True, "output_path": "should-not-apply", "error": None}
+            return ProcessingResult(success=True, output_path="should-not-apply")
 
-        monkeypatch.setattr(te, "TASK_EXECUTORS", {TaskType.AUDIO: polling_executor})
+        monkeypatch.setattr(
+            "mediafactory.services.runner.RUNNERS", {TaskType.AUDIO: polling_executor}
+        )
 
         async def scenario():
             manager = TaskManager()
             task_id = await manager.create_task(make_config())
             assert await manager.start_single_task(task_id) is True
-            await asyncio.sleep(0.02)  # 确保 executor 正在运行中
+            await asyncio.sleep(0.02)  # 确保 runner 正在运行中
             ok = await manager.cancel_task(task_id)
             # 等后台 _execute_task 收尾（completed_at 在 finally 中设置）
             for _ in range(200):
@@ -245,22 +253,22 @@ class TestCancelAndQueue:
         assert ok is True
         status = asyncio.run(manager.get_task_status(task_id))
         assert status["status"] == "cancelled"
-        # executor 返回的 success 结果被丢弃，不得覆盖 CANCELLED 状态
+        # runner 返回的 success 结果被丢弃，不得覆盖 CANCELLED 状态
         assert status["outputPath"] is None
         assert all(c["success"] is False for c in rec.complete_calls)
 
     def test_serial_queue_executes_tasks_one_after_another(self, monkeypatch):
-        import mediafactory.api.task_executor as te
-
         order = []
 
-        async def shared_executor(config, progress_callback, cancel_token):
+        async def shared_executor(config, progress):
             order.append("start")
             await asyncio.sleep(0.01)
             order.append("end")
-            return {"success": True, "output_path": "x", "error": None}
+            return ProcessingResult(success=True, output_path="x")
 
-        monkeypatch.setattr(te, "TASK_EXECUTORS", {TaskType.AUDIO: shared_executor})
+        monkeypatch.setattr(
+            "mediafactory.services.runner.RUNNERS", {TaskType.AUDIO: shared_executor}
+        )
 
         async def scenario():
             manager = TaskManager()
@@ -289,12 +297,12 @@ class TestCancelAndQueue:
         assert order == ["start", "end", "start", "end"]
 
 
-class TestExecutorRegistry:
-    def test_all_non_download_task_types_have_executors(self):
-        """Phase 3 收编 executor 前锁定注册完备性：漏注册只能运行时发现。"""
-        from mediafactory.api.task_executor import TASK_EXECUTORS
+class TestRunnerRegistry:
+    def test_all_non_download_task_types_have_runners(self):
+        """Phase 3 收编 runner 前锁定注册完备性：漏注册只能运行时发现。"""
+        from mediafactory.services.runner import RUNNERS
 
         for task_type in TaskType:
             if task_type is TaskType.DOWNLOAD:
-                continue  # 下载走 download_task.py 专用通道，不经 executor
-            assert task_type in TASK_EXECUTORS, f"缺少 {task_type} 的 executor 注册"
+                continue  # 下载走 download_task.py 专用通道，不经 runner
+            assert task_type in RUNNERS, f"缺少 {task_type} 的 runner 注册"

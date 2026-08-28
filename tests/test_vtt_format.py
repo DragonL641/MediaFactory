@@ -16,7 +16,6 @@ from mediafactory.engine.srt import SRTEngine, BilingualLayout
 from mediafactory.pipeline.context import ProcessingContext
 from mediafactory.pipeline.stages import SRTGenerationStage
 
-
 # ========== 共享 fixture ==========
 
 
@@ -95,7 +94,9 @@ class TestVTTBasicGeneration:
                 ), f"VTT 不应使用逗号分隔: {line}"
 
     @pytest.mark.unit
-    def test_vtt_segment_count(self, engine: SRTEngine, sample_segments, tmp_path: Path):
+    def test_vtt_segment_count(
+        self, engine: SRTEngine, sample_segments, tmp_path: Path
+    ):
         """生成的 VTT 包含正确数量的字幕块。"""
         output = tmp_path / "out.vtt"
         engine.generate_to_path(str(output), sample_segments)
@@ -196,9 +197,7 @@ class TestVTTBilingual:
     ):
         """双语 VTT 文件仍然有 WEBVTT 头部。"""
         output = tmp_path / "out.vtt"
-        engine.generate_to_path(
-            str(output), bilingual_segments, bilingual=True
-        )
+        engine.generate_to_path(str(output), bilingual_segments, bilingual=True)
 
         content = output.read_text(encoding="utf-8")
         assert content.startswith("WEBVTT\n\n")
@@ -314,10 +313,8 @@ class TestSRTGenerationStageVTT:
             },
             tgt_lang="zh",
             detected_lang="en",
-            config={
-                "output_format_type": "vtt",
-                "output_path": output_path,
-            },
+            output_format="vtt",
+            requested_output_path=output_path,
         )
 
         stage = SRTGenerationStage(srt_engine=engine)
@@ -348,9 +345,7 @@ class TestSRTGenerationStageVTT:
             },
             tgt_lang="zh",
             detected_lang="en",
-            config={
-                "output_format_type": "vtt",
-            },
+            output_format="vtt",
         )
 
         stage = SRTGenerationStage(srt_engine=engine)

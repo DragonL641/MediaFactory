@@ -29,20 +29,23 @@ class AudioExtractionStage(ProcessingStage):
         progress = self._begin(ctx, "Audio Extraction")
         progress.update(0.0, t("progress.audioExtractionStart"))
 
-        # 从 ctx.config 读取额外参数（兼容 Pipeline 和直接调用）
-        config = ctx.config or {}
-        kwargs = {
-            "progress": progress,
-            "output_path": config.get("output_path"),
-            "filter_enabled": config.get("filter_enabled", True),
-            "volume": config.get("volume", 1.0),
-            "output_format": config.get("output_format", "wav"),
-        }
-        # 仅在 config 中有值时传递，避免 None 覆盖 AudioEngine 默认值
-        for key in ("sample_rate", "channels", "highpass_freq", "lowpass_freq"):
-            if config.get(key) is not None:
-                kwargs[key] = config[key]
-        ctx.audio_path = self.audio_engine.extract(ctx.video_path, **kwargs)
+        # 读取类型化音频配置（ctx.config 为 None 或非 AudioConfig 时用默认值）
+        # 延迟导入：函数体内运行时导入，避免 pipeline 初始化时反向拉起 api 包
+        from ..api.schemas import AudioConfig
+
+        cfg = ctx.config if isinstance(ctx.config, AudioConfig) else AudioConfig()
+        ctx.audio_path = self.audio_engine.extract(
+            ctx.video_path,
+            progress=progress,
+            output_path=ctx.requested_output_path,
+            sample_rate=cfg.sample_rate,
+            channels=cfg.channels,
+            filter_enabled=cfg.filter_enabled,
+            highpass_freq=cfg.highpass_freq,
+            lowpass_freq=cfg.lowpass_freq,
+            volume=cfg.volume,
+            output_format=cfg.output_format,
+        )
         ctx.output_path = ctx.audio_path
 
         log_success("Audio extraction completed")
@@ -126,13 +129,7 @@ class PostProcessStage(ProcessingStage):
         config_manager = get_config_manager()
         pp_config = config_manager.config.postprocess
 
-        # 从 ctx.config 读取运行时覆盖（任务级别配置）
-        runtime_config = ctx.config or {}
-        pp_runtime = runtime_config.get("postprocess", {})
-
-        resegment_enabled = pp_runtime.get(
-            "resegment_enabled", pp_config.resegment_enabled
-        )
+        resegment_enabled = pp_config.resegment_enabled
 
         segments = ctx.transcription_result.get("segments", [])
         original_count = len(segments)
@@ -142,15 +139,11 @@ class PostProcessStage(ProcessingStage):
             progress.update(20.0, "Resegmenting...")
             segments = engine.resegment(
                 segments,
-                max_chars_cjk=pp_runtime.get("max_chars_cjk", pp_config.max_chars_cjk),
-                max_chars_latin=pp_runtime.get(
-                    "max_chars_latin", pp_config.max_chars_latin
-                ),
-                min_duration=pp_runtime.get("min_duration", pp_config.min_duration),
-                max_duration=pp_runtime.get("max_duration", pp_config.max_duration),
-                merge_gap_threshold=pp_runtime.get(
-                    "merge_gap_threshold", pp_config.merge_gap_threshold
-                ),
+                max_chars_cjk=pp_config.max_chars_cjk,
+                max_chars_latin=pp_config.max_chars_latin,
+                min_duration=pp_config.min_duration,
+                max_duration=pp_config.max_duration,
+                merge_gap_threshold=pp_config.merge_gap_threshold,
                 language=ctx.detected_lang,
             )
 
@@ -313,14 +306,11 @@ class SRTGenerationStage(ProcessingStage):
             output_lang = ctx.detected_lang or ctx.src_lang or ctx.tgt_lang
 
         # 获取输出格式配置
-        output_format = "srt"
-        if ctx.config:
-            output_format = ctx.config.get("output_format_type", "srt")
+        output_format = ctx.output_format
 
         # 确定输出路径和文件扩展名
-        if ctx.config and "output_path" in ctx.config:
-            output_path = ctx.config["output_path"]
-            # 如果配置了输出路径但格式是ASS，需要修改扩展名
+        if ctx.requested_output_path:
+            output_path = ctx.requested_output_path
             ext = self._FORMAT_EXT.get(output_format, ".srt")
             if not output_path.endswith(ext):
                 output_path = os.path.splitext(output_path)[0] + ext
@@ -385,6 +375,7 @@ class SRTGenerationStage(ProcessingStage):
                 elif output_format == "ass":
                     if self.ass_engine is None:
                         from ..engine.ass_engine import ASSEngine
+
                         self.ass_engine = ASSEngine()
                     self.ass_engine.generate_to_path(source_path, source_segments)
                 else:

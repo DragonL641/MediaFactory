@@ -40,8 +40,12 @@ class ProcessingContext:
     # 进度回调
     progress_callback: Optional["ProgressCallback"] = None
 
-    # 配置
-    config: Dict[str, Any] = field(default_factory=dict)
+    # 配置（按任务类型携带 pydantic 子配置，如 AudioConfig；None 表示无子配置）
+    config: Any = None
+    # 请求的输出路径（TaskConfig.output_path；None 表示由引擎/stage 推导）
+    requested_output_path: Optional[str] = None
+    # 字幕输出格式（srt/ass/vtt/txt）
+    output_format: str = "srt"
 
     # 双语字幕配置
     bilingual: bool = False

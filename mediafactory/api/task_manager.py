@@ -50,6 +50,33 @@ class Task:
     completed_at: Optional[float] = None
 
 
+class SimpleProgressAdapter(ProgressCallback):
+    """简单的进度回调适配器，委托 CancellationToken 实现取消检查"""
+
+    def __init__(
+        self,
+        callback: Callable[[float, str, str], None],
+        cancel_token: CancellationToken,
+    ):
+        self._callback = callback
+        self._cancel_token = cancel_token
+        self._current_stage: str = ""
+
+    def set_stage(self, stage: str) -> None:
+        """设置当前处理阶段"""
+        self._current_stage = stage
+
+    def update(self, progress: float, message: str = "") -> None:
+        if not self.is_cancelled():
+            self._callback(progress, message, self._current_stage)
+
+    def is_cancelled(self) -> bool:
+        return self._cancel_token.is_cancelled()
+
+    def cancel(self):
+        self._cancel_token.cancel()
+
+
 class TaskManager:
     """任务管理器"""
 
@@ -92,10 +119,10 @@ class TaskManager:
 
             self._running_task_id = task_id
 
-        # 获取执行器
-        from mediafactory.api.task_executor import get_executor
+        # 获取执行器（局部导入避免启动时拉 services 依赖链）
+        from mediafactory.services.runner import RUNNERS
 
-        executor = get_executor(task.config.task_type)
+        executor = RUNNERS.get(task.config.task_type)
         if not executor:
             logger.error(f"No executor for task type: {task.config.task_type}")
             async with self._lock:
@@ -154,9 +181,9 @@ class TaskManager:
         if task_id_to_run:
             task = self._tasks.get(task_id_to_run)
             if task:
-                from mediafactory.api.task_executor import get_executor
+                from mediafactory.services.runner import RUNNERS
 
-                executor = get_executor(task.config.task_type)
+                executor = RUNNERS.get(task.config.task_type)
                 if executor:
                     asyncio.create_task(self._execute_task(task_id_to_run, executor))
                 else:
@@ -202,20 +229,19 @@ class TaskManager:
                 )
             )
 
+        # runner 收 ProgressCallback 适配器（绑定取消令牌），返回 ProcessingResult
+        adapter = SimpleProgressAdapter(progress_callback, task.cancel_token)
         try:
-            # 直接 await 异步执行器，无需 run_in_executor
-            # Service 层内部已通过 run_in_executor 运行同步 Pipeline
-            result = await executor(task.config, progress_callback, task.cancel_token)
+            result = await executor(task.config, adapter)
 
             # 仅在未被取消时才处理结果（避免覆盖 CANCELLED 状态）
             if task.status != TaskStatus.CANCELLED:
-                executor_success = result.get("success", False) if result else False
-                if executor_success:
+                if result.success:
                     task.result = TaskResult(
                         task_id=task_id,
                         success=True,
-                        output_path=result.get("output_path") if result else None,
-                        metadata=result or {},
+                        output_path=result.output_path,
+                        metadata=result.metadata or {},
                     )
                     task.status = TaskStatus.COMPLETED
                     task.progress = 100
@@ -223,12 +249,8 @@ class TaskManager:
                     task.result = TaskResult(
                         task_id=task_id,
                         success=False,
-                        error=(
-                            result.get("error", "Unknown error")
-                            if result
-                            else t("error.noResultReturned")
-                        ),
-                        error_type="ProcessingError",
+                        error=result.error_message or t("error.noResultReturned"),
+                        error_type=result.error_type or "ProcessingError",
                     )
                     task.status = TaskStatus.FAILED
 

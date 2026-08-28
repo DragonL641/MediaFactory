@@ -1,21 +1,6 @@
+"""MediaFactory 服务层。
+
+仅含两个模块：
+- runner.py：按 TaskType 分发的统一任务执行入口
+- models.py：模型状态聚合与 LLM 连接测试
 """
-MediaFactory 服务层
-
-提供统一的异步接口，连接 API 层与引擎层。
-"""
-
-from mediafactory.services.subtitle import SubtitleService
-from mediafactory.services.audio import AudioService
-from mediafactory.services.transcription import TranscriptionService
-from mediafactory.services.translation import TranslationService
-from mediafactory.services.models import ModelStatusService
-from mediafactory.services.video_enhancement import VideoEnhancementService
-
-__all__ = [
-    "SubtitleService",
-    "AudioService",
-    "TranscriptionService",
-    "TranslationService",
-    "ModelStatusService",
-    "VideoEnhancementService",
-]
