@@ -35,14 +35,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 │           API 层 (FastAPI + WebSocket)                     │
 │              mediafactory/api/                         │
 │  routes/ | schemas.py | websocket.py | task_manager.py     │
-│              task_executor.py                              │
+│              task_manager.py（含进度适配器）                │
 └──────────────────────────┬────────────────────────────────┘
                            │
 ┌──────────────────────────┴────────────────────────────────┐
 │           服务层 (Service Layer)                           │
 │     (异步桥接、配置管理、进度适配)                          │
 │         mediafactory/services/                         │
-│  SubtitleService | AudioService | TranslationService | ... │
+│  services/runner.py（RUNNERS 按 TaskType 分发）            │
 └──────────────────────────┬────────────────────────────────┘
                            │
 ┌──────────────────────────┴────────────────────────────────┐
@@ -71,7 +71,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
           FastAPI Server
                │
                ▼
-          TaskExecutor → Service → Pipeline → Stage → Engine
+          TaskManager → runner → Pipeline → Stage → Engine
                │
                ▼
           WebSocket → Electron (实时进度更新)
@@ -184,15 +184,11 @@ npm run dev
 
 ### 服务层
 
-**服务层**（`mediafactory/services/`）：API 层与处理逻辑之间的桥梁
+**服务层**（`mediafactory/services/`，Phase 3 收敛后仅两个模块）：
+- `runner.py`：统一任务执行入口——`RUNNERS` 注册表按 TaskType 分发到 `run_subtitle/run_audio/run_transcribe/run_translate/run_enhance`；组装 `ProcessingContext`、选择 Pipeline 工厂或直调引擎（audio/enhance 单动作不走 Pipeline）、LLM 降级链、readiness 前置检查、模块级引擎缓存。**Pipeline 结果原样透传、不重包装**；直调路径异常上抛由 TaskManager 统一捕获
+- `models.py`：模型状态聚合（`ModelStatusService.get_readiness`）与 LLM 连接测试
 
-- `SubtitleService`：完整字幕生成流程（音频 → 转录 → 翻译 → SRT）
-- `AudioService`：音频提取
-- `TranscriptionService`：语音转文字
-- `TranslationService`：翻译（文本/SRT，本地 + LLM API）
-- `VideoEnhancementService`：视频画质增强
-
-**调用模式**：Service 创建 Pipeline 并执行，在 `run_in_executor` 中运行以避免阻塞 async 事件循环：
+**调用模式**：runner 在 `run_in_executor` 中运行同步 Pipeline：
 ```python
 result = await loop.run_in_executor(None, pipeline.execute, context)
 ```
@@ -205,8 +201,8 @@ result = await loop.run_in_executor(None, pipeline.execute, context)
 - `routes/processing.py`：任务处理 API（字幕、音频、转录、翻译、增强）
 - `schemas.py`：Pydantic 数据模型（TaskConfig、TaskProgress、TaskResult 等）
 - `websocket.py`：WebSocket 连接管理器，实时进度推送
-- `task_manager.py`：后台任务管理器（任务队列、状态跟踪、自动清理）
-- `task_executor.py`：任务执行器，桥接 API 层和 Service 层
+- `task_manager.py`：后台任务管理器（任务队列、状态跟踪、`SimpleProgressAdapter` 进度适配、`get_task_manager` 单例）
+- `download_task.py`：模型下载后台任务（立即执行不进队列，带进度节流）
 
 ### 关键模块
 
