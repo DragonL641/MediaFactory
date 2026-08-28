@@ -7,6 +7,8 @@ from ..exceptions import MediaFactoryError, OperationCancelledError, ProcessingE
 from ..logging import log_error, log_warning
 
 # 各 stage 的相对权重（在包含它的 Pipeline 内归一化为 0-100 连续区间）
+# 各 stage 的相对耗时权重：转录+翻译占大头；模型加载热缓存下近瞬时故仅 5。
+# 权重在各自 Pipeline 组合内归一化为 0-100 连续区间（无需加和恰为 100）。
 STAGE_WEIGHTS = {
     "model_loading": 5.0,
     "audio_extraction": 10.0,

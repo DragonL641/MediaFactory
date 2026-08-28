@@ -130,7 +130,7 @@ class TestProgressMapping:
         Pipeline([_NamedStage("transcription"), _NamedStage("postprocess")]).execute(
             ctx
         )
-        # postprocess 区间 [80, 100]：50% → 90；若叠加映射会得到 85
+        # postprocess 区间 [80, 100]：50% → 90；若叠加映射（基于上一映射器再包装）会得到 72
         post_values = [p for s, p, _ in cb.calls if s == "postprocess"]
         assert post_values
         assert abs(post_values[-1] - 90.0) < 0.01

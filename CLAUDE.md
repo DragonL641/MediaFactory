@@ -77,14 +77,16 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
           WebSocket → Electron (实时进度更新)
 ```
 
-### 流水线阶段（v4.0+ 进度范围）
+### 流水线阶段与进度权重
 
-- `ModelLoadingStage` (0-10%)：加载 Whisper 模型
-- `AudioExtractionStage` (10-20%)：从视频提取音频，使用高质量设置（48000Hz，立体声，滤波器）
-- `TranscriptionStage` (20-60%)：使用 Faster Whisper 进行语音转文字，带进度跟踪（主要工作）
-- `PostProcessStage` (60-70%)：智能分句（stable-ts）
-- `TranslationStage` (70-95%)：翻译到目标语言，自动回退
-- `SRTGenerationStage` (95-100%)：生成字幕文件（SRT/ASS/VTT）
+各 stage 的全局进度区间由 `Pipeline` 按自身 stage 组合对 `STAGE_WEIGHTS`（`pipeline/pipeline.py`）归一化得出——同一 stage 在不同流程中区间不同（如 translation 在字幕全流程约占 68-95%，在翻译-only 流程占 0-83%）：
+
+- `ModelLoadingStage`（权重 5）：加载 Whisper 模型
+- `AudioExtractionStage`（权重 10）：从视频提取音频，使用高质量设置（48000Hz，立体声，滤波器）
+- `TranscriptionStage`（权重 40）：使用 Faster Whisper 进行语音转文字，带进度跟踪（主要工作）
+- `PostProcessStage`（权重 10）：智能分句（stable-ts）
+- `TranslationStage`（权重 25）：翻译到目标语言，自动回退
+- `SRTGenerationStage`（权重 5）：生成字幕文件（SRT/ASS/VTT）
 
 **注意**：`ModelLoadingStage` 定义在 `stages.py` 中并在 `pipeline.py` 工厂方法里实例化，但未在 `pipeline/__init__.py` 中公开导出（引用需从 `stages` 导入）。音频提取与视频增强为单动作流程，由 runner 直调引擎，不走 Pipeline。模型释放在 Pipeline 的 `finally: context.cleanup()` 统一执行。
 
@@ -253,7 +255,7 @@ result = await loop.run_in_executor(None, pipeline.execute, context)
 - `ProgressCallback`：将引擎与 GUI 特定概念解耦的协议
 - `NoOpProgressCallback`：不需要进度时的无操作实现
 
-**进度映射**（在 `pipeline/stages.py` 中实现）：
+**进度映射**（在 `pipeline/pipeline.py` 中实现）：
 - 阶段范围映射：`model_loading`(0-10%) → `audio_extraction`(10-20%) → `transcription`(20-60%) → `postprocess`(60-70%) → `translation`(70-95%) → `srt_generation`(95-100%)
 - WebSocket 实时推送：`TaskManager` 通过 WebSocket 将进度实时推送到前端
 
