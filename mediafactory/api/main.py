@@ -15,7 +15,9 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 
 from mediafactory.api.routes import config, models, processing
-from mediafactory.api.task_manager import get_task_manager  # 亦作为 re-export 保持旧导入路径兼容
+
+# re-export：保持 mediafactory.api.main.get_task_manager 旧导入路径兼容
+from mediafactory.api.task_manager import get_task_manager
 from mediafactory.api.websocket import manager as ws_manager
 from mediafactory._version import get_version
 

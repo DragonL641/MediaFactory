@@ -513,10 +513,10 @@ class TaskManager:
 
 # ==================== 单例访问 ====================
 
-_task_manager: Optional["TaskManager"] = None
+_task_manager: Optional[TaskManager] = None
 
 
-def get_task_manager() -> "TaskManager":
+def get_task_manager() -> TaskManager:
     """获取全局 TaskManager 单例（延迟初始化）。"""
     global _task_manager
     if _task_manager is None:
