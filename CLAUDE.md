@@ -312,8 +312,9 @@ save_config()
 ## 测试
 
 - 框架：pytest 带覆盖率
-- 结构：`tests/unit/`（按模块分子目录：api、config、core、engine、llm、pipeline、utils）+ `tests/integration/`
+- 结构：`tests/unit/`（按模块分子目录：api、config、core、engine、llm、pipeline、services、utils）+ `tests/integration/`
 - 标记：`unit`、`integration`、`slow`、`requires_ml`、`requires_network`（无 `e2e`）
+- **契约测试安全网**：`tests/unit/services/test_services_contract.py`（8 个）、`tests/unit/api/test_task_manager_contract.py`（10 个）、`tests/unit/api/test_download_task.py`（3 个）锁定 services 编排、任务状态机、进度映射、下载行为的当前契约——**改动 services/task_manager/download_task 前先确认这些测试全绿**；它们是结构性重构的回归防线
 
 ## 重要实现细节
 
