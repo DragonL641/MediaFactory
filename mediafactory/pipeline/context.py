@@ -120,7 +120,6 @@ class ProcessingResult:
     error_message: str = ""
     error_type: Optional[str] = None
     error_context: Optional[dict[str, Any]] = None
-    error_severity: Optional[str] = None
     context: Optional[ProcessingContext] = None
     metadata: dict[str, Any] = field(default_factory=dict)
 
@@ -139,7 +138,6 @@ class ProcessingResult:
                 error_message=exc.message,
                 error_type=type(exc).__name__,
                 error_context=exc.context,
-                error_severity=exc.severity,
                 context=context,
             )
 

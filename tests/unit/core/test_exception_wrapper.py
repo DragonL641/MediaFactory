@@ -1,14 +1,12 @@
 """exception_wrapper 模块测试
 
 覆盖异常层次结构、异常转换和上下文管理器功能。
-仅测试当前存在的 API（get_error_severity/is_retryable_error/to_dict 已随异常体系简化移除）。
 """
 
 import pytest
 
 from mediafactory.exceptions import (
     ConfigurationError,
-    ErrorSeverity,
     MediaFactoryError,
     OperationCancelledError,
     ProcessingError,
@@ -24,29 +22,13 @@ pytestmark = [pytest.mark.unit]
 
 
 class TestExceptionHierarchy:
-    """异常继承和默认严重性级别测试"""
+    """异常继承和上下文测试"""
 
     def test_media_factory_error_is_base(self):
         """所有自定义异常都应继承自 MediaFactoryError"""
         assert issubclass(ProcessingError, MediaFactoryError)
         assert issubclass(ConfigurationError, MediaFactoryError)
         assert issubclass(OperationCancelledError, MediaFactoryError)
-
-    def test_processing_error_default_severity_recoverable(self):
-        err = ProcessingError("test")
-        assert err.severity == ErrorSeverity.RECOVERABLE.value
-
-    def test_configuration_error_default_severity_fatal(self):
-        err = ConfigurationError("test")
-        assert err.severity == ErrorSeverity.FATAL.value
-
-    def test_operation_cancelled_error_default_severity_warning(self):
-        err = OperationCancelledError("test")
-        assert err.severity == ErrorSeverity.WARNING.value
-
-    def test_custom_severity_overrides_default(self):
-        err = ProcessingError("test", severity=ErrorSeverity.FATAL)
-        assert err.severity == ErrorSeverity.FATAL.value
 
     def test_media_factory_error_stores_context(self):
         ctx = {"file": "audio.wav", "step": "extract"}
@@ -59,25 +41,7 @@ class TestExceptionHierarchy:
 
 
 # ============================================================================
-# 2. ErrorSeverity 枚举
-# ============================================================================
-
-
-class TestErrorSeverity:
-    """ErrorSeverity 枚举值测试"""
-
-    def test_enum_values(self):
-        assert ErrorSeverity.FATAL.value == "fatal"
-        assert ErrorSeverity.RECOVERABLE.value == "recoverable"
-        assert ErrorSeverity.WARNING.value == "warning"
-
-    def test_enum_members(self):
-        members = list(ErrorSeverity)
-        assert len(members) == 3
-
-
-# ============================================================================
-# 3. convert_exception()
+# 2. convert_exception()
 # ============================================================================
 
 
@@ -89,7 +53,6 @@ class TestConvertException:
         exc = RuntimeError("unauthorized")
         result = convert_exception(exc)
         assert isinstance(result, ConfigurationError)
-        assert result.severity == ErrorSeverity.FATAL.value
 
     def test_forbidden_keyword_produces_configuration_error(self):
         exc = RuntimeError("access forbidden")
@@ -107,36 +70,31 @@ class TestConvertException:
         assert isinstance(result, ConfigurationError)
 
     def test_timeout_keyword_produces_processing_error(self):
-        """可恢复关键词应转换为 ProcessingError (RECOVERABLE)"""
+        """可恢复关键词应转换为 ProcessingError"""
         exc = RuntimeError("request timeout")
         result = convert_exception(exc)
         assert isinstance(result, ProcessingError)
-        assert result.severity == ErrorSeverity.RECOVERABLE.value
 
     def test_connection_keyword_produces_processing_error(self):
         exc = RuntimeError("connection refused")
         result = convert_exception(exc)
         assert isinstance(result, ProcessingError)
-        assert result.severity == ErrorSeverity.RECOVERABLE.value
 
     def test_network_keyword_produces_processing_error(self):
         exc = RuntimeError("network error")
         result = convert_exception(exc)
         assert isinstance(result, ProcessingError)
-        assert result.severity == ErrorSeverity.RECOVERABLE.value
 
     def test_cuda_keyword_produces_processing_error(self):
         exc = RuntimeError("cuda out of memory")
         result = convert_exception(exc)
         assert isinstance(result, ProcessingError)
-        assert result.severity == ErrorSeverity.RECOVERABLE.value
 
     def test_default_produces_processing_error(self):
         """不匹配任何关键词时，默认转换为 ProcessingError"""
         exc = RuntimeError("something went wrong")
         result = convert_exception(exc)
         assert isinstance(result, ProcessingError)
-        assert result.severity == ErrorSeverity.RECOVERABLE.value
 
     def test_context_is_preserved(self):
         """传入的 context 应被保留并扩展"""
@@ -157,7 +115,7 @@ class TestConvertException:
 
 
 # ============================================================================
-# 4. wrap_exceptions() 上下文管理器
+# 3. wrap_exceptions() 上下文管理器
 # ============================================================================
 
 

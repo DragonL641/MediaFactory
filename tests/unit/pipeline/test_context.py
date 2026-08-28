@@ -147,31 +147,27 @@ class TestProcessingResult:
         assert result.success is False
         assert result.error_message == "bad value"
         assert result.error_type == "ValueError"
-        assert result.error_severity is None
         assert result.error_context is None
 
     def test_from_exception_media_factory_error(self):
-        """from_exception with MediaFactoryError populates severity and context."""
+        """from_exception with MediaFactoryError populates message and context."""
         exc = ProcessingError(
             message="Transcription failed",
             context={"file": "a.mp4"},
-            severity="recoverable",
         )
         result = ProcessingResult.from_exception(exc)
         assert result.success is False
         assert result.error_message == "Transcription failed"
         assert result.error_type == "ProcessingError"
-        assert result.error_severity == "recoverable"
         assert result.error_context == {"file": "a.mp4"}
 
     def test_from_exception_configuration_error(self):
-        """from_exception with ConfigurationError (default severity is fatal)."""
+        """from_exception with ConfigurationError."""
         exc = ConfigurationError("Missing config")
         result = ProcessingResult.from_exception(exc)
         assert result.success is False
         assert result.error_message == "Missing config"
         assert result.error_type == "ConfigurationError"
-        assert result.error_severity == "fatal"
 
     def test_from_exception_preserves_context(self):
         """from_exception attaches the ProcessingContext when provided."""
@@ -185,7 +181,6 @@ class TestProcessingResult:
         exc = MediaFactoryError("plain error")
         result = ProcessingResult.from_exception(exc)
         assert result.error_context == {}
-        assert result.error_severity == "fatal"
 
     def test_default_metadata(self):
         """ProcessingResult metadata defaults to empty dict."""

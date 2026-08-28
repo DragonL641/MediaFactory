@@ -31,28 +31,9 @@ class Pipeline:
                     stage._log("Skipping (result already exists)", "info")
                     continue
 
-                # 执行阶段
-                try:
-                    stage._log("Starting...", "info")
-                    context = stage.execute(context)
-                except OperationCancelledError:
-                    # 取消信号必须立即向上传播，由外层统一转为取消结果
-                    raise
-                except Exception as stage_error:
-                    handled_error = stage.on_error(context, stage_error)
-
-                    if handled_error is None:
-                        stage._log("Error handled gracefully by stage", "info")
-                    elif (
-                        hasattr(handled_error, "severity")
-                        and handled_error.severity == "warning"
-                    ):
-                        stage._log(
-                            f"Stage completed with warning: {handled_error.message}",
-                            "warning",
-                        )
-                    else:
-                        raise handled_error
+                # 执行阶段（异常直接上抛，由外层统一转为结果）
+                stage._log("Starting...", "info")
+                context = stage.execute(context)
 
                 # 验证结果
                 if not stage.validate(context):

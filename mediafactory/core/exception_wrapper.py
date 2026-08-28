@@ -12,7 +12,6 @@ from ..exceptions import (
     ProcessingError,
     ConfigurationError,
     OperationCancelledError,
-    ErrorSeverity,
 )
 
 
@@ -98,7 +97,6 @@ def convert_exception(
         return ProcessingError(
             message=str(exc),
             context=ctx,
-            severity=ErrorSeverity.RECOVERABLE,
         )
 
     # 默认使用 ProcessingError
