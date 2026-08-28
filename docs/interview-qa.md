@@ -123,7 +123,7 @@ Electron (React)  ──HTTP/WS──▶  FastAPI  ──▶  Service  ──▶
 | 模式 | 项目体现 | 理解重点 |
 |------|---------|---------|
 | **Pipeline 编排** | `ProcessingStage` → `Pipeline.execute()` | 阶段拆分、顺序执行、进度范围映射 |
-| **Protocol 接口** | `ProgressCallback`、`ResourceCleanupProtocol` | Python Protocol vs ABC、依赖倒置 |
+| **Protocol 接口** | `ProgressCallback`（`ResourceCleanupProtocol` 已删除） | Python Protocol vs ABC、依赖倒置 |
 | **桥接模式** | `GUIProgressBridge`（Engine 进度 → 总体进度） | 范围映射、批处理进度 |
 | **单例模式** | `ModelResourceManager`、`AppConfigManager` | 线程安全双重检查锁、`__new__` |
 | **策略模式** | LLM 翻译 vs 本地翻译 | 统一接口、运行时切换 |
@@ -351,14 +351,14 @@ Service 层通过 WebSocket 推送到前端
 3. **GPU 显存**：`torch` 占用的显存不会自动释放
 
 解决方案：
-1. 定义了 `ResourceCleanupProtocol` 接口，要求所有持有资源的组件实现清理方法
+1. 曾定义 `ResourceCleanupProtocol` 接口（后已删除：全仓零 isinstance 消费的过度设计，清理改由 Pipeline 的 `finally: context.cleanup()` 统一执行）
 2. 使用 `weakref` 弱引用打破循环引用
 3. 实现多层清理机制：Pipeline 完成后通知 Service → Service 释放资源 → GUI 关闭时触发全局清理
 4. 调用 `torch.cuda.empty_cache()` 释放显存
 
 修复后关闭应用能正确释放 9-15GB 内存。
 
-> **技术细节：** Python 的垃圾回收器（GC）使用引用计数作为主要机制，但**引用计数无法处理循环引用**（A→B→A）。当 Pipeline 持有 ProcessingContext、Context 持有模型实例、模型持有进度回调（回调中又引用了 Context）时，就形成了循环引用。解决方案之一是使用 `weakref.ref()` 创建弱引用——弱引用不增加引用计数，不会阻止对象被回收。`ResourceCleanupProtocol` 定义在 `core/resource_protocol.py` 中，是一个 Python Protocol（结构化子类型），要求实现 `cleanup()` 方法。Pipeline 执行完毕后会遍历所有实现了该协议的组件并调用 `cleanup()`。`torch.cuda.empty_cache()` 释放的是 PyTorch 的 CUDA 缓存分配器持有的空闲显存，不会影响正在使用的张量。
+> **技术细节：** Python 的垃圾回收器（GC）使用引用计数作为主要机制，但**引用计数无法处理循环引用**（A→B→A）。当 Pipeline 持有 ProcessingContext、Context 持有模型实例、模型持有进度回调（回调中又引用了 Context）时，就形成了循环引用。解决方案之一是使用 `weakref.ref()` 创建弱引用——弱引用不增加引用计数，不会阻止对象被回收。清理入口是 `ProcessingContext.cleanup()`（`pipeline/context.py`），由 Pipeline 的 `finally` 块统一调用，释放 Whisper 模型上下文与本地翻译模型缓存。`torch.cuda.empty_cache()` 释放的是 PyTorch 的 CUDA 缓存分配器持有的空闲显存，不会影响正在使用的张量。
 
 ### Q13: 配置系统为什么用 TOML 而不是 JSON 或 YAML？
 
