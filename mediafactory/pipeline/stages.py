@@ -34,10 +34,11 @@ class AudioExtractionStage(ProcessingStage):
         from ..api.schemas import AudioConfig
 
         cfg = ctx.config if isinstance(ctx.config, AudioConfig) else AudioConfig()
+        # 中间 WAV 由引擎自动命名，不消费用户的字幕输出路径
+        # （requested_output_path 是字幕文件的请求路径，误传会把中间音频写进字幕文件）
         ctx.audio_path = self.audio_engine.extract(
             ctx.video_path,
             progress=progress,
-            output_path=ctx.requested_output_path,
             sample_rate=cfg.sample_rate,
             channels=cfg.channels,
             filter_enabled=cfg.filter_enabled,
