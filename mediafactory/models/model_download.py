@@ -37,61 +37,6 @@ def get_models_dir() -> Path:
     return get_models_base_dir()
 
 
-def get_model_total_size(
-    huggingface_id: str, endpoint: Optional[str] = None
-) -> Optional[int]:
-    """从 HuggingFace API 获取模型总大小。
-
-    Args:
-        huggingface_id: HuggingFace 模型 ID（如 "facebook/m2m100_1.2B"）
-        endpoint: 可选的镜像源 URL
-
-    Returns:
-        模型总大小（字节），如果获取失败则返回 None
-    """
-    try:
-        from huggingface_hub import HfApi
-
-        api = HfApi(endpoint=endpoint)
-        files = list(
-            api.list_repo_tree(
-                repo_id=huggingface_id, repo_type="model", recursive=True
-            )
-        )
-        # 过滤掉目录，只保留文件
-        files = [f for f in files if hasattr(f, "size") and f.size is not None]
-        return sum(f.size for f in files) if files else None
-    except Exception as e:
-        log_error(f"Failed to get model total size for {huggingface_id}: {e}")
-        return None
-
-
-def get_downloaded_size(model_path: Path) -> int:
-    """计算本地已下载模型目录的总大小（包括 .cache 中的临时文件）。
-
-    Args:
-        model_path: 模型目录路径
-
-    Returns:
-        已下载文件的总大小（字节），包括正在下载中的临时文件
-    """
-    if not model_path.exists():
-        return 0
-
-    total_size = 0
-    for f in model_path.rglob("*"):
-        # 只计算文件，跳过目录
-        if not f.is_file():
-            continue
-        try:
-            # 包含 .cache 目录中的 .incomplete 临时文件
-            # huggingface_hub 下载大文件时会先写入 .cache，完成后才移动
-            total_size += f.stat().st_size
-        except OSError:
-            pass  # 忽略无法访问的文件
-    return total_size
-
-
 def _patch_hf_tqdm(callback):
     """上下文管理器：临时替换 huggingface_hub 下载模块的进度条，将字节级进度转发到 callback。
 
@@ -459,8 +404,6 @@ def _update_config_after_delete(huggingface_id: str, model_type: ModelType) -> N
 
 __all__ = [
     "get_models_dir",
-    "get_model_total_size",
-    "get_downloaded_size",
     "download_model",
     "delete_model",
 ]

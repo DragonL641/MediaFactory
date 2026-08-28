@@ -15,8 +15,6 @@ from typing import Any, Dict, List, Optional
 
 import psutil
 
-from ..logging import log_info, log_warning
-
 # Memory tier definitions (GB)
 MEMORY_TIERS = [8, 16, 32, 64, 128]
 
@@ -252,15 +250,6 @@ MODEL_REGISTRY: dict[str, ModelInfo] = {
 WHISPER_MODEL_ID = "Systran/faster-whisper-large-v3"
 
 
-def get_system_total_memory_gb() -> int:
-    """Get system total memory in gigabytes.
-
-    Returns:
-        Total system RAM in GB
-    """
-    return int(psutil.virtual_memory().total / (1024**3))
-
-
 def get_available_memory_gb() -> float:
     """Get currently available memory in gigabytes.
 
@@ -369,116 +358,6 @@ def get_model_info(huggingface_id: str) -> Optional[ModelInfo]:
     return MODEL_REGISTRY.get(huggingface_id)
 
 
-def get_recommended_translation_models() -> list[str]:
-    """Get recommended translation models for installation based on system memory.
-
-    Returns models whose recommended system memory is <= total system memory.
-
-    Returns:
-        List of huggingface_ids suitable for the current system
-    """
-    total_memory = get_system_total_memory_gb()
-
-    suitable_models = [
-        huggingface_id
-        for huggingface_id, info in MODEL_REGISTRY.items()
-        if info.model_type == ModelType.TRANSLATION
-        and info.recommended_system_gb <= total_memory
-    ]
-
-    # 最低要求 16GB，否则推荐使用 LLM API
-    return suitable_models or ["facebook/m2m100_1.2B"]
-
-
-def get_best_translation_model_for_installation() -> str:
-    """Get the best translation model recommendation for installation.
-
-    Based on system total memory, returns the largest suitable model.
-    Minimum requirement: 16GB RAM
-
-    Returns:
-        HuggingFace ID of the best recommended model
-    """
-    total_memory = get_system_total_memory_gb()
-
-    # 最低要求 16GB
-    if total_memory < 16:
-        log_warning("系统内存不足 16GB，建议使用 LLM API 翻译")
-        return "facebook/m2m100_1.2B"  # 仍然返回，但会有警告
-
-    suitable_models = [
-        (huggingface_id, info)
-        for huggingface_id, info in MODEL_REGISTRY.items()
-        if info.model_type == ModelType.TRANSLATION
-        and info.recommended_system_gb <= total_memory
-    ]
-
-    if not suitable_models:
-        return "facebook/m2m100_1.2B"
-
-    # Return the model with highest runtime memory (best quality)
-    return max(suitable_models, key=lambda x: x[1].runtime_memory_gb)[0]
-
-
-def select_best_translation_model(
-    downloaded_models: list[str],
-    device: str = "cpu",
-) -> Optional[str]:
-    """从已下载模型中选择最佳翻译模型。
-
-    根据设备类型和可用资源（GPU用VRAM，CPU用RAM）选择模型。
-    如果GPU显存不足，自动回退到CPU模式，然后选择最小模型。
-
-    Args:
-        downloaded_models: 已下载模型 ID 列表
-        device: 设备类型 ("cuda" 或 "cpu")
-
-    Returns:
-        最佳可用模型的 ID，若无合适模型则返回 None
-    """
-    if not downloaded_models:
-        return None
-
-    # 根据设备类型确定可用内存
-    if device == "cuda":
-        available_memory = get_available_vram_gb()
-        memory_field = "runtime_vram_gb"  # GPU 使用 VRAM 字段
-    else:
-        available_memory = get_available_memory_gb()
-        memory_field = "runtime_memory_gb"  # CPU 使用 RAM 字段
-
-    # 筛选适合可用内存的已下载模型
-    suitable_models = [
-        (model_id, MODEL_REGISTRY[model_id])
-        for model_id in downloaded_models
-        if model_id in MODEL_REGISTRY
-        and MODEL_REGISTRY[model_id].model_type == ModelType.TRANSLATION
-        and getattr(MODEL_REGISTRY[model_id], memory_field) <= available_memory
-    ]
-
-    if suitable_models:
-        # 返回内存占用最高（质量最好）的模型
-        return max(suitable_models, key=lambda x: getattr(x[1], memory_field))[0]
-
-    # 无合适模型 - 尝试 CPU 回退
-    if device == "cuda":
-        log_warning("无翻译模型适合 GPU 显存，回退到 CPU 模式")
-        return select_best_translation_model(downloaded_models, device="cpu")
-
-    # 仍然无模型 - 返回最小的作为最后手段
-    all_models = sorted(
-        [MODEL_REGISTRY[m] for m in downloaded_models if m in MODEL_REGISTRY],
-        key=lambda m: m.runtime_memory_gb,
-    )
-    if all_models:
-        log_warning(
-            f"可用内存不足以运行任何模型。使用最小模型: {all_models[0].display_name}"
-        )
-        return all_models[0].huggingface_id
-
-    return None
-
-
 def get_display_name(huggingface_id: str) -> str:
     """获取模型的展示名称。
 
@@ -518,21 +397,6 @@ def get_enhancement_model_by_scale_and_type(
             ):
                 return model_id
     return None
-
-
-def is_enhancement_model(model_id: str) -> bool:
-    """检查是否是增强模型。
-
-    Args:
-        model_id: 模型 ID
-
-    Returns:
-        True if the model is an enhancement model
-    """
-    info = MODEL_REGISTRY.get(model_id)
-    if info is None:
-        return False
-    return info.model_type in {ModelType.SUPER_RESOLUTION, ModelType.DENOISE}
 
 
 # ==================== Model Storage Paths ====================

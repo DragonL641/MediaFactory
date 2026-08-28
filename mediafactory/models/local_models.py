@@ -15,14 +15,13 @@ from typing import Any, Optional, Tuple
 # to start without ML dependencies (they are installed via Setup Wizard)
 
 from .model_download import get_models_dir
-from .model_registry import is_model_complete, is_model_downloaded
+from .model_registry import is_model_complete
 from .model_registry import (
     MODEL_REGISTRY,
     ModelType,
     get_display_name,
     get_model_info,
     get_translation_model_info,
-    select_best_translation_model,
 )
 from ..config import get_config_manager
 from ..logging import log_debug, log_error, log_info, log_warning, log_success
@@ -83,14 +82,6 @@ class LocalModelManager:
         )  # huggingface_id -> (model, tokenizer)
         self._models_lock = threading.Lock()
 
-    def get_model_path(self) -> str:
-        """Get the local model storage path.
-
-        Returns:
-            The model path read from config.toml's model.local_model_path
-        """
-        return str(self.config.model.local_model_path)
-
     def get_local_model_path(self, huggingface_id: str) -> Optional[str]:
         """Get the local path if the model exists locally.
 
@@ -136,44 +127,6 @@ class LocalModelManager:
         # 刷新配置以获取最新状态
         self.config_manager.reload()
         return list(self.config_manager.config.model.available_translation_models)
-
-    def get_downloaded_whisper_models(self) -> list[str]:
-        """从配置文件获取已下载的 Whisper 模型列表。
-
-        Returns:
-            已下载的 Whisper 模型 huggingface_id 列表
-        """
-        # 刷新配置以获取最新状态
-        self.config_manager.reload()
-        return list(self.config_manager.config.model.whisper_models)
-
-    def is_whisper_available(self) -> bool:
-        """Check if any Whisper model is available locally.
-
-        Returns:
-            True if at least one Whisper model exists
-        """
-        return len(self.get_downloaded_whisper_models()) > 0
-
-    def has_models(self) -> bool:
-        """Check if any models (Whisper or translation) are available.
-
-        Returns:
-            True if at least one model exists
-        """
-        return (
-            self.is_whisper_available()
-            or len(self.get_downloaded_translation_models()) > 0
-        )
-
-    def get_best_available_model(self) -> Optional[str]:
-        """Get the best available translation model based on current memory.
-
-        Returns:
-            Best model ID, or None if no models are available
-        """
-        downloaded = self.get_downloaded_translation_models()
-        return select_best_translation_model(downloaded)
 
     def get_model_with_fallback(
         self,
@@ -619,26 +572,6 @@ class LocalModelManager:
 
         log_info(f"[LocalModelManager] Model unloaded successfully: {huggingface_id}")
         return True
-
-    def unload_all_translation_models(self) -> int:
-        """卸载所有已加载的翻译模型。
-
-        Returns:
-            卸载的模型数量
-        """
-        count = 0
-        with self._models_lock:
-            model_ids = list(self._loaded_models.keys())
-
-        for model_id in model_ids:
-            if self.unload_translation_model(model_id):
-                count += 1
-
-        return count
-
-    def cleanup(self) -> None:
-        """清理所有资源。"""
-        self.unload_all_translation_models()
 
 
 # ==================== 单例管理 ====================
