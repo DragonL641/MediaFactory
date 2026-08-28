@@ -38,7 +38,6 @@ class ProcessingContext:
 
     # 进度回调
     progress_callback: Optional["ProgressCallback"] = None
-    gui_observers: Optional[Dict[str, Any]] = None
     config: Dict[str, Any] = field(default_factory=dict)
 
     # 双语字幕配置
@@ -55,19 +54,7 @@ class ProcessingContext:
         """检查是否已取消"""
         if self.progress_callback:
             return self.progress_callback.is_cancelled()
-        if self.gui_observers and "cancelled" in self.gui_observers:
-            return self.gui_observers["cancelled"]()
         return False
-
-    def update_progress(self, stage: str, progress: float, message: str = ""):
-        """更新进度"""
-        self.set_stage(stage)
-        if self.progress_callback:
-            self.progress_callback.update(progress, message)
-        elif self.gui_observers:
-            callback_key = f"{stage}_progress_func"
-            if callback_key in self.gui_observers:
-                self.gui_observers[callback_key](progress, message)
 
     def set_stage(self, stage: str) -> None:
         """设置当前阶段"""

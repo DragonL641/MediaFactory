@@ -23,11 +23,6 @@ class VideoEnhancementService:
 
     def __init__(self):
         self.config = get_config()
-        self._cancelled: bool = False
-
-    def cancel(self):
-        """取消当前任务"""
-        self._cancelled = True
 
     async def enhance(
         self,
@@ -54,7 +49,6 @@ class VideoEnhancementService:
         Returns:
             ProcessingResult: 处理结果
         """
-        self._cancelled = False
         video_path = Path(video_path)
 
         if output_path is None:
@@ -82,13 +76,6 @@ class VideoEnhancementService:
 
             loop = asyncio.get_running_loop()
             result = await loop.run_in_executor(None, pipeline.execute, context)
-
-            if self._cancelled:
-                return ProcessingResult(
-                    success=False,
-                    error_message="Task cancelled",
-                    error_type="CancelledError",
-                )
 
             if not result.success:
                 return ProcessingResult(

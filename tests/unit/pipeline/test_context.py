@@ -69,11 +69,6 @@ class TestProcessingContext:
         ctx = ProcessingContext()
         assert ctx.is_cancelled() is False
 
-    def test_is_cancelled_no_gui_observers(self):
-        """is_cancelled returns False when gui_observers is None."""
-        ctx = ProcessingContext(gui_observers=None)
-        assert ctx.is_cancelled() is False
-
     def test_is_cancelled_via_progress_callback(self):
         """is_cancelled delegates to progress_callback.is_cancelled()."""
 
@@ -86,58 +81,6 @@ class TestProcessingContext:
 
         ctx = ProcessingContext(progress_callback=FakeCallback())
         assert ctx.is_cancelled() is True
-
-    def test_is_cancelled_via_gui_observers(self):
-        """is_cancelled delegates to gui_observers['cancelled']()."""
-        ctx = ProcessingContext(gui_observers={"cancelled": lambda: True})
-        assert ctx.is_cancelled() is True
-
-    def test_is_cancelled_gui_observers_no_cancelled_key(self):
-        """is_cancelled returns False when gui_observers lacks 'cancelled' key."""
-        ctx = ProcessingContext(gui_observers={"other": lambda: True})
-        assert ctx.is_cancelled() is False
-
-    def test_update_progress_with_callback(self):
-        """update_progress delegates to progress_callback.update()."""
-        updated = {}
-
-        class FakeCallback:
-            def is_cancelled(self):
-                return False
-
-            def update(self, progress, message):
-                updated["progress"] = progress
-                updated["message"] = message
-
-            def set_stage(self, stage):
-                updated["stage"] = stage
-
-        ctx = ProcessingContext(progress_callback=FakeCallback())
-        ctx.update_progress("transcription", 50.0, "Processing...")
-        assert updated["progress"] == 50.0
-        assert updated["message"] == "Processing..."
-        assert ctx.get_stage() == "transcription"
-
-    def test_update_progress_via_gui_observers(self):
-        """update_progress calls gui_observers stage-specific callback."""
-        updated = {}
-
-        ctx = ProcessingContext(
-            gui_observers={
-                "transcription_progress_func": lambda p, m: updated.update(
-                    {"progress": p, "message": m}
-                )
-            }
-        )
-        ctx.update_progress("transcription", 75.0, "Halfway")
-        assert updated["progress"] == 75.0
-        assert updated["message"] == "Halfway"
-
-    def test_update_progress_no_callback_no_observers(self):
-        """update_progress still sets stage even without callback or observers."""
-        ctx = ProcessingContext()
-        ctx.update_progress("translation", 80.0, "Translating")
-        assert ctx.get_stage() == "translation"
 
     def test_set_and_get_stage(self):
         """set_stage / get_stage round-trip."""
