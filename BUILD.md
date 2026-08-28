@@ -361,12 +361,6 @@ PyInstaller 通过以下方式减小产物体积：
 2. **不使用 UPX**：避免某些环境兼容性问题
 3. **仅包含必要的隐式导入**：减少未使用的依赖
 
-## Transformers 缓存配置
-
-在冻结环境中，transformers 缓存被重定向：
-- `mediafactory/utils/transformers_config.py`：将缓存目录设置为 `./cache` 文件夹
-- 使用 `HF_HOME` 而非已弃用的 `TRANSFORMERS_CACHE`（transformers v5+）
-
 ## 故障排除
 
 ### PyInstaller 找不到模块
