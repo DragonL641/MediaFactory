@@ -294,4 +294,5 @@ class AudioEngine:
 
             if completion_event.wait(0.5):
                 break
-        progress.update(100.0, t("progress.completed"))
+        # 结尾不写 100：finally 块的 progress.update(100) 是权威完成信号，
+        # 监视线程的进度本以 min(..., 99) 封顶，尾部再写 100 属于双写

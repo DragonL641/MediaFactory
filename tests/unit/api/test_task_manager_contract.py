@@ -1,7 +1,7 @@
 """task_manager 契约测试。
 
 锁定任务状态机（PENDING→RUNNING→COMPLETED/FAILED/CANCELLED）、串行队列推进、
-取消语义（队列移除、取消结果不被覆盖）、STAGE_RANGES 进度映射——
+取消语义（队列移除、取消结果不被覆盖）、进度透传——
 Phase 3 将重构这些区域，先锁行为。
 """
 
@@ -118,16 +118,17 @@ class TestTaskLifecycle:
         assert rec.complete_calls[0]["success"] is False
 
 
-class TestStageRangeMapping:
-    """特征测试：锁定 STAGE_RANGES 映射语义（Phase 3 将改其实现方式）。"""
+class TestProgressPassthrough:
+    """特征测试：锁定进度透传语义（区间映射职责已移至 Pipeline，
+    见 tests/unit/pipeline/test_progress_mapping.py）。"""
 
-    def test_translation_stage_maps_into_70_95_window(self, monkeypatch):
+    def test_progress_passthrough(self, monkeypatch):
         async def scenario():
             manager = TaskManager()
             task_id = await manager.create_task(make_config())
 
             async def executor(config, progress_callback, cancel_token):
-                progress_callback(50.0, "half", "translation")
+                progress_callback(42.0, "m", "anything")
                 await asyncio.sleep(0)
                 return {"success": True, "output_path": "x", "error": None}
 
@@ -136,13 +137,13 @@ class TestStageRangeMapping:
 
         rec = BroadcastRecorder(monkeypatch)
         asyncio.run(scenario())
-        # translation 50% → 70 + 50/100*(95-70) = 82.5
+        # task_manager 不再做数值映射：进度与 stage 原样透传
         assert any(
-            abs(c["progress"] - 82.5) < 0.01 and c["stage"] == "translation"
+            abs(c["progress"] - 42.0) < 0.01 and c["stage"] == "anything"
             for c in rec.progress_calls
         )
 
-    def test_download_stage_identity_mapping(self, monkeypatch):
+    def test_download_stage_passthrough(self, monkeypatch):
         async def scenario():
             manager = TaskManager()
             task_id = await manager.create_task(make_config())
@@ -157,29 +158,11 @@ class TestStageRangeMapping:
 
         rec = BroadcastRecorder(monkeypatch)
         asyncio.run(scenario())
-        # download: (0, 100) → 恒等映射，进度原样透传（Phase 3 下载一等化防回归点）
+        # download 进度不经 Pipeline（0-100 直传），必须原样透传
+        # （Phase 3 下载一等化防回归点）
         assert any(
             abs(c["progress"] - 37.5) < 0.01 and c["stage"] == "download"
             for c in rec.progress_calls
-        )
-
-    def test_unknown_stage_keeps_raw_progress(self, monkeypatch):
-        async def scenario():
-            manager = TaskManager()
-            task_id = await manager.create_task(make_config())
-
-            async def executor(config, progress_callback, cancel_token):
-                progress_callback(42.0, "mystery", "not_a_known_stage")
-                await asyncio.sleep(0)
-                return {"success": True, "output_path": "x", "error": None}
-
-            await manager._execute_task(task_id, executor)
-            await asyncio.sleep(0)
-
-        rec = BroadcastRecorder(monkeypatch)
-        asyncio.run(scenario())
-        assert any(
-            abs(c["progress"] - 42.0) < 0.01 for c in rec.progress_calls
         )
 
 

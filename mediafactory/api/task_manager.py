@@ -31,18 +31,6 @@ logger = logging.getLogger(__name__)
 # API 层使用标准 logging，通过 InterceptHandler 自动重定向到 loguru
 # 详见 mediafactory.logging.loguru_logger.setup_logging_intercept
 
-# stage 进度到全局进度的映射范围
-STAGE_RANGES = {
-    "model_loading": (0.0, 10.0),
-    "audio_extraction": (10.0, 20.0),
-    "transcription": (20.0, 60.0),
-    "postprocess": (60.0, 70.0),
-    "translation": (70.0, 95.0),
-    "srt_generation": (95.0, 100.0),
-    "video_enhancement": (0.0, 100.0),
-    "download": (0.0, 100.0),
-}
-
 
 @dataclass
 class Task:
@@ -194,10 +182,6 @@ class TaskManager:
         main_loop = asyncio.get_running_loop()
 
         async def _async_progress(progress: float, message: str = "", stage: str = ""):
-            # 将 stage 级进度映射到全局进度
-            if stage and stage in STAGE_RANGES:
-                start, end = STAGE_RANGES[stage]
-                progress = start + (progress / 100.0) * (end - start)
             task.progress = progress
             task.message = message
             task.stage = stage
