@@ -5,6 +5,33 @@ All notable changes to MediaFactory will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+**pipeline:** stage 内取消异常必须立即传播，不再被当作警告继续执行
+
+
+**tests:** 修复预存的 prompt_loader 测试失败（translate/single.md 已随 batch-only 翻译迁移删除，改为断言 translate/batch 等价覆盖）
+
+
+**tests:** 修复预存的 logging 测试失败（移除对已删除 log_stage 的引用，保留 log_step/log_success 断言）
+
+
+
+### Removed
+
+**cleanup:** Phase 1 死代码清理，累计删除约 1900 行：死引擎 video_composer、FFmpegConfig 与 [ffmpeg] 配置节、零引用的 launcher/memory_detection/resource_protocol/resource_management/file_utils/transformers_config、FileConstants/ModelTokenLimits 死块及孤儿导出、Flet 时代 gui_observers 遗留与 service 层死取消机制
+
+
+**cleanup:** 删除 13 个零引用 i18n key、THIRD_PARTY_LICENSES.txt 中不存在的 flet 条目、HEAD 上已损坏的调试脚本（whisper_debug.py、local_model_debug.py）
+
+
+
+### Changed
+
+**refactor:** 模型下载执行逻辑下沉至 api/download_task 模块，routes/models.py 只做参数解析；exception_wrapper 测试重写并恢复测试基线（0 failed, 259 passed）
+
 ## [0.4.0]
 
 
