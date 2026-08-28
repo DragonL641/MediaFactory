@@ -35,6 +35,9 @@ class Pipeline:
                 try:
                     stage._log("Starting...", "info")
                     context = stage.execute(context)
+                except OperationCancelledError:
+                    # 取消信号必须立即向上传播，由外层统一转为取消结果
+                    raise
                 except Exception as stage_error:
                     handled_error = stage.on_error(context, stage_error)
 
