@@ -417,23 +417,23 @@ Service 层通过 WebSocket 推送到前端
 
 ### Q17: 模型选择逻辑是怎么设计的？
 
-**A:** 根据硬件自动推荐：
+**A:** 运行时按硬件条件选择，安装时不做推荐（安装期推荐函数已随精简删除）：
 
 ```python
-# 查询可用内存和显存
-total_ram = get_system_total_memory_gb()
-available_vram = get_available_vram_gb()
+# 运行时选择（models/translation_runtime.py 的 get_translation_model）
+available_mem = get_available_memory_for_device()   # psutil 可用内存（+CUDA 显存）
+required_mem = get_required_memory_for_model(model_id)  # 查 MODEL_REGISTRY
 
-# 翻译模型选择（唯一本地模型）
-if total_ram >= 16:  # 9.9GB 模型需要 16GB RAM
-    recommend "facebook/m2m100_1.2B"
-else:  # 内存不足
-    recommend "使用 LLM API 翻译"
+# 翻译模型（唯一本地模型）：内存够则加载 M2M100，否则走 LLM API 降级
+if available_mem >= required_mem:
+    load "facebook/m2m100_1.2B"
+else:
+    fall back to "LLM API 翻译"
 ```
 
 模型注册表（`MODEL_REGISTRY`）里记录了每个模型的文件大小、运行内存需求、支持的语言等信息，选择时综合考虑。
 
-> **技术细节：** `MODEL_REGISTRY` 在 `models/model_registry.py` 中是一个字典，每个模型条目是 `ModelInfo` dataclass，包含 `huggingface_id`、`file_size_gb`、`runtime_memory_gb`（CPU 推理所需内存）、`gpu_memory_gb`（GPU 推理所需显存）、`supported_languages` 等字段。`get_best_translation_model_for_installation()` 函数通过 `psutil.virtual_memory().available` 获取可用内存、`torch.cuda.mem_get_info()` 获取可用显存，然后从最大的模型开始尝试，找到第一个硬件能满足的模型推荐给用户。这个逻辑在首次启动的 Setup Wizard 中调用。
+> **技术细节：** `MODEL_REGISTRY` 在 `models/model_registry.py` 中是一个字典，每个模型条目是 `ModelInfo` dataclass，包含 `huggingface_id`、`file_size_gb`、`runtime_memory_gb`（CPU 推理所需内存）、`gpu_memory_gb`（GPU 推理所需显存）、`supported_languages` 等字段。`get_available_memory_for_device()` 通过 `psutil.virtual_memory().available` 获取可用内存、`torch.cuda.mem_get_info()` 获取可用显存；`get_translation_model()` 在加载前用它对照注册表的 `runtime_memory_gb`/`gpu_memory_gb` 做运行时判断，内存不足时抛错并由上层降级到 LLM API。历史上的安装期推荐函数 `get_best_translation_model_for_installation()` 已作为零调用死代码删除。
 
 ---
 
