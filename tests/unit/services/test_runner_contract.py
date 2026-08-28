@@ -6,11 +6,13 @@
 """
 
 import asyncio
+from pathlib import Path
 
 import pytest
 
 from mediafactory.api.schemas import (
     AudioConfig,
+    EnhancementConfig,
     SubtitleConfig,
     TaskConfig,
     TaskType,
@@ -22,6 +24,7 @@ from mediafactory.services import runner as runner_module
 from mediafactory.services.runner import (
     RUNNERS,
     run_audio,
+    run_enhance,
     run_subtitle,
     run_transcribe,
     run_translate,
@@ -153,6 +156,34 @@ class FakeLocalEngine:
         return {"segments": [{"text": f"[{tgt}] {wrapped['segments'][0]['text']}"}]}
 
 
+class FakeEngineEnhancementConfig:
+    """引擎侧 EnhancementConfig 替身：记录构造 kwargs。
+
+    patch 源模块属性 mediafactory.engine.video_enhancement.EnhancementConfig
+    （run_enhance 函数内延迟 from-import 在调用时解析源模块属性）。"""
+
+    init_kwargs = []
+
+    def __init__(self, **kwargs):
+        type(self).init_kwargs.append(kwargs)
+        self.__dict__.update(kwargs)
+
+
+class FakeEnhancementEngine:
+    """VideoEnhancementEngine 替身：记录构造配置与 enhance 调用。"""
+
+    instances = []
+    enhance_calls = []
+
+    def __init__(self, config):
+        type(self).instances.append(self)
+        self.config = config
+
+    def enhance(self, video_path, output_path, progress=None):
+        type(self).enhance_calls.append((video_path, output_path, progress))
+        return "out/v_enhanced.mp4"
+
+
 @pytest.fixture(autouse=True)
 def reset_fake_state():
     """每个测试前重置替身状态与 runner 模块级引擎缓存（隔离测试）。"""
@@ -168,6 +199,9 @@ def reset_fake_state():
     RecordingTranslationEngine.instances.clear()
     RecordingTranslationEngine.init_kwargs.clear()
     FakeLocalEngine.calls.clear()
+    FakeEngineEnhancementConfig.init_kwargs.clear()
+    FakeEnhancementEngine.instances.clear()
+    FakeEnhancementEngine.enhance_calls.clear()
     # runner 模块级引擎缓存重置：monkeypatch 引擎类后重新触发懒加载的关键
     runner_module._audio_engine = None
     runner_module._recognition_engine = None
@@ -282,6 +316,31 @@ class TestRunSubtitle:
 
         with pytest.raises(ConfigurationError):
             run(run_subtitle(make_config(), NO_OP_PROGRESS))
+
+    def test_pipeline_failure_result_passthrough(self, monkeypatch):
+        """契约：Pipeline 的失败结果原样透传，不重包、不丢 error_context。"""
+        failure = ProcessingResult(
+            success=False,
+            error_message="boom",
+            error_type="ProcessingError",
+            error_context={"k": "v"},
+        )
+
+        class FailingPipeline:
+            @classmethod
+            def create_default(cls, *engines):
+                return cls()
+
+            def execute(self, context):
+                return failure
+
+        monkeypatch.setattr(runner_module, "Pipeline", FailingPipeline)
+
+        result = run(run_subtitle(make_config(), NO_OP_PROGRESS))
+
+        # 同一实例原样返回（旧 service 层的重包正是丢掉了 error_context）
+        assert result is failure
+        assert result.error_context == {"k": "v"}
 
 
 class TestRunAudio:
@@ -538,6 +597,78 @@ class TestRunTranslate:
                     NO_OP_PROGRESS,
                 )
             )
+
+
+class TestRunEnhance:
+    """run_enhance 契约：schema→引擎配置的字段映射（model→model_type）、
+    输出路径推导、readiness 门。
+
+    run_enhance 是函数内延迟 from-import，patch 源模块属性
+    （mediafactory.engine.video_enhancement.*）在调用时解析生效。"""
+
+    def _patch_engine(self, monkeypatch):
+        import mediafactory.engine.video_enhancement as ve_module
+
+        monkeypatch.setattr(ve_module, "VideoEnhancementEngine", FakeEnhancementEngine)
+        monkeypatch.setattr(ve_module, "EnhancementConfig", FakeEngineEnhancementConfig)
+
+    def test_enhance_maps_schema_to_engine_config(self, monkeypatch):
+        self._patch_engine(monkeypatch)
+
+        result = run(
+            run_enhance(
+                make_config(
+                    task_type=TaskType.ENHANCE,
+                    enhancement_config=EnhancementConfig(
+                        scale=4, model="anime", denoise=True, temporal=True
+                    ),
+                ),
+                NO_OP_PROGRESS,
+            )
+        )
+
+        assert result.success is True
+        assert result.output_path == "out/v_enhanced.mp4"
+        assert result.metadata["scale"] == 4
+        assert result.metadata["denoise"] is True
+        # 契约：schema 字段映射进引擎配置，model → model_type 改名是关键
+        kwargs = FakeEngineEnhancementConfig.init_kwargs[0]
+        assert kwargs == {
+            "scale": 4,
+            "model_type": "anime",
+            "denoise": True,
+            "temporal": True,
+        }
+        # 契约：引擎构造收到该配置，enhance 收到路径三元组
+        assert FakeEnhancementEngine.instances[0].config is not None
+        video_path, output_path, progress = FakeEnhancementEngine.enhance_calls[0]
+        assert video_path == "v.mp4"
+        assert output_path == str(Path("v_enhanced.mp4"))
+        assert progress is NO_OP_PROGRESS
+
+    def test_enhance_default_output_path_suffix(self, monkeypatch):
+        self._patch_engine(monkeypatch)
+
+        run(
+            run_enhance(
+                make_config(task_type=TaskType.ENHANCE, input_path="dir/clip.mp4"),
+                NO_OP_PROGRESS,
+            )
+        )
+
+        # 契约：未指定输出路径时 with_stem 追加 _enhanced 后缀
+        _, output_path, _ = FakeEnhancementEngine.enhance_calls[0]
+        assert output_path == str(Path("dir/clip_enhanced.mp4"))
+
+    def test_enhance_readiness_gate(self, monkeypatch):
+        self._patch_engine(monkeypatch)
+        calls = []
+        monkeypatch.setattr(runner_module, "_require_ready", calls.append)
+
+        run(run_enhance(make_config(task_type=TaskType.ENHANCE), NO_OP_PROGRESS))
+
+        # 契约：enhance 任务必须过 enhancement readiness 门
+        assert calls == ["enhancement"]
 
 
 class TestRunnersRegistry:

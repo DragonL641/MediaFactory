@@ -297,12 +297,5 @@ class TestCancelAndQueue:
         assert order == ["start", "end", "start", "end"]
 
 
-class TestRunnerRegistry:
-    def test_all_non_download_task_types_have_runners(self):
-        """Phase 3 收编 runner 前锁定注册完备性：漏注册只能运行时发现。"""
-        from mediafactory.services.runner import RUNNERS
-
-        for task_type in TaskType:
-            if task_type is TaskType.DOWNLOAD:
-                continue  # 下载走 download_task.py 专用通道，不经 runner
-            assert task_type in RUNNERS, f"缺少 {task_type} 的 runner 注册"
+# RUNNERS 注册表完备性断言在 tests/unit/services/test_runner_contract.py
+# （TestRunnersRegistry）——task_manager 侧与 runner 侧逐字重复，保留一份。
