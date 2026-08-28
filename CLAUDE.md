@@ -85,9 +85,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `PostProcessStage` (60-70%)：智能分句（stable-ts）
 - `TranslationStage` (70-95%)：翻译到目标语言，自动回退
 - `SRTGenerationStage` (95-100%)：生成字幕文件（SRT/ASS/VTT）
-- `ModelCleanupStage`：释放模型资源
 
-**注意**：`ModelLoadingStage` 和 `ModelCleanupStage` 定义在 `stages.py` 中并在 `pipeline.py` 工厂方法里实例化，但未在 `pipeline/__init__.py` 中公开导出（引用需从 `stages` 导入）。
+**注意**：`ModelLoadingStage` 定义在 `stages.py` 中并在 `pipeline.py` 工厂方法里实例化，但未在 `pipeline/__init__.py` 中公开导出（引用需从 `stages` 导入）。音频提取与视频增强为单动作流程，由 runner 直调引擎，不走 Pipeline。模型释放在 Pipeline 的 `finally: context.cleanup()` 统一执行。
 
 ## 常用命令
 
@@ -216,7 +215,7 @@ result = await loop.run_in_executor(None, pipeline.execute, context)
 - `tool.py`：`CancellationToken`（协作式取消）
 
 **流水线**（`mediafactory/pipeline/`）：
-- `pipeline.py`：`Pipeline` 编排类，工厂方法：`create_default()`、`create_audio_only()`、`create_translation_only()`、`create_transcribe_standalone()`、`create_enhance_only()`
+- `pipeline.py`：`Pipeline` 编排类，工厂方法：`create_default()`（字幕 6 stage）、`create_transcribe_standalone()`（转录 4 stage）、`create_translation_only()`（字幕翻译 2 stage）
 - `context.py`：`ProcessingContext`、`ProcessingResult`
 - `stage.py`：`ProcessingStage` 抽象基类
 - `stages.py`：具体阶段实现
@@ -243,7 +242,7 @@ result = await loop.run_in_executor(None, pipeline.execute, context)
 - `i18n.py` + `locales/`：轻量 i18n，后端用户可见消息统一用 `t("key")`，语言偏好读自 config.toml，JSON 字典实现（前端则用 react-i18next + `src/locales/`）
 - `core/error_utils.py`：`sanitize_error()` 将异常转为用户友好消息（Service/API 层共用）
 - `constants.py`：`BackendConfigMapping`（含 `BASE_URL_PRESETS` LLM 服务预设）、`LANGUAGE_NAMES` 等语言常量
-- `resource_manager.py`：Whisper 模型资源管理（单例，上下文管理器）
+- `resource_manager.py`：`whisper_model()` 上下文管理器（加载/释放 Whisper 模型，无单例）
 - `utils/`：语言名称映射（`resources.py`）、prompt 加载器
 - `resources/prompts/`：LLM 提示模板（Markdown + `${variable}` 语法）
 - `resource_manager.py`：Whisper 模型资源管理
@@ -260,8 +259,7 @@ result = await loop.run_in_executor(None, pipeline.execute, context)
 
 ### 异常处理（`mediafactory/exceptions.py`）
 
-- `MediaFactoryError`：基类（`message`、`context`、`severity`）
-  - `ErrorSeverity`：FATAL、RECOVERABLE、WARNING
+- `MediaFactoryError`：基类（`message`、`context`）
 - 核心类型：`ProcessingError`（默认 RECOVERABLE）、`ConfigurationError`（默认 FATAL）、`OperationCancelledError`（默认 WARNING）
 - `exception_wrapper.py`：`wrap_exceptions` 上下文管理器自动转换标准异常
 
@@ -294,7 +292,7 @@ save_config()
 
 - 翻译模型文件（2GB+）不捆绑在包中，用户在设置页面自行下载
 - 模型从 `./models` 目录加载，启动时自动扫描并写入 `config.toml`
-- `ModelResourceManager`：单例模式，`whisper_model()` 上下文管理器确保正确释放
+- `whisper_model()`：上下文管理器确保 Whisper 模型正确释放（`resource_manager.py`）
 - 硬件自动检测：CUDA (NVIDIA GPU, float16) / CPU (int8 量化)；**Faster Whisper 不支持 MPS**
 
 ### 构建系统
