@@ -48,12 +48,10 @@ class TestLoggingBasic:
     def test_structured_logging_functions(self):
         """测试结构化日志函数存在且可调用。"""
         from mediafactory.logging import (
-            log_stage,
             log_step,
             log_success,
         )
 
         # 不应抛出异常
-        log_stage("Test Stage")
         log_step("Test step")
         log_success("Test success")

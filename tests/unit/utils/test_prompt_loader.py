@@ -23,11 +23,6 @@ class TestGetPrompt:
         assert isinstance(result, str)
         assert len(result) > 0
 
-    def test_returns_string_for_single_prompt(self):
-        result = get_prompt("translate/single")
-        assert isinstance(result, str)
-        assert len(result) > 0
-
     def test_nonexistent_prompt_raises_file_not_found(self):
         with pytest.raises(FileNotFoundError):
             get_prompt("nonexistent/prompt")
@@ -40,18 +35,19 @@ class TestGetPrompt:
         assert "${target_language}" not in result
 
     def test_multiple_variable_substitution(self):
-        """多个变量同时替换"""
+        """多个变量同时替换（batch.md 含 target/source/custom_instructions 三个变量）"""
         result = get_prompt(
-            "translate/single",
+            "translate/batch",
             source_language="English",
             target_language="Chinese",
-            prev_text="Hello",
-            current_text="World",
-            next_text="!",
-            custom_instructions="",
+            custom_instructions="Keep it concise",
         )
         assert "Chinese" in result
         assert "English" in result
+        assert "Keep it concise" in result
+        assert "${target_language}" not in result
+        assert "${source_language}" not in result
+        assert "${custom_instructions}" not in result
 
     def test_safe_substitute_unreplaced_vars_remain(self):
         """safe_substitute 不会对未提供的变量报错，保留原始占位符"""
@@ -75,7 +71,6 @@ class TestListPrompts:
     def test_contains_known_prompts(self):
         result = list_prompts()
         assert "translate/batch" in result
-        assert "translate/single" in result
 
     def test_items_are_strings(self):
         result = list_prompts()

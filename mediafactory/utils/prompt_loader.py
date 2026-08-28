@@ -79,7 +79,7 @@ def list_prompts() -> list[str]:
     """列出所有可用的 prompt 路径。
 
     Returns:
-        prompt 路径列表，如 ["translate/batch", "translate/single"]
+        prompt 路径列表，如 ["translate/batch"]
     """
     prompts = []
     for md_file in PROMPTS_DIR.rglob("*.md"):
