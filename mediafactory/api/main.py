@@ -15,25 +15,13 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 
 from mediafactory.api.routes import config, models, processing
+from mediafactory.api.task_manager import get_task_manager  # 亦作为 re-export 保持旧导入路径兼容
 from mediafactory.api.websocket import manager as ws_manager
 from mediafactory._version import get_version
 
 logger = logging.getLogger(__name__)
 # API 层使用标准 logging，通过 InterceptHandler 自动重定向到 loguru
 # 详见 mediafactory.logging.loguru_logger.setup_logging_intercept
-
-# 全局任务管理器
-_task_manager: Optional[TaskManager] = None
-
-
-def get_task_manager() -> TaskManager:
-    """获取全局任务管理器实例"""
-    global _task_manager
-    if _task_manager is None:
-        from mediafactory.api.task_manager import TaskManager
-
-        _task_manager = TaskManager()
-    return _task_manager
 
 
 @asynccontextmanager

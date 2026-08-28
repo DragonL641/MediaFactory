@@ -13,6 +13,8 @@ import logging
 import time
 from typing import Callable, Optional
 
+from mediafactory.api.schemas import TaskConfig, TaskResult, TaskStatus, TaskType
+from mediafactory.api.task_manager import get_task_manager
 from mediafactory.api.websocket import manager as ws_manager
 from mediafactory.core.error_utils import sanitize_error
 from mediafactory.i18n import t
@@ -44,9 +46,6 @@ async def start_download(
     Returns:
         任务 ID
     """
-    from mediafactory.api.main import get_task_manager
-    from mediafactory.api.schemas import TaskConfig, TaskType
-
     task_manager = get_task_manager()
     config = TaskConfig(task_type=TaskType.DOWNLOAD, input_path=model_id)
     task_id = await task_manager.create_task(
@@ -67,8 +66,7 @@ async def _execute_download_task(
     on_complete: Optional[Callable[[], None]],
 ):
     """执行模型下载任务。"""
-    from mediafactory.api.main import get_task_manager
-    from mediafactory.api.schemas import TaskResult, TaskStatus
+    # 重量级 HF 依赖，保留局部导入以延迟加载
     from mediafactory.models.model_download import download_model
 
     task_manager = get_task_manager()

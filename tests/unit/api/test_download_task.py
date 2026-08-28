@@ -80,7 +80,9 @@ class TestStartDownload:
             return "models/org/model"  # 假路径，立即返回，不碰网络
 
         manager = TaskManager()
-        monkeypatch.setattr("mediafactory.api.main.get_task_manager", lambda: manager)
+        monkeypatch.setattr(
+            "mediafactory.api.download_task.get_task_manager", lambda: manager
+        )
         monkeypatch.setattr(
             model_download_module, "download_model", fake_download_model
         )
@@ -118,7 +120,9 @@ class TestStartDownload:
             raise RuntimeError("network unreachable")
 
         manager = TaskManager()
-        monkeypatch.setattr("mediafactory.api.main.get_task_manager", lambda: manager)
+        monkeypatch.setattr(
+            "mediafactory.api.download_task.get_task_manager", lambda: manager
+        )
         monkeypatch.setattr(
             model_download_module, "download_model", failing_download_model
         )
@@ -156,7 +160,9 @@ class TestProgressThrottle:
             return "models/org/model"
 
         manager = TaskManager()
-        monkeypatch.setattr("mediafactory.api.main.get_task_manager", lambda: manager)
+        monkeypatch.setattr(
+            "mediafactory.api.download_task.get_task_manager", lambda: manager
+        )
         monkeypatch.setattr(
             model_download_module, "download_model", fake_download_model
         )
