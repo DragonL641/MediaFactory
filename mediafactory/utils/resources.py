@@ -1,74 +1,10 @@
-"""MediaFactory 的系统资源管理和检查工具。"""
+"""MediaFactory 的语言资源工具。"""
 
 import os
 import configparser
-from typing import Tuple, Dict, Any
+from typing import Dict
 
-import psutil
-
-from ..logging import log_info, log_warning, log_step, log_success
-
-
-def get_system_resources() -> Dict[str, Any]:
-    """获取当前系统 RAM 和 VRAM 的可用情况。"""
-    # Lazy import torch - only needed when checking GPU resources
-    try:
-        import torch
-
-        gpu_available = torch.cuda.is_available()
-    except ImportError:
-        gpu_available = False
-
-    resources = {
-        "ram_total_gb": psutil.virtual_memory().total / (1024**3),
-        "ram_available_gb": psutil.virtual_memory().available / (1024**3),
-        "gpu_available": gpu_available,
-        "gpu_vram_total_gb": 0.0,
-        "gpu_vram_available_gb": 0.0,
-        "gpu_name": "None",
-    }
-    if resources["gpu_available"]:
-        try:
-            import torch
-
-            resources["gpu_name"] = torch.cuda.get_device_name(0)
-            resources["gpu_vram_total_gb"] = torch.cuda.get_device_properties(
-                0
-            ).total_memory / (1024**3)
-            # 使用 torch.cuda.mem_get_info() 获取空闲和总显存
-            free, total = torch.cuda.mem_get_info(0)
-            resources["gpu_vram_available_gb"] = free / (1024**3)
-        except Exception as e:
-            log_warning(f"获取详细 GPU 信息失败: {e}")
-    return resources
-
-
-def check_model_suitability(model_name: str, model_type: str) -> Tuple[bool, str]:
-    """检查系统是否能够处理所选模型。
-
-    估算需求（M2M100 模型）：
-    - M2M100-1.2B FP16: ~4.8GB VRAM / ~5GB RAM
-    """
-    resources = get_system_resources()
-    req_vram = 0.0
-    req_ram = 0.0
-    if "m2m100" in model_name.lower():
-        # M2M100-1.2B FP16
-        req_vram = 4.8
-        req_ram = 5.0
-    if resources["gpu_available"]:
-        if resources["gpu_vram_available_gb"] < req_vram:
-            return (
-                False,
-                f"{model_name} 显存不足。需要 {req_vram}GB，当前可用 {resources['gpu_vram_available_gb']:.2f}GB。系统可能会卡死。",
-            )
-    else:
-        if resources["ram_available_gb"] < req_ram:
-            return (
-                False,
-                f"{model_name} (CPU 模式) 内存不足。需要 {req_ram}GB，当前可用 {resources['ram_available_gb']:.2f}GB。系统可能会卡死。",
-            )
-    return True, "系统资源充足。"
+from ..logging import log_warning
 
 
 def _load_languages() -> Dict[str, str]:
