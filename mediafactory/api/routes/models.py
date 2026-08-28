@@ -4,8 +4,6 @@
 提供模型状态查询、下载、删除等端点。
 """
 
-import asyncio
-import functools
 import logging
 import time
 from typing import Any, Dict, List
@@ -14,7 +12,6 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 from mediafactory.services.models import ModelStatusService
-from mediafactory.core.error_utils import sanitize_error
 from mediafactory.i18n import t
 
 logger = logging.getLogger(__name__)
@@ -29,8 +26,6 @@ _status_service = ModelStatusService()
 # 模型状态缓存（60 秒）
 _models_status_cache: Dict[str, Any] = None
 
-# 并发下载保护：追踪正在下载的模型
-_active_downloads: set[str] = set()
 _models_status_cache_time: float = 0
 _MODELS_STATUS_CACHE_TTL = 60
 
@@ -242,133 +237,29 @@ async def start_model_download(
 
     支持通过镜像源下载。
     """
-    from mediafactory.api.main import get_task_manager
-    from mediafactory.api.schemas import TaskConfig, TaskType
-    from mediafactory.api.websocket import manager as ws_manager
+    from mediafactory.api.download_task import active_downloads, start_download
 
     # 并发下载保护：同一模型或任何下载进行中时拒绝
-    if model_id in _active_downloads:
+    if model_id in active_downloads():
         raise HTTPException(
             status_code=409,
             detail=t("task.downloadAlreadyInProgress", modelId=model_id),
         )
-    if _active_downloads:
+    if active_downloads():
         raise HTTPException(
             status_code=409,
             detail=t("task.anotherDownloadInProgress"),
         )
 
-    _active_downloads.add(model_id)
-
     # 从配置读取下载源
     from mediafactory.config import get_config
 
-    download_config = get_config()
-    download_source = download_config.model.download_source
+    download_source = get_config().model.download_source
     endpoint = None if download_source == "https://huggingface.co" else download_source
 
-    # 启动下载任务
-    task_manager = get_task_manager()
-
-    config = TaskConfig(
-        task_type=TaskType.DOWNLOAD,
-        input_path=model_id,
+    task_id = await start_download(
+        model_id, endpoint, on_complete=_invalidate_models_status_cache
     )
-
-    task_id = await task_manager.create_task(
-        config, name=t("task.downloadingModel", modelId=model_id)
-    )
-
-    # 后台执行下载
-    async def _execute_download_task():
-        """执行模型下载任务"""
-        from mediafactory.models.model_download import download_model
-        from mediafactory.api.schemas import TaskStatus as TS, TaskResult as TR
-
-        loop = asyncio.get_running_loop()
-
-        # 更新任务状态为 RUNNING
-        await task_manager.update_task_status(task_id, TS.RUNNING)
-
-        async def _progress_callback(progress: float, msg: str = ""):
-            await ws_manager.broadcast_progress(
-                task_id=task_id,
-                status="downloading",
-                progress=progress * 100,
-                message=msg,
-                stage="download",
-            )
-
-        try:
-            _last_progress_time = [0.0]  # 可变容器，供闭包修改
-            _PROGRESS_THROTTLE_SEC = 0.5  # 最小 500ms 间隔
-
-            def sync_progress(p: float, m: str = ""):
-                # 从下载线程安全地调度到主事件循环
-                import time as _time
-
-                now = _time.monotonic()
-                # 节流：非 100% 进度时，限制最小间隔
-                if p < 0.99 and (now - _last_progress_time[0]) < _PROGRESS_THROTTLE_SEC:
-                    return
-                _last_progress_time[0] = now
-                loop.call_soon_threadsafe(
-                    lambda: asyncio.ensure_future(_progress_callback(p, m))
-                )
-
-            await loop.run_in_executor(
-                None,
-                functools.partial(
-                    download_model,
-                    model_id,
-                    download_source=endpoint,
-                    progress_callback=sync_progress,
-                ),
-            )
-
-            _invalidate_models_status_cache()
-
-            # 更新任务状态为 COMPLETED
-            await task_manager.update_task_status(
-                task_id,
-                TS.COMPLETED,
-                progress=100,
-                stage="download",
-                result=TR(
-                    task_id=task_id, success=True, output_path=f"models/{model_id}"
-                ),
-            )
-
-            await ws_manager.broadcast_task_complete(
-                task_id=task_id,
-                success=True,
-                output_path=f"models/{model_id}",
-            )
-
-        except Exception as e:
-            logger.exception(f"Download failed: {e}")
-            # 更新任务状态为 FAILED
-            await task_manager.update_task_status(
-                task_id,
-                TS.FAILED,
-                stage="download",
-                result=TR(
-                    task_id=task_id,
-                    success=False,
-                    error=sanitize_error(e),
-                    error_type=type(e).__name__,
-                ),
-            )
-            await ws_manager.broadcast_task_complete(
-                task_id=task_id,
-                success=False,
-                error=sanitize_error(e),
-            )
-        finally:
-            _active_downloads.discard(model_id)
-
-    # 启动后台任务
-    asyncio.create_task(_execute_download_task())
 
     return {
         "task_id": task_id,
