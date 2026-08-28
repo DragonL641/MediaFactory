@@ -32,64 +32,8 @@ class ProgressConstants:
     NEAR_COMPLETE = 99  # 接近完成的进度值
 
 
-def _get_decode_audio():
-    """获取 decode_audio 函数（懒加载）"""
-    try:
-        from faster_whisper import decode_audio
-
-        return decode_audio
-    except ImportError as e:
-        raise ProcessingError(
-            message=t("error.fasterWhisperNotInstalled"),
-            context={"missing_dependency": "faster-whisper"},
-        ) from e
-
-
 class RecognitionEngine:
     """语音识别引擎（Faster Whisper）"""
-
-    def detect_language_only(
-        self,
-        model: Any,
-        audio_path: str,
-        progress: Optional[ProgressCallback] = None,
-    ) -> Dict[str, Any]:
-        """仅检测音频语言"""
-        if progress is None:
-            progress = NO_OP_PROGRESS
-
-        progress.update(0, t("progress.detectingLanguage"))
-        log_step("Running dedicated language detection...")
-
-        decode_audio = _get_decode_audio()
-
-        try:
-            with wrap_exceptions(
-                context={"audio_path": audio_path},
-                operation="whisper_language_detection",
-            ):
-                audio_array = decode_audio(audio_path)
-                detected_lang, probability, language_info = model.detect_language(
-                    audio=audio_array
-                )
-
-                progress.update(100, t("progress.languageDetectionCompleted"))
-                log_info(
-                    f"Language detected: {detected_lang} (confidence: {probability:.2%})"
-                )
-
-                return {
-                    "language": detected_lang,
-                    "language_probability": probability,
-                }
-
-        except OperationCancelledError:
-            raise
-        except Exception as e:
-            raise ProcessingError(
-                message=f"Language detection failed: {e}",
-                context={"audio_path": audio_path, "error": str(e)},
-            ) from e
 
     def transcribe(
         self,

@@ -2,7 +2,7 @@
 
 import pytest
 from pathlib import Path
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import patch
 
 
 class TestRecognitionEngine:
@@ -50,28 +50,3 @@ class TestRecognitionEngine:
             assert result["language"] == "en"
             assert len(result["segments"]) == 2
             assert result["segments"][0]["text"] == "Hello, world!"
-
-    @pytest.mark.unit
-    def test_detect_language_with_mock(self, tmp_path: Path):
-        """测试语言检测（Mock）。"""
-        from mediafactory.engine import RecognitionEngine
-
-        audio_path = tmp_path / "test.wav"
-        audio_path.touch()
-
-        engine = RecognitionEngine()
-
-        # Mock detect_language_only 方法
-        with patch.object(engine, "detect_language_only") as mock_detect:
-            mock_detect.return_value = {
-                "language": "ja",
-                "language_probability": 0.92,
-            }
-
-            # 创建 Mock 模型
-            mock_model = Mock()
-
-            result = engine.detect_language_only(mock_model, str(audio_path))
-
-            assert result["language"] == "ja"
-            assert result["language_probability"] > 0.9

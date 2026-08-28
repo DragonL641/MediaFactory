@@ -5,7 +5,6 @@ from .recognition import RecognitionEngine
 from .translation import TranslationEngine
 from .srt import SRTEngine
 from .ass_engine import ASSEngine
-from .video_composer import VideoComposer
 from .postprocess import PostProcessEngine
 
 # Lazy imports for video enhancement (requires torch)
@@ -43,7 +42,6 @@ __all__ = [
     "TranslationEngine",
     "SRTEngine",
     "ASSEngine",
-    "VideoComposer",
     "PostProcessEngine",
     # 视频增强
     "VideoEnhancementEngine",
