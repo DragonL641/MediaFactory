@@ -319,3 +319,127 @@ class TestTranslationService:
         assert result.error_type == "ValidationError"
         # 契约：空 segments 提前返回，不创建 Pipeline
         assert FakeTranslationPipeline.received_args is None
+
+
+class TestTranscriptionService:
+    def test_transcribe_builds_context_and_uses_standalone_pipeline(self, monkeypatch):
+        from mediafactory.services import transcription as tr_module
+        from mediafactory.services.transcription import TranscriptionService
+
+        class FakeStandalonePipeline:
+            last_context = None
+            received_args = None
+
+            @classmethod
+            def create_transcribe_standalone(cls, recognition_engine, srt_engine):
+                cls.received_args = (recognition_engine, srt_engine)
+                return cls()
+
+            def execute(self, context):
+                type(self).last_context = context
+                context.output_path = "out/sub.srt"
+                return ProcessingResult(success=True, output_path="out/sub.srt")
+
+        monkeypatch.setattr(tr_module, "Pipeline", FakeStandalonePipeline)
+        monkeypatch.setattr(tr_module, "RecognitionEngine", FakeEngine)
+        monkeypatch.setattr(tr_module, "SRTEngine", FakeEngine)
+
+        service = TranscriptionService()
+        result = run(
+            service.transcribe("a.mp3", language="en", output_format="ass", progress=NO_OP_PROGRESS)
+        )
+
+        assert result.success is True
+        assert result.output_path == "out/sub.srt"
+        received = FakeStandalonePipeline.received_args
+        assert received is not None
+        assert received[0] is service._recognition_engine  # 缓存引擎原样传递
+        ctx = FakeStandalonePipeline.last_context
+        assert ctx is not None
+        assert ctx.audio_path.endswith("a.mp3")
+        assert ctx.src_lang == "en"  # 非 auto 时保留
+        assert ctx.config["output_format_type"] == "ass"
+
+    def test_transcribe_auto_language_becomes_none(self, monkeypatch):
+        from mediafactory.services import transcription as tr_module
+        from mediafactory.services.transcription import TranscriptionService
+
+        class FakeStandalonePipeline:
+            last_context = None
+
+            @classmethod
+            def create_transcribe_standalone(cls, recognition_engine, srt_engine):
+                return cls()
+
+            def execute(self, context):
+                type(self).last_context = context
+                return ProcessingResult(success=True, output_path="out.srt")
+
+        monkeypatch.setattr(tr_module, "Pipeline", FakeStandalonePipeline)
+        monkeypatch.setattr(tr_module, "RecognitionEngine", FakeEngine)
+        monkeypatch.setattr(tr_module, "SRTEngine", FakeEngine)
+
+        run(TranscriptionService().transcribe("a.mp3", language="auto", progress=NO_OP_PROGRESS))
+
+        ctx = FakeStandalonePipeline.last_context
+        assert ctx is not None
+        assert ctx.src_lang is None  # auto → None（引擎据此自动检测）
+
+
+class TestVideoEnhancementService:
+    def test_enhance_builds_context_and_uses_enhance_pipeline(self, monkeypatch):
+        from mediafactory.services import video_enhancement as ve_module
+        from mediafactory.services.video_enhancement import VideoEnhancementService
+
+        class FakeEnhancePipeline:
+            last_context = None
+
+            @classmethod
+            def create_enhance_only(cls):
+                return cls()
+
+            def execute(self, context):
+                type(self).last_context = context
+                context.output_path = "out/v_enhanced.mp4"
+                return ProcessingResult(success=True, output_path="out/v_enhanced.mp4")
+
+        monkeypatch.setattr(ve_module, "Pipeline", FakeEnhancePipeline)
+
+        result = run(
+            VideoEnhancementService().enhance(
+                "v.mp4", scale=4, model_type="anime", denoise=True, temporal=True,
+                progress=NO_OP_PROGRESS,
+            )
+        )
+
+        assert result.success is True
+        ctx = FakeEnhancePipeline.last_context
+        assert ctx is not None
+        assert ctx.video_path.endswith("v.mp4")
+        assert ctx.config["scale"] == 4
+        assert ctx.config["model_type"] == "anime"
+        assert ctx.config["denoise"] is True
+        assert ctx.config["temporal"] is True
+
+    def test_enhance_default_output_path_suffix(self, monkeypatch):
+        from mediafactory.services import video_enhancement as ve_module
+        from mediafactory.services.video_enhancement import VideoEnhancementService
+
+        class FakeEnhancePipeline:
+            last_context = None
+
+            @classmethod
+            def create_enhance_only(cls):
+                return cls()
+
+            def execute(self, context):
+                type(self).last_context = context
+                return ProcessingResult(success=True, output_path="x")
+
+        monkeypatch.setattr(ve_module, "Pipeline", FakeEnhancePipeline)
+
+        run(VideoEnhancementService().enhance("dir/clip.mp4", progress=NO_OP_PROGRESS))
+
+        ctx = FakeEnhancePipeline.last_context
+        assert ctx is not None
+        assert ctx.config["output_path"].endswith("clip_enhanced.mp4")

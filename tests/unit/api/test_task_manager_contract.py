@@ -304,3 +304,14 @@ class TestCancelAndQueue:
         assert s2["status"] == "completed"
         # 串行语义：start/end 不得交错
         assert order == ["start", "end", "start", "end"]
+
+
+class TestExecutorRegistry:
+    def test_all_non_download_task_types_have_executors(self):
+        """Phase 3 收编 executor 前锁定注册完备性：漏注册只能运行时发现。"""
+        from mediafactory.api.task_executor import TASK_EXECUTORS
+
+        for task_type in TaskType:
+            if task_type is TaskType.DOWNLOAD:
+                continue  # 下载走 download_task.py 专用通道，不经 executor
+            assert task_type in TASK_EXECUTORS, f"缺少 {task_type} 的 executor 注册"
