@@ -87,7 +87,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `SRTGenerationStage` (95-100%)：生成字幕文件（SRT/ASS/VTT）
 - `ModelCleanupStage`：释放模型资源
 
-**注意**：`ModelLoadingStage` 和 `ModelCleanupStage` 定义在 `stages.py` 中，但未在 `pipeline/__init__.py` 中公开导出。
+**注意**：`ModelLoadingStage` 和 `ModelCleanupStage` 定义在 `stages.py` 中并在 `pipeline.py` 工厂方法里实例化，但未在 `pipeline/__init__.py` 中公开导出（引用需从 `stages` 导入）。
 
 ## 常用命令
 
@@ -117,8 +117,10 @@ pytest -v                           # 详细输出
 pytest -m "unit"                    # 仅运行单元测试
 pytest -m "not slow"                # 排除慢速测试
 pytest --cov=mediafactory       # 运行并生成覆盖率报告
-pytest tests/test_basic_flow.py     # 运行单个测试文件
+pytest tests/unit/test_constants.py  # 运行单个测试文件
 pytest -k "test_translation"        # 运行匹配名称的测试
+# CI 只跑单元测试（跳过默认 addopts 中的覆盖率配置）：
+uv run pytest tests/unit/ --override-ini="addopts=" --cov=mediafactory --cov-report=xml
 
 # 清理构建产物和缓存
 rm -rf build/ dist/ *.egg-info/ .pytest_cache/ htmlcov/ .coverage
@@ -136,8 +138,10 @@ uv run mypy mediafactory/                                          # 类型检�
 uv run python scripts/build/build_darwin.py          # macOS
 uv run python scripts/build/build_win.py              # Windows
 
-# Electron 前端构建（需要 Node.js）
-cd electron/ && npm run dev
+# Electron 前端构建（需要 Node.js ≥20.19.0，package.json 在仓库根目录）
+npm run dev          # 启动 Electron 应用（自动拉起 Python 后端）
+npm run typecheck    # TS 类型检查（electron/main、preload、src 三份 tsconfig）
+npm run lint         # ESLint（仅 electron/）
 
 # 清理所有构建产物
 rm -rf build/ dist/ release/
@@ -170,8 +174,9 @@ python scripts/utils/download_model.py facebook/m2m100_1.2B --source=https://hf-
 python -m mediafactory          # 直接运行模块（推荐）
 mediafactory                    # 使用 console script
 
-# Electron 前端开发模式
-cd electron && npm run dev
+# Electron 前端开发模式（根目录运行；开发模式下 Electron 会 spawn
+# .venv/bin/python -m uvicorn mediafactory.api.main:get_app，因此需先 uv sync）
+npm run dev
 ```
 
 ## 架构
@@ -207,11 +212,11 @@ result = await loop.run_in_executor(None, pipeline.execute, context)
 **核心框架**（`mediafactory/core/`）：
 - `exception_wrapper.py`：自动转换标准 Python 异常（`wrap_exceptions` 上下文管理器）
 - `progress_protocol.py`：`ProgressCallback` 协议、`NoOpProgressCallback`
-- `resource_protocol.py`：`ResourceCleanupProtocol` 资源清理协议
+- `error_utils.py`：`sanitize_error()` 异常转用户消息
 - `tool.py`：`CancellationToken`（协作式取消）
 
 **流水线**（`mediafactory/pipeline/`）：
-- `pipeline.py`：`Pipeline` 编排类，`create_default()`、`create_transcription_only()` 等
+- `pipeline.py`：`Pipeline` 编排类，工厂方法：`create_default()`、`create_audio_only()`、`create_translation_only()`、`create_transcribe_standalone()`、`create_enhance_only()`
 - `context.py`：`ProcessingContext`、`ProcessingResult`
 - `stage.py`：`ProcessingStage` 抽象基类
 - `stages.py`：具体阶段实现
@@ -222,7 +227,6 @@ result = await loop.run_in_executor(None, pipeline.execute, context)
 - `PostProcessEngine`：stable-ts 智能分句
 - `TranslationEngine`：统一翻译引擎，通过 `use_local_models_only` 和 `use_llm_backend` 参数切换本地翻译/LLM API 模式
 - `SRTEngine`、`ASSEngine`、`VTTEngine`：字幕文件生成
-- `VideoComposer`：视频合成
 - `VideoEnhancementEngine`：视频画质增强
 - `enhancement/`：`RealESRGANEnhancer`（超分辨率）、`Denoiser`（降噪）、`TemporalSmoother`（时序平滑）
 
@@ -235,10 +239,12 @@ result = await loop.run_in_executor(None, pipeline.execute, context)
 **其他**：
 - `config/`：Pydantic v2 配置系统（TOML 存储，`MF_` 环境变量前缀），包含 `PostProcessConfig`（分句配置）
 - `logging/`：统一日志系统（loguru，自动清理过期日志，配置审计）
-- `models/`：Faster Whisper 模型选择和本地翻译模型发现
-- `constants.py`：`BackendConfigMapping`、`ToolConstants` 等
+- `models/`：模型管理（`model_registry` 注册表、`whisper_runtime`/`translation_runtime` 运行时、`model_download` 下载、`local_models` 本地模型发现）
+- `i18n.py` + `locales/`：轻量 i18n，后端用户可见消息统一用 `t("key")`，语言偏好读自 config.toml，JSON 字典实现（前端则用 react-i18next + `src/locales/`）
+- `core/error_utils.py`：`sanitize_error()` 将异常转为用户友好消息（Service/API 层共用）
+- `constants.py`：`BackendConfigMapping`（含 `BASE_URL_PRESETS` LLM 服务预设）、`LANGUAGE_NAMES` 等语言常量
 - `resource_manager.py`：Whisper 模型资源管理（单例，上下文管理器）
-- `utils/`：transformers 配置、prompt 加载器
+- `utils/`：语言名称映射（`resources.py`）、prompt 加载器
 - `resources/prompts/`：LLM 提示模板（Markdown + `${variable}` 语法）
 - `resource_manager.py`：Whisper 模型资源管理
 
@@ -261,11 +267,9 @@ result = await loop.run_in_executor(None, pipeline.execute, context)
 
 ### 配置系统（`mediafactory/config/`）
 
-- Pydantic v2 模型，TOML 格式存储（`config.toml`）
+- Pydantic v2 模型（普通 `BaseModel`，非 `BaseSettings`），TOML 格式存储（`config.toml`）
 - `AppConfigManager`：集中管理器，支持嵌套更新（双下划线表示法）
-- 环境变量覆盖：`MF_` 前缀（例如 `MF_WHISPER_BEAM_SIZE=7`）
 - 配置变更自动记录审计日志，敏感字段脱敏
-- `[ffmpeg]` 配置节：`soft_subtitle_timeout`（内嵌字幕超时）、`hard_subtitle_timeout`（硬字幕超时）、`multi_subtitle_timeout`（多字幕超时），单位秒
 ```python
 from mediafactory.config import get_config, update_config, save_config, reload_config
 
@@ -308,8 +312,8 @@ save_config()
 ## 测试
 
 - 框架：pytest 带覆盖率
-- 标记：`unit`、`integration`、`e2e`、`slow`、`requires_network`
-- 关键测试：`test_basic_flow.py`、`test_translation_accuracy.py`、`test_local_models.py`、`test_engine_robustness.py`、`test_logging.py`
+- 结构：`tests/unit/`（按模块分子目录：api、config、core、engine、llm、pipeline、utils）+ `tests/integration/`
+- 标记：`unit`、`integration`、`slow`、`requires_ml`、`requires_network`（无 `e2e`）
 
 ## 重要实现细节
 

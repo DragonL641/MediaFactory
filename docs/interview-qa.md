@@ -109,7 +109,7 @@ Electron (React)  ──HTTP/WS──▶  FastAPI  ──▶  Service  ──▶
 
 | 技术点 | 在项目中的角色 | 学到什么程度 |
 |--------|---------------|-------------|
-| **FFmpeg (imageio-ffmpeg)** | 音频提取 | subprocess 调用、常用参数（`-i`, `-vn`, `-ar`, `-ac`, `-f`） |
+| **FFmpeg (imageio-ffmpeg)** | 音频提取、增强视频的音频混流 | subprocess 调用、常用参数（`-i`, `-vn`, `-ar`, `-ac`, `-f`） |
 | **PyInstaller** | Python 后端打包为可执行文件 | `.spec` 文件配置、hidden imports、hooks 机制 |
 | **electron-builder** | Electron 前端打包 | `electron-builder.yml` 配置、macOS/Windows 打包流程 |
 | **Vite** | 前端构建工具 | 基本概念即可，项目配置已就绪 |
