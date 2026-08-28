@@ -3,14 +3,14 @@
 """
 
 import asyncio
+import functools
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Optional
 
 from mediafactory.config import get_config
 from mediafactory.engine.audio import AudioEngine
-from mediafactory.pipeline import Pipeline
-from mediafactory.pipeline.context import ProcessingContext, ProcessingResult
-from mediafactory.logging import log_info, log_error, log_error_with_context
+from mediafactory.pipeline.context import ProcessingResult
+from mediafactory.logging import log_info, log_error_with_context
 from mediafactory.core.progress_protocol import ProgressCallback, NO_OP_PROGRESS
 from mediafactory.core.error_utils import sanitize_error
 
@@ -19,7 +19,7 @@ class AudioService:
     """
     音频提取服务
 
-    委托给 Pipeline 进行音频提取，统一工作流和进度报告。
+    直接调用 AudioEngine 提取音频，统一进度报告。
     """
 
     def __init__(self):
@@ -68,41 +68,39 @@ class AudioService:
             video_path = Path(video_path)
             log_info(f"Starting audio extraction for: {video_path}")
 
-            # 创建 Pipeline 上下文
-            context = ProcessingContext(
-                video_path=str(video_path),
-                progress_callback=progress,
-                config={
-                    "output_path": output_path,
-                    "sample_rate": sample_rate,
-                    "channels": channels,
-                    "filter_enabled": filter_enabled,
-                    "highpass_freq": highpass_freq,
-                    "lowpass_freq": lowpass_freq,
-                    "volume": volume,
-                    "output_format": output_format,
-                },
+            # 组装引擎参数（与原 AudioExtractionStage 传参一致）
+            extract_kwargs = {
+                "progress": progress,
+                "output_path": output_path,
+                "filter_enabled": filter_enabled,
+                "volume": volume,
+                "output_format": output_format,
+            }
+            # 仅在有值时传递，避免 None 覆盖 AudioEngine 默认值
+            for key, value in (
+                ("sample_rate", sample_rate),
+                ("channels", channels),
+                ("highpass_freq", highpass_freq),
+                ("lowpass_freq", lowpass_freq),
+            ):
+                if value is not None:
+                    extract_kwargs[key] = value
+
+            # 在线程池中直接调用引擎
+            loop = asyncio.get_running_loop()
+            audio_path = await loop.run_in_executor(
+                None,
+                functools.partial(
+                    self.audio_engine.extract, str(video_path), **extract_kwargs
+                ),
             )
 
-            # 创建并执行 Pipeline
-            pipeline = Pipeline.create_audio_only(self.audio_engine)
-
-            loop = asyncio.get_running_loop()
-            result = await loop.run_in_executor(None, pipeline.execute, context)
-
-            if not result.success:
-                return ProcessingResult(
-                    success=False,
-                    error_message=result.error_message or "Pipeline execution failed",
-                    error_type=result.error_type,
-                )
-
             progress.update(100, "Audio extraction completed")
-            log_info(f"Audio extracted: {result.output_path}")
+            log_info(f"Audio extracted: {audio_path}")
 
             return ProcessingResult(
                 success=True,
-                output_path=result.output_path,
+                output_path=audio_path,
                 metadata={"video_path": str(video_path)},
             )
 

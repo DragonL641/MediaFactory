@@ -1,16 +1,15 @@
 """处理阶段实现模块"""
 
 import os
-from .stage import SkipableStage
+from .stage import ProcessingStage
 from .context import ProcessingContext
 from ..utils.resources import get_language_name
 from ..logging import log_step, log_info, log_warning, log_success
 from ..exceptions import ProcessingError
-from ..core.exception_wrapper import convert_exception
 from ..i18n import t
 
 
-class AudioExtractionStage(SkipableStage):
+class AudioExtractionStage(ProcessingStage):
     """音频提取阶段"""
 
     name = "audio_extraction"
@@ -60,7 +59,7 @@ class AudioExtractionStage(SkipableStage):
         return True
 
 
-class TranscriptionStage(SkipableStage):
+class TranscriptionStage(ProcessingStage):
     """语音转录阶段"""
 
     name = "transcription"
@@ -100,7 +99,7 @@ class TranscriptionStage(SkipableStage):
         return True
 
 
-class PostProcessStage(SkipableStage):
+class PostProcessStage(ProcessingStage):
     """转录后处理阶段（智能断句）"""
 
     name = "postprocess"
@@ -177,7 +176,7 @@ class PostProcessStage(SkipableStage):
         return True
 
 
-class TranslationStage(SkipableStage):
+class TranslationStage(ProcessingStage):
     """翻译阶段"""
 
     name = "translation"
@@ -279,23 +278,8 @@ class TranslationStage(SkipableStage):
             return False
         return True
 
-    def on_error(self, ctx: ProcessingContext, error: Exception) -> Exception:
-        """翻译失败时终止流水线"""
-        from ..logging import log_error_with_context
 
-        log_error_with_context(
-            "Translation failed, terminating pipeline",
-            error,
-            context={
-                "src_lang": getattr(ctx, "src_lang", "unknown"),
-                "tgt_lang": getattr(ctx, "tgt_lang", "unknown"),
-                "translation_mode": getattr(ctx, "translation_mode", "unknown"),
-            },
-        )
-        return error
-
-
-class SRTGenerationStage(SkipableStage):
+class SRTGenerationStage(ProcessingStage):
     """字幕生成阶段（支持SRT/ASS/TXT格式）"""
 
     name = "srt_generation"
@@ -430,7 +414,7 @@ class SRTGenerationStage(SkipableStage):
         return True
 
 
-class ModelLoadingStage(SkipableStage):
+class ModelLoadingStage(ProcessingStage):
     """模型加载阶段"""
 
     name = "model_loading"
@@ -492,75 +476,3 @@ class ModelLoadingStage(SkipableStage):
     def validate(self, ctx: ProcessingContext) -> bool:
         """验证模型加载"""
         return ctx.whisper_model_instance is not None
-
-
-class ModelCleanupStage(SkipableStage):
-    """模型清理阶段"""
-
-    name = "model_cleanup"
-
-    def __init__(self):
-        pass
-
-    def should_execute(self, ctx: ProcessingContext) -> bool:
-        """有模型上下文则执行清理"""
-        return hasattr(ctx, "_model_context") and ctx._model_context is not None
-
-    def execute(self, ctx: ProcessingContext) -> ProcessingContext:
-        """清理模型资源"""
-        if hasattr(ctx, "_model_context") and ctx._model_context:
-            try:
-                ctx._model_context.__exit__(None, None, None)
-            except Exception as e:
-                self._log(f"Error during model cleanup: {e}", "warning")
-                wrapped = convert_exception(
-                    e, context={"stage": self.name, "operation": "model_cleanup"}
-                )
-                self._log(f"Cleanup error type: {type(wrapped).__name__}", "debug")
-            finally:
-                ctx._model_context = None
-        return ctx
-
-
-class VideoEnhancementStage(SkipableStage):
-    """视频增强阶段（超分辨率、降噪、时序平滑）"""
-
-    name = "video_enhancement"
-
-    def execute(self, ctx: ProcessingContext) -> ProcessingContext:
-        """执行视频增强"""
-        progress = self._begin(ctx, "Video Enhancement")
-        progress.update(0.0, t("progress.videoEnhancementStart"))
-
-        # 延迟导入以避免启动时加载 ML 依赖
-        from ..engine.video_enhancement import VideoEnhancementEngine, EnhancementConfig
-
-        config = ctx.config or {}
-        enhancement_config = EnhancementConfig(
-            scale=config.get("scale", 2),
-            model_type=config.get("model_type", "general"),
-            denoise=config.get("denoise", False),
-            temporal=config.get("temporal", False),
-        )
-
-        engine = VideoEnhancementEngine(enhancement_config)
-        output_path = config.get("output_path") or ctx.output_path
-        result = engine.enhance(ctx.video_path, output_path, progress=progress)
-
-        ctx.output_path = result
-
-        log_success(f"Video enhanced: {ctx.output_path}")
-        progress.update(100.0, t("progress.videoEnhancementCompleted"))
-        return ctx
-
-    def validate(self, ctx: ProcessingContext) -> bool:
-        """验证输出文件"""
-        import os
-
-        if not ctx.output_path:
-            self._log("Output path not set", "error")
-            return False
-        if not os.path.exists(ctx.output_path):
-            self._log(f"Output file does not exist: {ctx.output_path}", "error")
-            return False
-        return True

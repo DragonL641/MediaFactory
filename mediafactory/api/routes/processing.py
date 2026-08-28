@@ -21,6 +21,7 @@ from mediafactory.api.schemas import (
     TranscribeRequest,
     TranslateRequest,
 )
+from mediafactory.api.task_manager import get_task_manager
 from mediafactory.i18n import t
 
 logger = logging.getLogger(__name__)
@@ -31,10 +32,8 @@ router = APIRouter()
 
 
 def _get_task_manager():
-    """延迟导入以避免循环依赖"""
-    from mediafactory.api.main import get_task_manager as _get_tm
-
-    return _get_tm()
+    """获取全局任务管理器"""
+    return get_task_manager()
 
 
 @router.post("/subtitle", response_model=TaskResponse)

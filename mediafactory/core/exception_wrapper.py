@@ -48,7 +48,7 @@ def convert_exception(
     error_str = str(exc).lower()
     ctx["original_exception"] = type(exc).__name__
 
-    # 认证/配置错误 -> ConfigurationError (FATAL)
+    # 认证/配置错误 -> ConfigurationError
     auth_config_keywords = (
         "unauthorized",
         "401",
@@ -69,7 +69,7 @@ def convert_exception(
             context=ctx,
         )
 
-    # 可恢复错误 -> ProcessingError (RECOVERABLE)
+    # 可恢复错误 -> ProcessingError
     recoverable_keywords = (
         "rate limit",
         "429",

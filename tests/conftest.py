@@ -40,12 +40,6 @@ def reset_singletons():
     except ImportError:
         pass
 
-    try:
-        from mediafactory.resource_manager import reset_resource_manager
-        reset_resource_manager()
-    except ImportError:
-        pass
-
 
 # ========== Temporary Directory Fixtures ==========
 

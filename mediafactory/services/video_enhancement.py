@@ -3,13 +3,13 @@
 """
 
 import asyncio
+import functools
 from pathlib import Path
 from typing import Optional
 
 from mediafactory.config import get_config
-from mediafactory.pipeline import Pipeline
-from mediafactory.pipeline.context import ProcessingContext, ProcessingResult
-from mediafactory.logging import log_info, log_error, log_error_with_context
+from mediafactory.pipeline.context import ProcessingResult
+from mediafactory.logging import log_info, log_error_with_context
 from mediafactory.core.progress_protocol import ProgressCallback, NO_OP_PROGRESS
 from mediafactory.core.error_utils import sanitize_error
 
@@ -18,7 +18,7 @@ class VideoEnhancementService:
     """
     视频增强服务
 
-    提供超分辨率、降噪、时序平滑等功能，委托给 Pipeline 执行。
+    提供超分辨率、降噪、时序平滑等功能，直接调用增强引擎执行。
     """
 
     def __init__(self):
@@ -58,38 +58,36 @@ class VideoEnhancementService:
             progress.update(0, "Starting video enhancement...")
             log_info(f"Starting video enhancement for: {video_path}")
 
-            # 创建 Pipeline 上下文
-            context = ProcessingContext(
-                video_path=str(video_path),
-                progress_callback=progress,
-                config={
-                    "scale": scale,
-                    "model_type": model_type,
-                    "denoise": denoise,
-                    "temporal": temporal,
-                    "output_path": output_path,
-                },
+            # 延迟导入以避免启动时加载 ML 依赖
+            from mediafactory.engine.video_enhancement import (
+                VideoEnhancementEngine,
+                EnhancementConfig,
             )
 
-            # 创建并执行 Pipeline
-            pipeline = Pipeline.create_enhance_only()
+            # 组装引擎
+            enhancement_config = EnhancementConfig(
+                scale=scale,
+                model_type=model_type,
+                denoise=denoise,
+                temporal=temporal,
+            )
+            engine = VideoEnhancementEngine(enhancement_config)
 
+            # 在线程池中直接调用引擎
             loop = asyncio.get_running_loop()
-            result = await loop.run_in_executor(None, pipeline.execute, context)
-
-            if not result.success:
-                return ProcessingResult(
-                    success=False,
-                    error_message=result.error_message or "Pipeline execution failed",
-                    error_type=result.error_type,
-                )
+            result_output = await loop.run_in_executor(
+                None,
+                functools.partial(
+                    engine.enhance, str(video_path), output_path, progress=progress
+                ),
+            )
 
             progress.update(100, "Video enhancement completed")
-            log_info(f"Video enhanced: {result.output_path}")
+            log_info(f"Video enhanced: {result_output}")
 
             return ProcessingResult(
                 success=True,
-                output_path=result.output_path,
+                output_path=result_output,
                 metadata={
                     "video_path": str(video_path),
                     "scale": scale,

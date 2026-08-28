@@ -4,6 +4,7 @@ from typing import List
 from .context import ProcessingContext, ProcessingResult
 from .stage import ProcessingStage
 from ..exceptions import MediaFactoryError, OperationCancelledError, ProcessingError
+from ..logging import log_error, log_warning
 
 
 class Pipeline:
@@ -56,9 +57,11 @@ class Pipeline:
             return ProcessingResult.from_exception(e, context)
 
         except MediaFactoryError as e:
+            log_error(f"Pipeline failed at stage '{context.get_stage()}': {e.message}")
             return ProcessingResult.from_exception(e, context)
 
         except Exception as e:
+            log_error(f"Pipeline failed at stage '{context.get_stage()}': {e}")
             wrapped = ProcessingError(
                 message=f"Pipeline execution failed: {str(e)}",
                 context={
@@ -76,8 +79,6 @@ class Pipeline:
                     context.cleanup()
                 except Exception as cleanup_error:
                     # 清理失败不应该影响主流程
-                    from ..logging import log_warning
-
                     log_warning(f"Context cleanup failed: {cleanup_error}")
 
     @classmethod
@@ -96,7 +97,6 @@ class Pipeline:
             PostProcessStage,
             TranslationStage,
             SRTGenerationStage,
-            ModelCleanupStage,
         )
 
         return cls(
@@ -107,16 +107,8 @@ class Pipeline:
                 PostProcessStage(),
                 TranslationStage(translation_engine),
                 SRTGenerationStage(srt_engine),
-                ModelCleanupStage(),
             ]
         )
-
-    @classmethod
-    def create_audio_only(cls, audio_engine) -> "Pipeline":
-        """创建仅提取音频的流水线"""
-        from .stages import AudioExtractionStage
-
-        return cls([AudioExtractionStage(audio_engine)])
 
     @classmethod
     def create_translation_only(
@@ -146,7 +138,6 @@ class Pipeline:
             TranscriptionStage,
             PostProcessStage,
             SRTGenerationStage,
-            ModelCleanupStage,
         )
 
         return cls(
@@ -155,14 +146,5 @@ class Pipeline:
                 TranscriptionStage(recognition_engine),
                 PostProcessStage(),
                 SRTGenerationStage(srt_engine),
-                ModelCleanupStage(),
             ]
         )
-
-    @classmethod
-    def create_enhance_only(cls) -> "Pipeline":
-        """创建仅视频增强的流水线"""
-        from .stages import VideoEnhancementStage
-
-        return cls([VideoEnhancementStage()])
-

@@ -31,6 +31,7 @@ class ProcessingContext:
     whisper_model: str = "auto"  # 固定使用 Large V3，"auto" 触发自动设置
     whisper_device: str = "auto"  # 自动检测最佳设备 (cuda/cpu)
     whisper_model_instance: Any = None
+    _model_context: Any = None  # whisper_model() 上下文（ModelLoadingStage 填充）
 
     translation_model: Optional[str] = None
     use_local_models_only: bool = False
@@ -92,7 +93,7 @@ class ProcessingContext:
         （transcription_result 等）供调用方在 pipeline 返回后读取。
         """
         # 通过上下文管理器释放 Whisper 模型
-        if hasattr(self, "_model_context") and self._model_context is not None:
+        if self._model_context is not None:
             try:
                 self._model_context.__exit__(None, None, None)
             except Exception:

@@ -13,9 +13,9 @@ class ProcessingStage(ABC):
 
     name: str = "base_stage"
 
-    @abstractmethod
     def should_execute(self, ctx: ProcessingContext) -> bool:
-        """检查是否需要执行（结果已存在可跳过）"""
+        """检查是否需要执行（默认始终执行，子类可覆盖）"""
+        return True
 
     @abstractmethod
     def execute(self, ctx: ProcessingContext) -> ProcessingContext:
@@ -24,10 +24,6 @@ class ProcessingStage(ABC):
     def validate(self, ctx: ProcessingContext) -> bool:
         """验证执行结果，默认返回 True"""
         return True
-
-    def on_error(self, ctx: ProcessingContext, error: Exception) -> Exception:
-        """处理执行错误，默认重新抛出"""
-        return error
 
     def _log(self, message: str, level: str = "info"):
         """记录日志"""
@@ -50,11 +46,3 @@ class ProcessingStage(ABC):
         ctx.set_stage(self.name)
         progress = ctx.progress_callback or NO_OP_PROGRESS
         return progress
-
-
-class SkipableStage(ProcessingStage):
-    """可跳过阶段基类"""
-
-    def should_execute(self, ctx: ProcessingContext) -> bool:
-        """默认始终执行，子类可覆盖"""
-        return True

@@ -18,21 +18,14 @@ def run(coro):
     return asyncio.run(coro)
 
 
-class FakeAudioPipeline:
-    """替身 Pipeline：记录上下文与工厂收到的引擎。"""
+class FakeAudioEngine:
+    """AudioEngine 替身：记录 extract 收到的路径与参数。"""
 
-    last_context = None
-    received_engine = None
+    calls = []
 
-    @classmethod
-    def create_audio_only(cls, engine):
-        cls.received_engine = engine
-        return cls()
-
-    def execute(self, context):
-        type(self).last_context = context
-        context.audio_path = "out/audio.wav"
-        return ProcessingResult(success=True, output_path="out/audio.wav")
+    def extract(self, video_path, **kwargs):
+        type(self).calls.append((video_path, kwargs))
+        return "out/audio.wav"
 
 
 class FakeDefaultPipeline:
@@ -100,31 +93,46 @@ class FakeLocalEngine:
         return {"segments": [{"text": f"[{tgt}] {wrapped['segments'][0]['text']}"}]}
 
 
+class FakeEnhancementEngine:
+    """VideoEnhancementEngine 替身：记录构造配置与 enhance 调用。"""
+
+    instances = []
+    enhance_calls = []
+    last_config = None
+
+    def __init__(self, config):
+        type(self).instances.append(self)
+        type(self).last_config = config
+
+    def enhance(self, video_path, output_path, progress=None):
+        type(self).enhance_calls.append((video_path, output_path))
+        return "out/v_enhanced.mp4"
+
+
 @pytest.fixture(autouse=True)
 def reset_fake_state():
     """每个测试前重置替身的共享类状态，避免跨测试泄漏。"""
-    FakeAudioPipeline.last_context = None
-    FakeAudioPipeline.received_engine = None
+    FakeAudioEngine.calls.clear()
     FakeDefaultPipeline.last_context = None
     FakeDefaultPipeline.received_engines = None
     FakeTranslationPipeline.last_context = None
     FakeTranslationPipeline.received_args = None
+    FakeEnhancementEngine.instances.clear()
+    FakeEnhancementEngine.enhance_calls.clear()
     FakeLocalEngine.calls.clear()
     RecordingTranslationEngine.instances.clear()
     yield
 
 
 class TestAudioService:
-    def test_extract_audio_builds_context_and_maps_result(self, monkeypatch):
+    def test_extract_audio_delegates_to_engine_with_kwargs(self, monkeypatch):
         from mediafactory.services import audio as audio_module
         from mediafactory.services.audio import AudioService
 
-        monkeypatch.setattr(audio_module, "Pipeline", FakeAudioPipeline)
-        monkeypatch.setattr(audio_module, "AudioEngine", FakeEngine)
+        monkeypatch.setattr(audio_module, "AudioEngine", FakeAudioEngine)
 
-        service = AudioService()
         result = run(
-            service.extract_audio(
+            AudioService().extract_audio(
                 video_path="v.mp4",
                 sample_rate=44100,
                 channels=1,
@@ -135,34 +143,29 @@ class TestAudioService:
 
         assert result.success is True
         assert result.output_path == "out/audio.wav"
-        # 契约：Pipeline 收到的是 service 持有的同一引擎实例
-        assert FakeAudioPipeline.received_engine is service._audio_engine
-        ctx = FakeAudioPipeline.last_context
-        assert ctx is not None
-        assert ctx.video_path.endswith("v.mp4")
-        assert ctx.config["sample_rate"] == 44100
-        assert ctx.config["channels"] == 1
-        assert ctx.config["output_format"] == "mp3"
+        # 契约：参数原样映射给引擎，未指定的保持 None/默认语义
+        video_path, kwargs = FakeAudioEngine.calls[0]
+        assert video_path.endswith("v.mp4")
+        assert kwargs["sample_rate"] == 44100
+        assert kwargs["channels"] == 1
+        assert kwargs["output_format"] == "mp3"
+        assert kwargs["filter_enabled"] is True
+        assert kwargs["output_path"] is None
 
-    def test_extract_audio_maps_pipeline_failure(self, monkeypatch):
+    def test_extract_audio_engine_failure_maps_to_result(self, monkeypatch):
         from mediafactory.services import audio as audio_module
         from mediafactory.services.audio import AudioService
 
-        class FailingPipeline(FakeAudioPipeline):
-            def execute(self, context):
-                return ProcessingResult(
-                    success=False, error_message="boom", error_type="ProcessingError"
-                )
+        class BrokenAudioEngine:
+            def extract(self, video_path, **kwargs):
+                raise RuntimeError("ffmpeg failed")
 
-        monkeypatch.setattr(audio_module, "Pipeline", FailingPipeline)
-        monkeypatch.setattr(audio_module, "AudioEngine", FakeEngine)
+        monkeypatch.setattr(audio_module, "AudioEngine", BrokenAudioEngine)
 
-        result = run(
-            AudioService().extract_audio("v.mp4", progress=NO_OP_PROGRESS)
-        )
+        result = run(AudioService().extract_audio("v.mp4", progress=NO_OP_PROGRESS))
 
         assert result.success is False
-        assert result.error_message == "boom"
+        assert result.error_type == "RuntimeError"
 
 
 class TestSubtitleService:
@@ -387,23 +390,13 @@ class TestTranscriptionService:
 
 
 class TestVideoEnhancementService:
-    def test_enhance_builds_context_and_uses_enhance_pipeline(self, monkeypatch):
-        from mediafactory.services import video_enhancement as ve_module
+    def test_enhance_builds_config_and_delegates_to_engine(self, monkeypatch):
         from mediafactory.services.video_enhancement import VideoEnhancementService
 
-        class FakeEnhancePipeline:
-            last_context = None
-
-            @classmethod
-            def create_enhance_only(cls):
-                return cls()
-
-            def execute(self, context):
-                type(self).last_context = context
-                context.output_path = "out/v_enhanced.mp4"
-                return ProcessingResult(success=True, output_path="out/v_enhanced.mp4")
-
-        monkeypatch.setattr(ve_module, "Pipeline", FakeEnhancePipeline)
+        monkeypatch.setattr(
+            "mediafactory.engine.video_enhancement.VideoEnhancementEngine",
+            FakeEnhancementEngine,
+        )
 
         result = run(
             VideoEnhancementService().enhance(
@@ -413,33 +406,29 @@ class TestVideoEnhancementService:
         )
 
         assert result.success is True
-        ctx = FakeEnhancePipeline.last_context
-        assert ctx is not None
-        assert ctx.video_path.endswith("v.mp4")
-        assert ctx.config["scale"] == 4
-        assert ctx.config["model_type"] == "anime"
-        assert ctx.config["denoise"] is True
-        assert ctx.config["temporal"] is True
+        assert result.output_path == "out/v_enhanced.mp4"
+        # 契约：参数映射进 EnhancementConfig
+        config = FakeEnhancementEngine.last_config
+        assert config is not None
+        assert config.scale == 4
+        assert config.model_type == "anime"
+        assert config.denoise is True
+        assert config.temporal is True
+        # 契约：引擎收到视频路径与输出路径
+        video_path, output_path = FakeEnhancementEngine.enhance_calls[-1]
+        assert video_path.endswith("v.mp4")
+        assert output_path.endswith("v_enhanced.mp4")
 
     def test_enhance_default_output_path_suffix(self, monkeypatch):
-        from mediafactory.services import video_enhancement as ve_module
         from mediafactory.services.video_enhancement import VideoEnhancementService
 
-        class FakeEnhancePipeline:
-            last_context = None
-
-            @classmethod
-            def create_enhance_only(cls):
-                return cls()
-
-            def execute(self, context):
-                type(self).last_context = context
-                return ProcessingResult(success=True, output_path="x")
-
-        monkeypatch.setattr(ve_module, "Pipeline", FakeEnhancePipeline)
+        monkeypatch.setattr(
+            "mediafactory.engine.video_enhancement.VideoEnhancementEngine",
+            FakeEnhancementEngine,
+        )
 
         run(VideoEnhancementService().enhance("dir/clip.mp4", progress=NO_OP_PROGRESS))
 
-        ctx = FakeEnhancePipeline.last_context
-        assert ctx is not None
-        assert ctx.config["output_path"].endswith("clip_enhanced.mp4")
+        # 契约：未指定输出路径时自动追加 _enhanced 后缀
+        _, output_path = FakeEnhancementEngine.enhance_calls[-1]
+        assert output_path.endswith("clip_enhanced.mp4")
