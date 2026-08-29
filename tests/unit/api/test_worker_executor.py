@@ -144,8 +144,14 @@ class TestCancelGuard:
                     CancellationToken(),
                 )
             )
-            while executor._running_task_id != "t1":
+            for _ in range(500):  # 上限 5s，任务未开始时给出明确失败而非挂起
+                if executor._running_task_id == "t1":
+                    break
+                if task.done():
+                    task.result()  # 让 execute 的异常尽早暴露
                 await asyncio.sleep(0.01)
+            else:
+                raise AssertionError("任务未在 5 秒内开始运行")
             executor.cancel("t2")  # 排队任务的 id：不得影响运行中的 t1
             wrong_cleared = not executor._cancel_event.is_set()
             executor.cancel("t1")  # 正确 id：set
@@ -194,8 +200,14 @@ class TestCrashIsolation:
             )
             # 等 executor 拉起子进程并拿到 pid（子进程 spawn 导入需数百毫秒，
             # 击杀窗口充足；必须在子进程完成快速失败路径前 kill）
-            while executor._process is None or executor._process.pid is None:
+            for _ in range(250):  # 上限 5s，spawn 失败时给出明确失败而非挂起
+                if executor._process is not None and executor._process.pid is not None:
+                    break
+                if first_task.done():
+                    first_task.result()  # 让 execute 的异常尽早暴露
                 await asyncio.sleep(0.02)
+            else:
+                raise AssertionError("worker 子进程未在 5 秒内启动")
             os.kill(executor._process.pid, signal.SIGKILL)
             first = await first_task
             crashed_pid = executor._process.pid
@@ -209,10 +221,13 @@ class TestCrashIsolation:
 
         first, second, crashed_pid, respawned_pid = asyncio.run(scenario())
         executor.shutdown()
-        # 当前任务判失败，错误类型标记为 worker 崩溃
+        # 当前任务判失败，错误类型标记为 worker 崩溃，附用户可读消息
         assert first.success is False
         assert first.error_type == "WorkerCrashedError"
+        assert first.error_message
         # 下一次执行自动重启子进程，任务正常走完（引擎）失败路径
+        assert second.success is False
+        assert second.error_message
         assert second.error_type != "WorkerCrashedError"
         assert respawned_pid != crashed_pid
 
