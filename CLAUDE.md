@@ -57,7 +57,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 │           引擎层 (Engine Layer)                            │
 │  AudioEngine, RecognitionEngine, PostProcessEngine,        │
 │  TranslationEngine, SRTEngine, ASSEngine,                 │
-│  VTTEngine, VideoComposer, VideoEnhancementEngine          │
+│  VTTEngine, VideoEnhancementEngine                          │
 │         mediafactory/engine/                           │
 └───────────────────────────────────────────────────────────┘
 ```
@@ -243,7 +243,6 @@ result = await loop.run_in_executor(None, pipeline.execute, context)
 - `resource_manager.py`：`whisper_model()` 上下文管理器（加载/释放 Whisper 模型，无单例）
 - `utils/`：语言名称映射（`resources.py`）、prompt 加载器
 - `resources/prompts/`：LLM 提示模板（Markdown + `${variable}` 语法）
-- `resource_manager.py`：Whisper 模型资源管理
 
 ### 进度系统
 
