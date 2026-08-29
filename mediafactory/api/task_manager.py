@@ -8,10 +8,12 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import time
 import uuid
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional
 
 from mediafactory.api.schemas import (
@@ -21,7 +23,9 @@ from mediafactory.api.schemas import (
     TaskStatus,
     TaskType,
 )
+from mediafactory.api.task_store import TaskStore
 from mediafactory.api.websocket import manager as ws_manager
+from mediafactory.api.worker import InlineExecutor, TaskExecutor
 from mediafactory.core.progress_protocol import ProgressCallback
 from mediafactory.core.tool import CancellationToken
 from mediafactory.core.error_utils import sanitize_error
@@ -80,7 +84,14 @@ class SimpleProgressAdapter(ProgressCallback):
 class TaskManager:
     """任务管理器"""
 
-    def __init__(self):
+    def __init__(
+        self,
+        db_path: Optional[Path] = None,
+        executor: Optional[TaskExecutor] = None,
+    ):
+        """db_path 为 None 时用内存库（测试隔离）；executor 默认进程内执行。"""
+        self._store = TaskStore(db_path)
+        self._executor: TaskExecutor = executor or InlineExecutor()
         self._tasks: Dict[str, Task] = {}
         self._running_task_id: Optional[str] = None
         self._queue: List[str] = []  # 待执行任务队列
@@ -98,6 +109,12 @@ class TaskManager:
         )
         async with self._lock:
             self._tasks[task_id] = task
+            self._store.insert(
+                task_id=task_id,
+                name=task.name,
+                config_json=task.config.model_dump_json(),
+                created_at=task.created_at,
+            )
         logger.info(f"Created task {task_id}: {config.task_type}")
         return task_id
 
@@ -195,17 +212,22 @@ class TaskManager:
     async def _execute_task(
         self,
         task_id: str,
-        executor: Callable,
-    ):
-        """内部方法：执行单个任务，完成后自动触发队列下一个"""
+        executor: Optional[Callable] = None,
+    ) -> None:
+        """内部方法：执行单个任务，完成后自动触发队列下一个。
+
+        executor 参数是测试注入点（进程内直注 runner）；
+        为 None 时走执行器接缝 self._executor（Inline/WorkerProcess）。
+        """
         task = self._tasks.get(task_id)
         if not task:
             return
 
         task.status = TaskStatus.RUNNING
         task.started_at = time.time()
+        self._persist(task)
 
-        # 创建进度回调（async，在线程中通过 run_coroutine_threadsafe 调度）
+        # 创建进度回调（async，在线程中通过 call_soon_threadsafe 调度）
         main_loop = asyncio.get_running_loop()
 
         async def _async_progress(progress: float, message: str = "", stage: str = ""):
@@ -229,10 +251,14 @@ class TaskManager:
                 )
             )
 
-        # runner 收 ProgressCallback 适配器（绑定取消令牌），返回 ProcessingResult
-        adapter = SimpleProgressAdapter(progress_callback, task.cancel_token)
         try:
-            result = await executor(task.config, adapter)
+            if executor is not None:
+                adapter = SimpleProgressAdapter(progress_callback, task.cancel_token)
+                result = await executor(task.config, adapter)
+            else:
+                result = await self._executor.execute(
+                    task_id, task.config, progress_callback, task.cancel_token
+                )
 
             # 仅在未被取消时才处理结果（避免覆盖 CANCELLED 状态）
             if task.status != TaskStatus.CANCELLED:
@@ -277,6 +303,7 @@ class TaskManager:
 
         finally:
             task.completed_at = time.time()
+            self._persist(task)
             async with self._lock:
                 if self._running_task_id == task_id:
                     self._running_task_id = None
@@ -442,6 +469,66 @@ class TaskManager:
         if not task:
             return None
         return task.config.model_dump()
+
+    def _persist(self, task: Task) -> None:
+        """把 Task 当前状态 write-through 到 SQLite（只此一处，状态变更后调用）。"""
+        self._store.update(
+            task.id,
+            status=task.status.value,
+            progress=task.progress,
+            message=task.message,
+            stage=task.stage,
+            output_path=task.result.output_path if task.result else None,
+            error=task.result.error if task.result else None,
+            error_type=task.result.error_type if task.result else None,
+            metadata_json=json.dumps(task.result.metadata if task.result else {}),
+            started_at=task.started_at,
+            completed_at=task.completed_at,
+        )
+
+    async def recover(self) -> None:
+        """重启恢复：残留 RUNNING 标 FAILED，任务表与队列从盘上重建。"""
+        n = self._store.recover_running(
+            error=t("task.interruptedByRestart"), error_type="RestartInterrupted"
+        )
+        if n:
+            logger.warning(f"Recovered {n} interrupted task(s) as FAILED")
+        self._load_from_store()
+
+    def _load_from_store(self) -> None:
+        """从 SQLite 重建 _tasks 与 _queue（重启后调用）。"""
+        from mediafactory.api.schemas import TaskResult
+
+        self._tasks = {}
+        for row in self._store.get_all():
+            result = None
+            if (
+                row["output_path"]
+                or row["error"]
+                or row["metadata_json"] not in ("{}", "")
+            ):
+                result = TaskResult(
+                    task_id=row["id"],
+                    success=(row["status"] == "completed"),
+                    output_path=row["output_path"],
+                    error=row["error"],
+                    error_type=row["error_type"],
+                    metadata=json.loads(row["metadata_json"] or "{}"),
+                )
+            self._tasks[row["id"]] = Task(
+                id=row["id"],
+                config=TaskConfig.model_validate_json(row["config_json"]),
+                status=TaskStatus(row["status"]),
+                progress=row["progress"],
+                name=row["name"],
+                message=row["message"],
+                stage=row["stage"],
+                result=result,
+                created_at=row["created_at"],
+                started_at=row["started_at"],
+                completed_at=row["completed_at"],
+            )
+        self._queue = self._store.get_queued_ids()
 
     @staticmethod
     def _task_to_dict(task: Task) -> Dict[str, Any]:
