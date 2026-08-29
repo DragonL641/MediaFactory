@@ -13,7 +13,12 @@ def make_store(tmp_path):
 
 def test_insert_and_get_roundtrip(tmp_path):
     store = make_store(tmp_path)
-    store.insert(task_id="abc12345", name="Task A", config_json='{"task_type": "audio"}', created_at=1000.0)
+    store.insert(
+        task_id="abc12345",
+        name="Task A",
+        config_json='{"task_type": "audio"}',
+        created_at=1000.0,
+    )
     row = store.get("abc12345")
     assert row is not None
     assert row["id"] == "abc12345"

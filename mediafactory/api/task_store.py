@@ -59,7 +59,9 @@ class TaskStore:
             self._conn.executescript(_SCHEMA)
             self._conn.commit()
 
-    def insert(self, task_id: str, name: str, config_json: str, created_at: float) -> None:
+    def insert(
+        self, task_id: str, name: str, config_json: str, created_at: float
+    ) -> None:
         """插入新任务行（status 默认 pending，不在队列）。"""
         with self._lock:
             self._conn.execute(
