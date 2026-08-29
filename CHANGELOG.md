@@ -25,6 +25,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 **refactor:** 模型下载执行逻辑下沉至 api/download_task 模块，routes/models.py 只做参数解析；exception_wrapper 测试重写并恢复测试基线（0 failed, 259 passed）
 
+**refactor:** Phase 3 结构性收敛——五层调用链收敛为 routes → task_manager → runner → pipeline/engine：新建 services/runner.py 统一任务入口（RUNNERS 注册表、引擎缓存、LLM 降级链、readiness 门），删除 api/task_executor.py 与五个 service 类；ProcessingResult 从 Pipeline 直达 TaskManager 不再重包装（error_type/error_context/metadata 不再丢失）
+
+**refactor:** 进度区间映射从 task_manager 全局硬编码表移入 Pipeline（STAGE_WEIGHTS 按组合归一化），修复翻译-only 任务从 70% 起跳与音频监视线程取消后误报 100% 的问题
+
+**refactor:** 删除 ErrorSeverity 分级、SkipableStage/on_error/ModelCleanupStage 死结构；resource_manager 收敛为纯 whisper_model 上下文管理器（163→33 行）；ProcessingContext 类型化（config 携带 pydantic 子配置、新增 requested_output_path/output_format 字段）；LLM 预设名单收敛为 constants.PRESET_NAMES 单一真相源；models 包门面清空
+
+**tests:** 契约测试安全网增至 41 个（runner 21 / task_manager 9 / download 3 / 进度映射 8），全部经变异验证锁定不变量；mypy 错误 115 → 92；后端 16,559 → 13,954 行（-15.7%）
+
 ## [0.4.0]
 
 ### Added
