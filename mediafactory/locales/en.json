@@ -104,7 +104,9 @@
     "downloadCreated": "Download task created: {{modelId}}",
     "downloadAlreadyInProgress": "Model {{modelId}} is already downloading",
     "anotherDownloadInProgress": "Another model is downloading, please wait for it to finish",
-    "modelDeleted": "Model deleted: {{modelId}}"
+    "modelDeleted": "Model deleted: {{modelId}}",
+    "workerCrashed": "Task process crashed unexpectedly",
+    "interruptedByRestart": "Task was interrupted by a service restart"
   },
   "info": {
     "translationModelNotFound": "Translation model ({{model}}) not found locally.",

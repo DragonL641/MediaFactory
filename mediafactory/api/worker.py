@@ -11,9 +11,13 @@ TaskManager 经 TaskExecutor 接缝调用：
 """
 
 import asyncio
-from typing import Any, Callable, Dict, Optional
+import multiprocessing as mp
+import threading
+import time
+from typing import Any, Callable, Dict, Optional, Protocol
 
 from mediafactory.api.schemas import TaskConfig
+from mediafactory.core.tool import CancellationToken
 from mediafactory.pipeline.context import ProcessingResult
 
 # ==================== 子进程侧 ====================
@@ -103,3 +107,230 @@ def _run_task_in_worker(
             "error_type": type(e).__name__,
             "metadata": {},
         }
+
+
+# ==================== 执行器接缝 ====================
+
+
+class TaskExecutor(Protocol):
+    """任务执行器接缝：TaskManager 经此分发任务。"""
+
+    async def execute(
+        self,
+        task_id: str,
+        config: TaskConfig,
+        progress_callback: Callable[[float, str, str], None],
+        cancel_token: CancellationToken,
+    ) -> ProcessingResult:
+        """执行任务，返回结果。progress_callback 线程安全可直调。"""
+        ...
+
+    def cancel(self, task_id: str) -> None:
+        """请求取消当前运行的任务（无则忽略）。"""
+        ...
+
+    def shutdown(self) -> None:
+        """释放执行器资源。"""
+        ...
+
+
+class InlineExecutor:
+    """进程内执行（默认）：运行时查 RUNNERS 注册表，保持 monkeypatch 可用。"""
+
+    async def execute(
+        self,
+        task_id: str,
+        config: TaskConfig,
+        progress_callback: Callable[[float, str, str], None],
+        cancel_token: CancellationToken,
+    ) -> ProcessingResult:
+        from mediafactory.api.task_manager import (
+            SimpleProgressAdapter,
+        )  # 延迟导入避免环
+        from mediafactory.services import (
+            runner as runner_module,
+        )  # 延迟导入，运行时查表
+
+        fn = runner_module.RUNNERS.get(config.task_type)
+        if fn is None:
+            return ProcessingResult(
+                success=False,
+                error_message=f"No executor for task type: {config.task_type}",
+                error_type="ConfigurationError",
+            )
+        adapter = SimpleProgressAdapter(progress_callback, cancel_token)
+        return await fn(config, adapter)
+
+    def cancel(self, task_id: str) -> None:
+        pass  # 进程内取消走 TaskManager 的 token 路径
+
+    def shutdown(self) -> None:
+        pass
+
+
+def _worker_main(cmd_q: Any, res_q: Any, cancel_event: Any) -> None:
+    """子进程主循环：串行执行 run 命令，收到 None 优雅退出。"""
+    while True:
+        cmd = cmd_q.get()
+        if cmd is None:
+            break
+        if cmd.get("cmd") != "run":
+            continue
+        task_id = cmd["task_id"]
+        try:
+            result = _run_task_in_worker(task_id, cmd["config"], res_q, cancel_event)
+        except Exception as e:  # 兜底：投影函数自身出错也不让子进程崩
+            result = {
+                "success": False,
+                "output_path": None,
+                "error_message": str(e),
+                "error_type": type(e).__name__,
+                "metadata": {},
+            }
+        res_q.put({"kind": "result", "task_id": task_id, "result": result})
+
+
+class WorkerProcessExecutor:
+    """子进程执行器（生产）：任务下发 worker，进度/结果经 IPC 回传。
+
+    串行执行（一次一个任务）；子进程崩溃只判当前任务失败，
+    下一次 execute 自动重启子进程（崩溃隔离的核心）。
+    """
+
+    def __init__(self) -> None:
+        self._ctx = mp.get_context("spawn")  # macOS/Windows 一致行为
+        self._process: Optional[Any] = None
+        self._cmd_q: Optional[Any] = None
+        self._res_q: Optional[Any] = None
+        self._cancel_event: Optional[Any] = None
+        self._reader: Optional[threading.Thread] = None
+        self._loop: Optional[asyncio.AbstractEventLoop] = None
+        self._pending: Dict[str, asyncio.Future] = {}
+        self._progress_cb: Optional[Callable[[float, str, str], None]] = None
+        self._shutting_down = False
+
+    # ---- 生命周期 ----
+
+    def _ensure_started(self) -> None:
+        """确保子进程与读线程就绪；已死则重启（respawn）。"""
+        if self._process is not None and self._process.is_alive():
+            return
+        self._cmd_q = self._ctx.Queue()
+        self._res_q = self._ctx.Queue()
+        self._cancel_event = self._ctx.Event()
+        self._process = self._ctx.Process(
+            target=_worker_main,
+            args=(self._cmd_q, self._res_q, self._cancel_event),
+            daemon=True,
+        )
+        self._process.start()
+        if self._reader is None or not self._reader.is_alive():
+            self._reader = threading.Thread(
+                target=self._read_results, daemon=True, name="worker-result-reader"
+            )
+            self._reader.start()
+
+    def _read_results(self) -> None:
+        """后台线程：把子进程消息派发回事件循环（进度直调、结果 resolve Future）。"""
+        while not self._shutting_down:
+            q = self._res_q
+            if q is None:
+                time.sleep(0.05)
+                continue
+            try:
+                msg = q.get(timeout=0.5)
+            except Exception:  # queue.Empty / 队列关闭，继续轮询
+                continue
+            kind = msg.get("kind")
+            if kind == "progress" and self._progress_cb is not None:
+                cb = self._progress_cb
+                try:
+                    cb(msg["progress"], msg.get("message", ""), msg.get("stage") or "")
+                except Exception:
+                    pass  # 进度回调失败不影响执行
+            elif kind == "result":
+                task_id = msg["task_id"]
+                fut = self._pending.get(task_id)
+                if fut is not None and not fut.done():
+                    payload = msg["result"]
+                    loop = self._loop
+                    if loop is not None:
+                        loop.call_soon_threadsafe(
+                            lambda f=fut, p=payload: (
+                                None if f.done() else f.set_result(p)
+                            )
+                        )
+
+    # ---- TaskExecutor 接口 ----
+
+    async def execute(
+        self,
+        task_id: str,
+        config: TaskConfig,
+        progress_callback: Callable[[float, str, str], None],
+        cancel_token: CancellationToken,
+    ) -> ProcessingResult:
+        self._ensure_started()
+        loop = asyncio.get_running_loop()
+        self._loop = loop
+        fut: asyncio.Future = loop.create_future()
+        self._pending[task_id] = fut
+        self._progress_cb = progress_callback
+        self._cancel_event.clear()  # 串行单任务：任务下发前清取消标志
+        self._cmd_q.put(
+            {"cmd": "run", "task_id": task_id, "config": config.model_dump(mode="json")}
+        )
+        watchdog = asyncio.create_task(self._watchdog(fut))
+        try:
+            payload = await fut
+            return ProcessingResult(
+                success=payload["success"],
+                output_path=payload.get("output_path"),
+                error_message=payload.get("error_message", ""),
+                error_type=payload.get("error_type"),
+                metadata=payload.get("metadata") or {},
+            )
+        finally:
+            watchdog.cancel()
+            self._pending.pop(task_id, None)
+            self._progress_cb = None
+
+    async def _watchdog(self, fut: asyncio.Future) -> None:
+        """子进程死亡检测：当前任务判失败（不自动重试——产物可能不完整）。"""
+        from mediafactory.i18n import t
+
+        while True:
+            await asyncio.sleep(0.1)
+            if fut.done():
+                return
+            if self._process is not None and not self._process.is_alive():
+                if not fut.done():
+                    fut.set_result(
+                        {
+                            "success": False,
+                            "output_path": None,
+                            "error_message": t("task.workerCrashed"),
+                            "error_type": "WorkerCrashedError",
+                            "metadata": {},
+                        }
+                    )
+                return
+
+    def cancel(self, task_id: str) -> None:
+        if self._cancel_event is not None:
+            self._cancel_event.set()
+
+    def shutdown(self) -> None:
+        """优雅停子进程（超时强杀），停读线程。"""
+        self._shutting_down = True
+        if self._process is not None and self._process.is_alive():
+            try:
+                self._cmd_q.put(None)
+                self._process.join(timeout=5)
+            except Exception:
+                pass
+            if self._process.is_alive():
+                self._process.terminate()
+                self._process.join(timeout=2)
+        if self._reader is not None:
+            self._reader.join(timeout=2)

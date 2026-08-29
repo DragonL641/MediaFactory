@@ -11,8 +11,14 @@ from types import SimpleNamespace
 import pytest
 
 from mediafactory.api.schemas import TaskConfig, TaskType
-from mediafactory.api.worker import _WorkerProgress, _run_task_in_worker
+from mediafactory.api.worker import (
+    InlineExecutor,
+    WorkerProcessExecutor,
+    _WorkerProgress,
+    _run_task_in_worker,
+)
 from mediafactory.core.tool import CancellationToken
+from mediafactory.pipeline.context import ProcessingResult
 
 pytestmark = [pytest.mark.unit]
 
@@ -66,3 +72,56 @@ class TestRunTaskInWorker:
         assert result["success"] is False
         assert result["error_message"]  # 非空的用户可读消息
         assert result["error_type"]
+
+
+class TestInlineExecutor:
+    def test_dispatches_via_runners_registry(self, monkeypatch):
+        seen = {}
+
+        async def fake_runner(config, progress):
+            seen["input"] = config.input_path
+            progress.set_stage("audio_extraction")
+            progress.update(5.0, "go")
+            return ProcessingResult(success=True, output_path="ok.wav")
+
+        monkeypatch.setattr(
+            "mediafactory.services.runner.RUNNERS", {TaskType.AUDIO: fake_runner}
+        )
+        result = asyncio.run(
+            InlineExecutor().execute(
+                "t1", missing_audio_config(), lambda p, m, s: None, CancellationToken()
+            )
+        )
+        assert result.success is True
+        assert result.output_path == "ok.wav"
+        assert seen["input"] == "/nonexistent/definitely-missing.wav"
+
+    def test_unknown_type_returns_configuration_error(self):
+        config = TaskConfig(
+            task_type=TaskType.DOWNLOAD, input_path="m"
+        )  # DOWNLOAD 无注册
+        result = asyncio.run(
+            InlineExecutor().execute(
+                "t1", config, lambda p, m, s: None, CancellationToken()
+            )
+        )
+        assert result.success is False
+        assert result.error_type == "ConfigurationError"
+
+
+class TestWorkerProcessExecutor:
+    def test_execute_roundtrip_real_runner(self):
+        # 真实 spawn 子进程跑 run_audio（缺失输入 → 快速失败），验证全链路：
+        # 下发 → 子进程 RUNNERS 查表 → 异常转用户消息 → 结果投影回传
+        executor = WorkerProcessExecutor()
+
+        async def scenario():
+            return await executor.execute(
+                "t1", missing_audio_config(), lambda p, m, s: None, CancellationToken()
+            )
+
+        result = asyncio.run(scenario())
+        executor.shutdown()
+        assert result.success is False
+        assert result.error_type != "WorkerCrashedError"  # 正常失败路径，非崩溃
+        assert result.error_message

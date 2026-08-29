@@ -104,7 +104,9 @@
     "downloadCreated": "下载任务已创建: {{modelId}}",
     "downloadAlreadyInProgress": "模型 {{modelId}} 正在下载中",
     "anotherDownloadInProgress": "有模型正在下载中，请等待当前下载完成",
-    "modelDeleted": "模型已删除: {{modelId}}"
+    "modelDeleted": "模型已删除: {{modelId}}",
+    "workerCrashed": "任务进程意外崩溃",
+    "interruptedByRestart": "任务因服务重启而中断"
   },
   "info": {
     "translationModelNotFound": "未找到本地翻译模型 ({{model}})。",
