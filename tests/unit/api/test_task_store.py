@@ -93,3 +93,32 @@ def test_queued_ids_only_count_pending(tmp_path):
     store.set_queued("a", True)
     store.update("a", status="completed")
     assert store.get_queued_ids() == []
+
+
+def test_recover_running_marks_failed_keeps_queue(tmp_path):
+    store = make_store(tmp_path)
+    # running：worker 死掉的残留
+    store.insert(task_id="r1", name="R", config_json="{}", created_at=1.0)
+    store.update("r1", status="running")
+    # queued：重启后应保留继续跑
+    store.insert(task_id="q1", name="Q", config_json="{}", created_at=2.0)
+    store.set_queued("q1", True)
+
+    n = store.recover_running(
+        error="Task was interrupted by a service restart",
+        error_type="RestartInterrupted",
+    )
+
+    assert n == 1
+    row = store.get("r1")
+    assert row["status"] == "failed"
+    assert row["error"] == "Task was interrupted by a service restart"
+    assert row["error_type"] == "RestartInterrupted"
+    assert row["completed_at"] is not None
+    # 队列不受影响
+    assert store.get_queued_ids() == ["q1"]
+
+
+def test_recover_running_nothing_to_do(tmp_path):
+    store = make_store(tmp_path)
+    assert store.recover_running(error="x", error_type="y") == 0

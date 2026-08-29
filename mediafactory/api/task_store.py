@@ -6,6 +6,7 @@ daemon 重启后可恢复（RUNNING→FAILED，QUEUED 原样保留）。
 
 import sqlite3
 import threading
+import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -126,8 +127,6 @@ class TaskStore:
 
     def set_queued(self, task_id: str, queued: bool) -> None:
         """标记任务入队/出队（queued_at 时间戳即 FIFO 顺序）。"""
-        import time
-
         self.update(task_id, queued_at=time.time() if queued else None)
 
     def get_queued_ids(self) -> List[str]:
@@ -138,3 +137,17 @@ class TaskStore:
                 "ORDER BY queued_at"
             ).fetchall()
         return [r["id"] for r in rows]
+
+    def recover_running(self, error: str, error_type: str) -> int:
+        """崩溃恢复：残留 RUNNING 任务标 FAILED（worker 已死，结果不可知）。
+
+        返回受影响行数。QUEUED（pending + queued_at）原样保留。
+        """
+        with self._lock:
+            cur = self._conn.execute(
+                "UPDATE tasks SET status = 'failed', error = ?, error_type = ?, "
+                "completed_at = ? WHERE status = 'running'",
+                (error, error_type, time.time()),
+            )
+            self._conn.commit()
+            return cur.rowcount
