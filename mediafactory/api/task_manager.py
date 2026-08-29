@@ -497,8 +497,6 @@ class TaskManager:
 
     def _load_from_store(self) -> None:
         """从 SQLite 重建 _tasks 与 _queue（重启后调用）。"""
-        from mediafactory.api.schemas import TaskResult
-
         self._tasks = {}
         for row in self._store.get_all():
             result = None
