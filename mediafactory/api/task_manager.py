@@ -481,6 +481,10 @@ class TaskManager:
         if n:
             logger.warning(f"Recovered {n} interrupted task(s) as FAILED")
         self._load_from_store()
+        if self._tasks:
+            logger.info(
+                f"Restored {len(self._tasks)} task(s), {len(self._queue)} queued"
+            )
 
     def _load_from_store(self) -> None:
         """从 SQLite 重建 _tasks 与 _queue（重启后调用）。"""
@@ -612,10 +616,12 @@ def get_task_manager() -> TaskManager:
     """
     global _task_manager
     if _task_manager is None:
-        from mediafactory.api.worker import WorkerProcessExecutor  # 延迟导入避免环
+        from mediafactory.api.worker import WorkerProcessExecutor
+
+        from mediafactory.config import get_app_root_dir
 
         _task_manager = TaskManager(
-            db_path=Path("data/tasks.db"),
+            db_path=get_app_root_dir() / "data" / "tasks.db",
             executor=WorkerProcessExecutor(),
         )
     return _task_manager
