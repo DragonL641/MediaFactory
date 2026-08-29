@@ -98,3 +98,51 @@ class TestWriteThrough:
         status = asyncio.run(manager2.get_task_status(task_id))
         assert status["status"] == "failed"
         assert status["error"] == "boom"
+
+
+class TestQueuePersistence:
+    def test_cancel_queued_task_persists(self, tmp_path, monkeypatch):
+        async def scenario():
+            manager = TaskManager(db_path=tmp_path / "tasks.db")
+
+            async def hang_executor(config, progress):
+                await asyncio.sleep(30)  # 卡住 A，让 B 留在队列
+
+            monkeypatch.setattr(
+                "mediafactory.services.runner.RUNNERS", {TaskType.AUDIO: hang_executor}
+            )
+            a_id = await manager.create_task(make_config("a.mp4"), name="A")
+            await manager.start_single_task(a_id)
+            b_id = await manager.create_task(make_config("b.mp4"), name="B")
+            await manager.start_all_pending()
+            await manager.cancel_task(b_id)
+            await manager.shutdown()
+            return manager, a_id, b_id
+
+        BroadcastRecorder(monkeypatch)
+        manager, a_id, b_id = asyncio.run(scenario())
+        row_b = manager._store.get(b_id)
+        assert row_b["status"] == "cancelled"
+        assert row_b["queued_at"] is None  # 已出队
+
+    def test_remove_task_deletes_row(self, tmp_path):
+        async def scenario():
+            manager = TaskManager(db_path=tmp_path / "tasks.db")
+            task_id = await manager.create_task(make_config())
+            assert await manager.remove_task(task_id) == "removed"
+            return manager, task_id
+
+        manager, task_id = asyncio.run(scenario())
+        assert manager._store.get(task_id) is None
+
+    def test_update_task_config_persists(self, tmp_path):
+        async def scenario():
+            manager = TaskManager(db_path=tmp_path / "tasks.db")
+            task_id = await manager.create_task(make_config())
+            ok = await manager.update_task_config(task_id, {"output_format": "ass"})
+            return manager, task_id, ok
+
+        manager, task_id, ok = asyncio.run(scenario())
+        assert ok is True
+        # model_dump_json 为紧凑输出（无冒号后空格）
+        assert '"output_format":"ass"' in manager._store.get(task_id)["config_json"]

@@ -136,19 +136,8 @@ class TaskManager:
 
             self._running_task_id = task_id
 
-        # 获取执行器（局部导入避免启动时拉 services 依赖链）
-        from mediafactory.services.runner import RUNNERS
-
-        executor = RUNNERS.get(task.config.task_type)
-        if not executor:
-            logger.error(f"No executor for task type: {task.config.task_type}")
-            async with self._lock:
-                if self._running_task_id == task_id:
-                    self._running_task_id = None
-            return False
-
-        # 异步执行
-        asyncio.create_task(self._execute_task(task_id, executor))
+        # 异步执行（执行器接缝：Inline 查 RUNNERS / WorkerProcess 子进程）
+        asyncio.create_task(self._execute_task(task_id))
         return True
 
     async def start_all_pending(self) -> int:
@@ -161,6 +150,7 @@ class TaskManager:
             for tid in pending_ids:
                 if tid not in self._queue:
                     self._queue.append(tid)
+                    self._store.set_queued(tid, True)
 
         logger.info(f"Queued {len(pending_ids)} tasks for execution")
         # 开始处理队列
@@ -185,6 +175,7 @@ class TaskManager:
             # 取出第一个仍是 PENDING 的任务
             while self._queue:
                 tid = self._queue.pop(0)
+                self._store.set_queued(tid, False)  # 出队落库
                 task = self._tasks.get(tid)
                 if task and task.status == TaskStatus.PENDING:
                     self._running_task_id = tid
@@ -194,20 +185,9 @@ class TaskManager:
                 # 队列中没有有效的 PENDING 任务
                 self._is_processing_queue = False
 
-        # 在锁外执行任务
+        # 在锁外执行任务（executor 为 None → 走执行器接缝）
         if task_id_to_run:
-            task = self._tasks.get(task_id_to_run)
-            if task:
-                from mediafactory.services.runner import RUNNERS
-
-                executor = RUNNERS.get(task.config.task_type)
-                if executor:
-                    asyncio.create_task(self._execute_task(task_id_to_run, executor))
-                else:
-                    logger.error(f"No executor for task type: {task.config.task_type}")
-                    async with self._lock:
-                        self._running_task_id = None
-                        self._is_processing_queue = False
+            asyncio.create_task(self._execute_task(task_id_to_run))
 
     async def _execute_task(
         self,
@@ -336,9 +316,12 @@ class TaskManager:
         async with self._lock:
             if task_id in self._queue:
                 self._queue.remove(task_id)
+                self._store.set_queued(task_id, False)
 
         task.cancel_token.cancel()
+        self._executor.cancel(task_id)  # 子进程路径经 IPC 通知 worker
         task.status = TaskStatus.CANCELLED
+        self._persist(task)
         logger.info(f"Task {task_id} cancellation requested")
 
         # 通知前端取消状态
@@ -379,6 +362,8 @@ class TaskManager:
             # 加入队列触发执行（复用现有串行机制）
             if task_id not in self._queue:
                 self._queue.append(task_id)
+                self._store.set_queued(task_id, True)
+            self._persist(task)
 
         # 锁外触发队列处理
         await self._process_next_in_queue()
@@ -419,6 +404,7 @@ class TaskManager:
             task.started_at = time.time()
         if status in (TaskStatus.COMPLETED, TaskStatus.FAILED, TaskStatus.CANCELLED):
             task.completed_at = time.time()
+        self._persist(task)
         return True
 
     async def update_task_config(
@@ -461,6 +447,7 @@ class TaskManager:
                 setattr(task.config, key, value)
 
         logger.info(f"Updated task {task_id} config: {list(update_data.keys())}")
+        self._store.update(task_id, config_json=task.config.model_dump_json())
         return True
 
     async def get_task_config(self, task_id: str) -> Optional[Dict[str, Any]]:
@@ -589,6 +576,7 @@ class TaskManager:
             if task_id in self._queue:
                 self._queue.remove(task_id)
             logger.info(f"Removing task {task_id} (status={task.status.value})")
+            self._store.delete(task_id)
             del self._tasks[task_id]
             return "removed"
 
@@ -600,6 +588,7 @@ class TaskManager:
                 if task.status == TaskStatus.RUNNING:
                     task.cancel_token.cancel()
                     task.status = TaskStatus.CANCELLED
+        self._executor.shutdown()
 
 
 # ==================== 单例访问 ====================
