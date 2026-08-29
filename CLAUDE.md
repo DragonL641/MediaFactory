@@ -201,7 +201,9 @@ result = await loop.run_in_executor(None, pipeline.execute, context)
 - `routes/processing.py`：任务处理 API（字幕、音频、转录、翻译、增强）
 - `schemas.py`：Pydantic 数据模型（TaskConfig、TaskProgress、TaskResult 等）
 - `websocket.py`：WebSocket 连接管理器，实时进度推送
-- `task_manager.py`：后台任务管理器（任务队列、状态跟踪、`SimpleProgressAdapter` 进度适配、`get_task_manager` 单例）
+- `task_manager.py`：后台任务管理器（SQLite 持久队列 + `SimpleProgressAdapter` 进度适配、`get_task_manager` 单例装配 WorkerProcessExecutor；write-through 落库，重启 `recover()` 恢复队列）
+- `task_store.py`：SQLite 任务持久层（任务表 CRUD、队列标记 queued_at、崩溃恢复查询）
+- `worker.py`：执行器接缝（InlineExecutor 进程内 / WorkerProcessExecutor spawn 子进程）+ 子进程侧任务执行与进度回传
 - `download_task.py`：模型下载后台任务（立即执行不进队列，带进度节流）
 
 ### 关键模块
@@ -309,7 +311,7 @@ save_config()
 - 框架：pytest 带覆盖率
 - 结构：`tests/unit/`（按模块分子目录：api、config、core、engine、llm、pipeline、services、utils）+ `tests/integration/`
 - 标记：`unit`、`integration`、`slow`、`requires_ml`、`requires_network`（无 `e2e`）
-- **契约测试安全网**（共 41 个，Phase 1-3 结构性重构的回归防线——**改动 runner/task_manager/pipeline/download_task 前先确认这些测试全绿**）：`tests/unit/services/test_runner_contract.py`（21 个：5 个 runner 全覆盖、LLM 三分支、字段改名映射、失败透传）、`tests/unit/api/test_task_manager_contract.py`（9 个：状态机/CANCELLED 不变量/串行队列/取消出队）、`tests/unit/api/test_download_task.py`（3 个：成功/失败/节流）、`tests/unit/pipeline/test_progress_mapping.py`（8 个：区间归一化/防叠加/恢复）
+- **契约测试安全网**（共 74 个，Phase 1-3 结构性重构与 Phase 1 持久化/worker 重构的回归防线——**改动 runner/task_manager/task_store/worker/pipeline/download_task 前先确认这些测试全绿**）：`tests/unit/services/test_runner_contract.py`（21 个：5 个 runner 全覆盖、LLM 三分支、字段改名映射、失败透传）、`tests/unit/api/test_task_manager_contract.py`（9 个：状态机/CANCELLED 不变量/串行队列/取消出队）、`tests/unit/api/test_download_task.py`（3 个：成功/失败/节流）、`tests/unit/pipeline/test_progress_mapping.py`（8 个：区间归一化/防叠加/恢复）、`tests/unit/api/test_task_store.py`（11 个：任务 CRUD/白名单更新/队列标记/崩溃恢复）、`tests/unit/api/test_worker_executor.py`（10 个：子进程执行往返/崩溃隔离 respawn/取消 IPC/进度回传）、`tests/unit/api/test_task_manager_persistence.py`（12 个：write-through 落库/重启恢复/生产装配/manager+worker+SQLite 端到端链路）
 
 ## 重要实现细节
 

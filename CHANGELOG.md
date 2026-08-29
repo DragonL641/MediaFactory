@@ -33,6 +33,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 **tests:** 契约测试安全网增至 41 个（runner 21 / task_manager 9 / download 3 / 进度映射 8），全部经变异验证锁定不变量；mypy 错误 115 → 92；后端 16,559 → 13,954 行（-15.7%）
 
+**api:** 任务队列落 SQLite 持久化（data/tasks.db），任务执行移入独立 worker 子进程：ML 崩溃不再拖垮服务，daemon 重启后排队任务自动续跑、中断任务标记失败
+
 ## [0.4.0]
 
 ### Added

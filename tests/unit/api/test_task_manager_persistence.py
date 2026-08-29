@@ -278,3 +278,34 @@ class TestProductionWiring:
         manager = tm_module.get_task_manager()
         assert isinstance(manager._executor, WorkerProcessExecutor)
         assert (tmp_path / "data" / "tasks.db").exists()
+
+
+class TestEndToEndWithWorker:
+    def test_full_chain_through_worker_subprocess(self, tmp_path, monkeypatch):
+        from mediafactory.api.worker import WorkerProcessExecutor
+
+        rec = BroadcastRecorder(monkeypatch)
+
+        async def scenario():
+            manager = TaskManager(
+                db_path=tmp_path / "tasks.db", executor=WorkerProcessExecutor()
+            )
+            config = TaskConfig(
+                task_type=TaskType.AUDIO, input_path="/nonexistent/x.wav"
+            )
+            task_id = await manager.create_task(config)
+            await manager.start_all_pending()
+            for _ in range(400):  # 上限 8 秒（spawn + 模块导入）
+                status = await manager.get_task_status(task_id)
+                if status["status"] in ("failed", "completed"):
+                    break
+                await asyncio.sleep(0.02)
+            await manager.shutdown()  # 收尾：停子进程
+            return manager, task_id, status
+
+        manager, task_id, status = asyncio.run(scenario())
+        assert status["status"] == "failed"  # 真实 run_audio 对缺失输入快速失败
+        assert any(c["success"] is False for c in rec.complete_calls)
+        # 终态已落库
+        row = manager._store.get(task_id)
+        assert row["status"] == "failed"
