@@ -91,6 +91,11 @@ def _run_task_in_worker(
             "metadata": result.metadata or {},
         }
     except Exception as e:  # 直调引擎路径异常在此兜底并转用户消息
+        from mediafactory.logging import log_exception
+
+        # sanitize_error 内部的 stdlib logging 不落 logs/，完整 traceback 在此补记
+        log_exception(f"Worker task failed: {task_id}")
+
         return {
             "success": False,
             "output_path": None,

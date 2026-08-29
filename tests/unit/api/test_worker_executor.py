@@ -56,10 +56,11 @@ class TestWorkerProgress:
 class TestRunTaskInWorker:
     def test_projects_failed_result_for_missing_input(self):
         # 进程内直接调用子进程侧函数：验证 RUNNERS 查表 + 异常转用户消息投影
+        # res_q 用满足 put 契约的桩（与 _WorkerProgress 的接口约定一致）
         result = _run_task_in_worker(
             "t1",
             missing_audio_config().model_dump(mode="json"),
-            lambda msg: None,
+            SimpleNamespace(put=lambda m: None),
             threading.Event(),
         )
         assert result["success"] is False
