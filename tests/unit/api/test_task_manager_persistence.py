@@ -11,6 +11,7 @@ import pytest
 from mediafactory.api.schemas import TaskConfig, TaskStatus, TaskType
 from mediafactory.api.task_manager import TaskManager
 from mediafactory.api.websocket import manager as ws_manager
+from mediafactory.i18n import t
 from mediafactory.pipeline.context import ProcessingResult
 
 pytestmark = [pytest.mark.unit]
@@ -246,6 +247,9 @@ class TestRestartRecovery:
         s_run2 = asyncio.run(manager2.get_task_status(run2_id))
         s_q = asyncio.run(manager2.get_task_status(q_id))
         assert s_run["status"] == "failed"  # worker 死掉的 RUNNING 判失败
+        # 恢复错误消息的回读路径：recover 写入 → _load_from_store 构造
+        # TaskResult → get_task_status()["error"]（用 t() 镜像实现，跟随 locale）
+        assert s_run["error"] == t("task.interruptedByRestart")
         assert s_run2["status"] == "failed"  # 批量：多行 RUNNING 残留一并标 FAILED
         assert s_q["status"] == "pending"  # 队列任务保留
         assert q_id in manager2._queue  # 队列按 queued_at 重建
