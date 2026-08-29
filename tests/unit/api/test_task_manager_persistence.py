@@ -192,3 +192,71 @@ class TestQueuePersistence:
         manager, task_id, ok = asyncio.run(scenario())
         assert ok is True
         assert manager._store.get(task_id)["status"] == "failed"
+
+
+class TestRestartRecovery:
+    # 崩溃协程的 keepalive：进程级持有引用，阻止 GC 事后跑其 finally
+    # （finally 会对旧连接写库，连接被回收时产生 unraisable 告警噪音）
+    _crashed_keepalive: list = []
+
+    def test_running_marked_failed_and_queue_rebuilt(self, tmp_path, monkeypatch):
+        db = tmp_path / "tasks.db"
+
+        async def seed():
+            # 模拟旧 daemon：R 卡在 RUNNING（hang executor 永不返回）
+            manager = TaskManager(db_path=db)
+
+            async def hang_executor(config, progress):
+                await asyncio.sleep(30)
+
+            monkeypatch.setattr(
+                "mediafactory.services.runner.RUNNERS", {TaskType.AUDIO: hang_executor}
+            )
+            run_id = await manager.create_task(make_config("run.mp4"), name="R")
+            await manager.start_single_task(run_id)  # R → RUNNING
+            for _ in range(200):
+                if manager._tasks[run_id].status.value == "running":
+                    break
+                await asyncio.sleep(0.005)
+            # 再造一行 RUNNING 残留：批量分支在 manager 完整链路同样成立
+            run2_id = await manager.create_task(make_config("run2.mp4"), name="R2")
+            await manager.update_task_status(run2_id, TaskStatus.RUNNING)
+            q_id = await manager.create_task(make_config("q.mp4"), name="Q")
+            await manager.start_all_pending()  # R 在 RUNNING → Q 仅入队
+            return manager, run_id, run2_id, q_id
+
+        BroadcastRecorder(monkeypatch)
+        # 手动建循环后直接 close，模拟进程崩溃（挂起协程被原样丢弃）。
+        # 不能用 asyncio.run：它关闭时会 cancel 后台协程并跑完 CancelledError/
+        # finally 清理，把 R 落成 cancelled、Q 拉起成 running，留不下 RUNNING 残留。
+        loop = asyncio.new_event_loop()
+        try:
+            manager, run_id, run2_id, q_id = loop.run_until_complete(seed())
+            # 崩溃协程进程级持有：测试结束后 GC 也不得跑其 finally 改写 DB
+            crashed = [t for t in asyncio.all_tasks(loop) if not t.done()]
+            self._crashed_keepalive.extend(crashed)
+        finally:
+            loop.close()
+        assert crashed, "seed 未留下崩溃协程"
+
+        # 新 daemon 挂同一 db 恢复
+        manager2 = TaskManager(db_path=db)
+        asyncio.run(manager2.recover())
+        s_run = asyncio.run(manager2.get_task_status(run_id))
+        s_run2 = asyncio.run(manager2.get_task_status(run2_id))
+        s_q = asyncio.run(manager2.get_task_status(q_id))
+        assert s_run["status"] == "failed"  # worker 死掉的 RUNNING 判失败
+        assert s_run2["status"] == "failed"  # 批量：多行 RUNNING 残留一并标 FAILED
+        assert s_q["status"] == "pending"  # 队列任务保留
+        assert q_id in manager2._queue  # 队列按 queued_at 重建
+        assert run_id not in manager2._queue
+
+    def test_recover_with_clean_store_is_noop(self, tmp_path):
+        async def scenario():
+            manager = TaskManager(db_path=tmp_path / "tasks.db")
+            await manager.recover()
+            return manager
+
+        manager = asyncio.run(scenario())
+        assert manager._tasks == {}
+        assert manager._queue == []
