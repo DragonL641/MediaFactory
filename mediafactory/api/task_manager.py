@@ -487,37 +487,49 @@ class TaskManager:
             )
 
     def _load_from_store(self) -> None:
-        """从 SQLite 重建 _tasks 与 _queue（重启后调用）。"""
+        """从 SQLite 重建 _tasks 与 _queue（重启后调用）。
+
+        单行解析失败（损坏/过期结构的 config、非法 JSON）只告警跳过，
+        不让 recover() 在 lifespan 里抛异常阻断 daemon 启动。
+        """
         self._tasks = {}
         for row in self._store.get_all():
-            result = None
-            if (
-                row["output_path"]
-                or row["error"]
-                or row["metadata_json"] not in ("{}", "")
-            ):
-                result = TaskResult(
-                    task_id=row["id"],
-                    success=(row["status"] == "completed"),
-                    output_path=row["output_path"],
-                    error=row["error"],
-                    error_type=row["error_type"],
-                    metadata=json.loads(row["metadata_json"] or "{}"),
+            try:
+                result = None
+                if (
+                    row["output_path"]
+                    or row["error"]
+                    or row["metadata_json"] not in ("{}", "")
+                ):
+                    result = TaskResult(
+                        task_id=row["id"],
+                        success=(row["status"] == "completed"),
+                        output_path=row["output_path"],
+                        error=row["error"],
+                        error_type=row["error_type"],
+                        metadata=json.loads(row["metadata_json"] or "{}"),
+                    )
+                self._tasks[row["id"]] = Task(
+                    id=row["id"],
+                    config=TaskConfig.model_validate_json(row["config_json"]),
+                    status=TaskStatus(row["status"]),
+                    progress=row["progress"],
+                    name=row["name"],
+                    message=row["message"],
+                    stage=row["stage"],
+                    result=result,
+                    created_at=row["created_at"],
+                    started_at=row["started_at"],
+                    completed_at=row["completed_at"],
                 )
-            self._tasks[row["id"]] = Task(
-                id=row["id"],
-                config=TaskConfig.model_validate_json(row["config_json"]),
-                status=TaskStatus(row["status"]),
-                progress=row["progress"],
-                name=row["name"],
-                message=row["message"],
-                stage=row["stage"],
-                result=result,
-                created_at=row["created_at"],
-                started_at=row["started_at"],
-                completed_at=row["completed_at"],
-            )
-        self._queue = self._store.get_queued_ids()
+            except Exception as e:
+                logger.warning(
+                    f"Skipping corrupt task row {row['id']} during recovery: {e!r}"
+                )
+        # 坏行未进 _tasks，其 queued 标记随之失效——队列只保留成功恢复的任务
+        self._queue = [
+            tid for tid in self._store.get_queued_ids() if tid in self._tasks
+        ]
 
     @staticmethod
     def _task_to_dict(task: Task) -> Dict[str, Any]:

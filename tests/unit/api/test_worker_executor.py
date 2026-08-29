@@ -7,6 +7,7 @@
 import asyncio
 import os
 import signal
+import sys
 import threading
 import time
 from types import SimpleNamespace
@@ -183,6 +184,7 @@ class TestExecutorReuseGuard:
 
 
 class TestCrashIsolation:
+    @pytest.mark.skipif(sys.platform == "win32", reason="SIGKILL 不适用于 Windows")
     def test_crash_fails_task_and_respawns_worker(self):
         # SIGKILL 子进程：当前任务判 WorkerCrashedError 失败（不重试），
         # 下一次 execute 经 _ensure_started 自动 respawn（新 pid），旧 IPC 队列关闭

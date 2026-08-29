@@ -265,6 +265,30 @@ class TestRestartRecovery:
         assert manager._tasks == {}
         assert manager._queue == []
 
+    def test_corrupt_row_skipped_others_recovered(self, tmp_path):
+        # 坏行（过期/损坏的 config_json）只跳过告警，不阻断 recover；
+        # 坏行即便带 queued 标记也不得混入重建后的队列
+        db = tmp_path / "tasks.db"
+        manager = TaskManager(db_path=db)
+
+        async def seed():
+            good_id = await manager.create_task(make_config("good.mp4"), name="G")
+            bad_id = await manager.create_task(make_config(), name="Bad")
+            return good_id, bad_id
+
+        good_id, bad_id = asyncio.run(seed())
+        manager._store.set_queued(good_id, True)
+        manager._store.set_queued(bad_id, True)
+        # 模拟坏行：旧版本/损坏的 config 结构（model_validate_json 必失败）
+        manager._store.update(bad_id, config_json='{"stale_schema": true}')
+
+        manager2 = TaskManager(db_path=db)
+        asyncio.run(manager2.recover())  # 不抛异常即通过恢复链路
+        assert good_id in manager2._tasks
+        assert bad_id not in manager2._tasks
+        assert good_id in manager2._queue
+        assert bad_id not in manager2._queue
+
 
 class TestProductionWiring:
     def test_get_task_manager_uses_worker_executor(self, tmp_path, monkeypatch):
@@ -278,6 +302,31 @@ class TestProductionWiring:
         manager = tm_module.get_task_manager()
         assert isinstance(manager._executor, WorkerProcessExecutor)
         assert (tmp_path / "data" / "tasks.db").exists()
+
+
+class TestLifespanWiring:
+    def test_lifespan_runs_recover_on_startup(self, monkeypatch, tmp_path):
+        # 冒烟：真实 FastAPI lifespan 启动会调用单例的 recover()
+        # main.py 以 `from ... import get_task_manager` 绑定名字，
+        # 打桩 main 模块属性即可让 lifespan 用注入的 manager
+        from fastapi.testclient import TestClient
+
+        import mediafactory.api.main as main_module
+
+        manager = TaskManager(db_path=tmp_path / "tasks.db")
+        monkeypatch.setattr(main_module, "get_task_manager", lambda: manager)
+
+        calls = []
+
+        async def fake_recover():
+            calls.append("recover")
+
+        monkeypatch.setattr(manager, "recover", fake_recover)
+
+        with TestClient(main_module.get_app()):
+            pass  # startup 阶段应触发 recover
+
+        assert calls == ["recover"]
 
 
 class TestEndToEndWithWorker:

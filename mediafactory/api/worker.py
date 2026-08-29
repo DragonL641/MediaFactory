@@ -7,7 +7,7 @@ ML 重活在与 daemon 隔离的子进程中执行：
 
 TaskManager 经 TaskExecutor 接缝调用：
 - InlineExecutor：进程内执行（默认；测试与 RUNNERS monkeypatch 路径）
-- WorkerProcessExecutor：子进程执行（生产装配，Task 5 实现）
+- WorkerProcessExecutor：子进程执行（生产装配）
 """
 
 import asyncio
