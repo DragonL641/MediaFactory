@@ -83,3 +83,58 @@ class TaskStore:
         with self._lock:
             rows = self._conn.execute(f"SELECT {_COLUMNS} FROM tasks").fetchall()
         return [dict(r) for r in rows]
+
+    # update 允许的字段白名单（与 schema 列一一对应，不含 id）
+    _UPDATE_FIELDS = frozenset(
+        {
+            "name",
+            "config_json",
+            "status",
+            "progress",
+            "message",
+            "stage",
+            "output_path",
+            "error",
+            "error_type",
+            "metadata_json",
+            "queued_at",
+            "started_at",
+            "completed_at",
+        }
+    )
+
+    def update(self, task_id: str, **fields: Any) -> None:
+        """更新指定字段（白名单校验，字段名即列名）。"""
+        unknown = set(fields) - self._UPDATE_FIELDS
+        if unknown:
+            raise ValueError(f"TaskStore.update 不允许的字段: {unknown}")
+        if not fields:
+            return
+        sets = ", ".join(f"{k} = ?" for k in fields)
+        with self._lock:
+            self._conn.execute(
+                f"UPDATE tasks SET {sets} WHERE id = ?",
+                (*fields.values(), task_id),
+            )
+            self._conn.commit()
+
+    def delete(self, task_id: str) -> None:
+        """删除任务行。"""
+        with self._lock:
+            self._conn.execute("DELETE FROM tasks WHERE id = ?", (task_id,))
+            self._conn.commit()
+
+    def set_queued(self, task_id: str, queued: bool) -> None:
+        """标记任务入队/出队（queued_at 时间戳即 FIFO 顺序）。"""
+        import time
+
+        self.update(task_id, queued_at=time.time() if queued else None)
+
+    def get_queued_ids(self) -> List[str]:
+        """待执行队列：pending 且已入队，按入队时间升序。"""
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT id FROM tasks WHERE status = 'pending' AND queued_at IS NOT NULL "
+                "ORDER BY queued_at"
+            ).fetchall()
+        return [r["id"] for r in rows]

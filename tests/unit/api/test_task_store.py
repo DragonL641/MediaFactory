@@ -47,3 +47,49 @@ def test_memory_store_when_no_path():
     store = TaskStore()
     store.insert(task_id="m", name="M", config_json="{}", created_at=1.0)
     assert store.get("m") is not None
+
+
+def test_update_changes_whitelisted_fields(tmp_path):
+    store = make_store(tmp_path)
+    store.insert(task_id="a", name="A", config_json="{}", created_at=1.0)
+    store.update("a", status="running", progress=12.5, output_path="/tmp/o.wav")
+    row = store.get("a")
+    assert row["status"] == "running"
+    assert row["progress"] == 12.5
+    assert row["output_path"] == "/tmp/o.wav"
+
+
+def test_update_rejects_unknown_field(tmp_path):
+    store = make_store(tmp_path)
+    store.insert(task_id="a", name="A", config_json="{}", created_at=1.0)
+    with pytest.raises(ValueError):
+        store.update("a", hack="x")
+
+
+def test_delete_removes_row(tmp_path):
+    store = make_store(tmp_path)
+    store.insert(task_id="a", name="A", config_json="{}", created_at=1.0)
+    store.delete("a")
+    assert store.get("a") is None
+
+
+def test_queue_marker_roundtrip(tmp_path):
+    store = make_store(tmp_path)
+    store.insert(task_id="a", name="A", config_json="{}", created_at=1.0)
+    store.insert(task_id="b", name="B", config_json="{}", created_at=2.0)
+    assert store.get_queued_ids() == []  # 新任务不在队列
+    store.set_queued("a", True)
+    store.set_queued("b", True)
+    assert store.get_queued_ids() == ["a", "b"]  # 按 queued_at 升序（FIFO）
+    store.set_queued("a", False)  # 出队
+    assert store.get_queued_ids() == ["b"]
+    assert store.get("a")["queued_at"] is None
+
+
+def test_queued_ids_only_count_pending(tmp_path):
+    # 已完成的任务即使残留 queued_at 也不进队列视图
+    store = make_store(tmp_path)
+    store.insert(task_id="a", name="A", config_json="{}", created_at=1.0)
+    store.set_queued("a", True)
+    store.update("a", status="completed")
+    assert store.get_queued_ids() == []
