@@ -176,3 +176,4 @@ node_modules
 /docs/superpowers/
 /build/
 /config.toml*
+/data/
