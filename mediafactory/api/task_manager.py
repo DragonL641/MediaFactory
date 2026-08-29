@@ -587,7 +587,15 @@ class TaskManager:
             for task in self._tasks.values():
                 if task.status == TaskStatus.RUNNING:
                     task.cancel_token.cancel()
+                    self._executor.cancel(task.id)  # 通知 worker 停（若有）
                     task.status = TaskStatus.CANCELLED
+                    task.result = TaskResult(
+                        task_id=task.id,
+                        success=False,
+                        error=t("task.cancelled"),
+                        error_type="CancelledError",
+                    )
+                    self._persist(task)
         self._executor.shutdown()
 
 

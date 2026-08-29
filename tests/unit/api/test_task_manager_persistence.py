@@ -8,7 +8,7 @@ import asyncio
 
 import pytest
 
-from mediafactory.api.schemas import TaskConfig, TaskType
+from mediafactory.api.schemas import TaskConfig, TaskStatus, TaskType
 from mediafactory.api.task_manager import TaskManager
 from mediafactory.api.websocket import manager as ws_manager
 from mediafactory.pipeline.context import ProcessingResult
@@ -115,6 +115,9 @@ class TestQueuePersistence:
             await manager.start_single_task(a_id)
             b_id = await manager.create_task(make_config("b.mp4"), name="B")
             await manager.start_all_pending()
+            assert (
+                manager._store.get(b_id)["queued_at"] is not None
+            )  # 前置：B 确实已入队
             await manager.cancel_task(b_id)
             await manager.shutdown()
             return manager, a_id, b_id
@@ -146,3 +149,46 @@ class TestQueuePersistence:
         assert ok is True
         # model_dump_json 为紧凑输出（无冒号后空格）
         assert '"output_format":"ass"' in manager._store.get(task_id)["config_json"]
+
+    def test_retry_task_persists_reset_and_requeue(self, tmp_path, monkeypatch):
+        async def scenario():
+            manager = TaskManager(db_path=tmp_path / "tasks.db")
+
+            async def hang_executor(config, progress):
+                await asyncio.sleep(30)  # 卡住 A，让 B 重试后留在队列
+
+            async def fail_executor(config, progress):
+                return ProcessingResult(
+                    success=False, error_message="boom", error_type="ProcessingError"
+                )
+
+            monkeypatch.setattr(
+                "mediafactory.services.runner.RUNNERS", {TaskType.AUDIO: hang_executor}
+            )
+            a_id = await manager.create_task(make_config("a.mp4"), name="A")
+            await manager.start_single_task(a_id)  # 占住运行位
+            b_id = await manager.create_task(make_config("b.mp4"), name="B")
+            await manager._execute_task(b_id, fail_executor)  # 直接跑失败路径
+            ok = await manager.retry_task(b_id)
+            # scenario 内快照行数据（避免 teardown 时序影响断言）
+            row = manager._store.get(b_id)
+            await manager.shutdown()  # 清队列，避免 teardown 留下悬挂后台任务
+            return ok, row
+
+        BroadcastRecorder(monkeypatch)
+        ok, row = asyncio.run(scenario())
+        assert ok is True
+        assert row["status"] == "pending"
+        assert row["queued_at"] is not None  # 重新入队
+        assert row["error"] is None  # 旧失败已清
+
+    def test_update_task_status_persists(self, tmp_path):
+        async def scenario():
+            manager = TaskManager(db_path=tmp_path / "tasks.db")
+            task_id = await manager.create_task(make_config())
+            ok = await manager.update_task_status(task_id, TaskStatus.FAILED)
+            return manager, task_id, ok
+
+        manager, task_id, ok = asyncio.run(scenario())
+        assert ok is True
+        assert manager._store.get(task_id)["status"] == "failed"
