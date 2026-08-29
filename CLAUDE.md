@@ -71,7 +71,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
           FastAPI Server
                │
                ▼
-          TaskManager → runner → Pipeline → Stage → Engine
+          TaskManager → worker 子进程（runner → Pipeline → Stage → Engine）
                │
                ▼
           WebSocket → Electron (实时进度更新)
@@ -185,7 +185,7 @@ npm run dev
 ### 服务层
 
 **服务层**（`mediafactory/services/`，Phase 3 收敛后仅两个模块）：
-- `runner.py`：统一任务执行入口——`RUNNERS` 注册表按 TaskType 分发到 `run_subtitle/run_audio/run_transcribe/run_translate/run_enhance`；组装 `ProcessingContext`、选择 Pipeline 工厂或直调引擎（audio/enhance 单动作不走 Pipeline）、LLM 降级链、readiness 前置检查、模块级引擎缓存。**Pipeline 结果原样透传、不重包装**；直调路径异常上抛由 TaskManager 统一捕获
+- `runner.py`：统一任务执行入口——`RUNNERS` 注册表按 TaskType 分发到 `run_subtitle/run_audio/run_transcribe/run_translate/run_enhance`；组装 `ProcessingContext`、选择 Pipeline 工厂或直调引擎（audio/enhance 单动作不走 Pipeline）、LLM 降级链、readiness 前置检查、模块级引擎缓存。**Pipeline 结果原样透传、不重包装**；直调路径异常上抛由 TaskManager 统一捕获（生产 worker 路径下异常由子进程内兜底转失败结果回传）
 - `models.py`：模型状态聚合（`ModelStatusService.get_readiness`）与 LLM 连接测试
 
 **调用模式**：runner 在 `run_in_executor` 中运行同步 Pipeline：
@@ -311,7 +311,7 @@ save_config()
 - 框架：pytest 带覆盖率
 - 结构：`tests/unit/`（按模块分子目录：api、config、core、engine、llm、pipeline、services、utils）+ `tests/integration/`
 - 标记：`unit`、`integration`、`slow`、`requires_ml`、`requires_network`（无 `e2e`）
-- **契约测试安全网**（共 74 个，Phase 1-3 结构性重构与 Phase 1 持久化/worker 重构的回归防线——**改动 runner/task_manager/task_store/worker/pipeline/download_task 前先确认这些测试全绿**）：`tests/unit/services/test_runner_contract.py`（21 个：5 个 runner 全覆盖、LLM 三分支、字段改名映射、失败透传）、`tests/unit/api/test_task_manager_contract.py`（9 个：状态机/CANCELLED 不变量/串行队列/取消出队）、`tests/unit/api/test_download_task.py`（3 个：成功/失败/节流）、`tests/unit/pipeline/test_progress_mapping.py`（8 个：区间归一化/防叠加/恢复）、`tests/unit/api/test_task_store.py`（11 个：任务 CRUD/白名单更新/队列标记/崩溃恢复）、`tests/unit/api/test_worker_executor.py`（10 个：子进程执行往返/崩溃隔离 respawn/取消 IPC/进度回传）、`tests/unit/api/test_task_manager_persistence.py`（12 个：write-through 落库/重启恢复/生产装配/manager+worker+SQLite 端到端链路）
+- **契约测试安全网**（共 74 个，精简重构 Phase 1-3 与持久化队列计划 Phase 1 的回归防线——**改动 runner/task_manager/task_store/worker/pipeline/download_task 前先确认这些测试全绿**）：`tests/unit/services/test_runner_contract.py`（21 个：5 个 runner 全覆盖、LLM 三分支、字段改名映射、失败透传）、`tests/unit/api/test_task_manager_contract.py`（9 个：状态机/CANCELLED 不变量/串行队列/取消出队）、`tests/unit/api/test_download_task.py`（3 个：成功/失败/节流）、`tests/unit/pipeline/test_progress_mapping.py`（8 个：区间归一化/防叠加/恢复）、`tests/unit/api/test_task_store.py`（11 个：任务 CRUD/白名单更新/队列标记/崩溃恢复）、`tests/unit/api/test_worker_executor.py`（10 个：子进程执行往返/崩溃隔离 respawn/取消 IPC/进度回传）、`tests/unit/api/test_task_manager_persistence.py`（12 个：write-through 落库/重启恢复/生产装配/manager+worker+SQLite 端到端链路）
 
 ## 重要实现细节
 
