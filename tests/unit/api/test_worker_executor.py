@@ -6,6 +6,7 @@
 
 import asyncio
 import threading
+import time
 from types import SimpleNamespace
 
 import pytest
@@ -125,3 +126,73 @@ class TestWorkerProcessExecutor:
         assert result.success is False
         assert result.error_type != "WorkerCrashedError"  # 正常失败路径，非崩溃
         assert result.error_message
+
+
+class TestCancelGuard:
+    def test_cancel_ignores_non_running_task_id(self):
+        # 背景跑一个真实任务占住 _running_task_id，错 id 的 cancel 不得 set 事件
+        executor = WorkerProcessExecutor()
+
+        async def scenario():
+            task = asyncio.get_running_loop().create_task(
+                executor.execute(
+                    "t1",
+                    missing_audio_config(),
+                    lambda p, m, s: None,
+                    CancellationToken(),
+                )
+            )
+            while executor._running_task_id != "t1":
+                await asyncio.sleep(0.01)
+            executor.cancel("t2")  # 排队任务的 id：不得影响运行中的 t1
+            wrong_cleared = not executor._cancel_event.is_set()
+            executor.cancel("t1")  # 正确 id：set
+            right_set = executor._cancel_event.is_set()
+            first = await task
+            return wrong_cleared, right_set, first
+
+        wrong_cleared, right_set, first = asyncio.run(scenario())
+        executor.shutdown()
+        assert wrong_cleared is True
+        assert right_set is True
+        # t1 仍正常走完失败路径（可能因取消提前退出，但绝不能是 WorkerCrashed）
+        assert first.error_type != "WorkerCrashedError"
+
+
+class TestExecutorReuseGuard:
+    def test_execute_after_shutdown_raises(self):
+        executor = WorkerProcessExecutor()
+        executor._ensure_started()
+        executor.shutdown()
+
+        async def scenario():
+            await executor.execute(
+                "t1", missing_audio_config(), lambda p, m, s: None, CancellationToken()
+            )
+
+        with pytest.raises(RuntimeError):
+            asyncio.run(scenario())
+
+
+class TestReaderProgressDispatch:
+    def test_progress_message_reaches_callback(self):
+        # 白盒：直接向 res_q 投递 progress 消息，验证 reader 线程派发到回调
+        executor = WorkerProcessExecutor()
+        executor._ensure_started()
+        received = []
+        executor._progress_cb = lambda p, m, s: received.append((p, m, s))
+        executor._res_q.put(
+            {
+                "kind": "progress",
+                "task_id": "t9",
+                "progress": 55.0,
+                "message": "msg",
+                "stage": "st",
+            }
+        )
+        for _ in range(100):
+            if received:
+                break
+            time.sleep(0.05)
+        executor.shutdown()
+        assert received == [(55.0, "msg", "st")]

@@ -11,6 +11,7 @@ TaskManager 经 TaskExecutor 接缝调用：
 """
 
 import asyncio
+import logging
 import multiprocessing as mp
 import threading
 import time
@@ -19,6 +20,9 @@ from typing import Any, Callable, Dict, Optional, Protocol
 from mediafactory.api.schemas import TaskConfig
 from mediafactory.core.tool import CancellationToken
 from mediafactory.pipeline.context import ProcessingResult
+
+logger = logging.getLogger(__name__)
+# API 层使用标准 logging，通过 InterceptHandler 自动重定向到 loguru
 
 # ==================== 子进程侧 ====================
 
@@ -207,14 +211,26 @@ class WorkerProcessExecutor:
         self._loop: Optional[asyncio.AbstractEventLoop] = None
         self._pending: Dict[str, asyncio.Future] = {}
         self._progress_cb: Optional[Callable[[float, str, str], None]] = None
+        self._running_task_id: Optional[str] = None
         self._shutting_down = False
 
     # ---- 生命周期 ----
+
+    def _close_ipc(self) -> None:
+        """回收队列/事件句柄，避免 respawn/shutdown 泄漏 POSIX 信号量。"""
+        for obj in (self._cmd_q, self._res_q, self._cancel_event):
+            if obj is not None:
+                try:
+                    obj.close()
+                except Exception:
+                    pass
 
     def _ensure_started(self) -> None:
         """确保子进程与读线程就绪；已死则重启（respawn）。"""
         if self._process is not None and self._process.is_alive():
             return
+        # 旧子进程已死不会再写队列，close 旧句柄后再建新资源
+        self._close_ipc()
         self._cmd_q = self._ctx.Queue()
         self._res_q = self._ctx.Queue()
         self._cancel_event = self._ctx.Event()
@@ -241,25 +257,34 @@ class WorkerProcessExecutor:
                 msg = q.get(timeout=0.5)
             except Exception:  # queue.Empty / 队列关闭，继续轮询
                 continue
-            kind = msg.get("kind")
-            if kind == "progress" and self._progress_cb is not None:
-                cb = self._progress_cb
-                try:
-                    cb(msg["progress"], msg.get("message", ""), msg.get("stage") or "")
-                except Exception:
-                    pass  # 进度回调失败不影响执行
-            elif kind == "result":
-                task_id = msg["task_id"]
-                fut = self._pending.get(task_id)
-                if fut is not None and not fut.done():
-                    payload = msg["result"]
-                    loop = self._loop
-                    if loop is not None:
-                        loop.call_soon_threadsafe(
-                            lambda f=fut, p=payload: (
-                                None if f.done() else f.set_result(p)
-                            )
+            try:
+                kind = msg.get("kind")
+                if kind == "progress" and self._progress_cb is not None:
+                    cb = self._progress_cb
+                    try:
+                        cb(
+                            msg["progress"],
+                            msg.get("message", ""),
+                            msg.get("stage") or "",
                         )
+                    except Exception:
+                        # 进度回调失败不影响执行，但留痕排查
+                        logger.warning("进度回调抛错，已忽略", exc_info=True)
+                elif kind == "result":
+                    task_id = msg["task_id"]
+                    fut = self._pending.get(task_id)
+                    if fut is not None and not fut.done():
+                        payload = msg["result"]
+                        loop = self._loop
+                        if loop is not None:
+                            loop.call_soon_threadsafe(
+                                lambda f=fut, p=payload: (
+                                    None if f.done() else f.set_result(p)
+                                )
+                            )
+            except Exception:
+                # 单条消息派发失败不杀 reader 线程，留痕后继续
+                logger.warning("worker 消息派发失败: %r", msg, exc_info=True)
 
     # ---- TaskExecutor 接口 ----
 
@@ -270,6 +295,8 @@ class WorkerProcessExecutor:
         progress_callback: Callable[[float, str, str], None],
         cancel_token: CancellationToken,
     ) -> ProcessingResult:
+        if self._shutting_down:
+            raise RuntimeError("WorkerProcessExecutor already shut down")
         self._ensure_started()
         loop = asyncio.get_running_loop()
         self._loop = loop
@@ -277,6 +304,7 @@ class WorkerProcessExecutor:
         self._pending[task_id] = fut
         self._progress_cb = progress_callback
         self._cancel_event.clear()  # 串行单任务：任务下发前清取消标志
+        self._running_task_id = task_id
         self._cmd_q.put(
             {"cmd": "run", "task_id": task_id, "config": config.model_dump(mode="json")}
         )
@@ -294,6 +322,7 @@ class WorkerProcessExecutor:
             watchdog.cancel()
             self._pending.pop(task_id, None)
             self._progress_cb = None
+            self._running_task_id = None
 
     async def _watchdog(self, fut: asyncio.Future) -> None:
         """子进程死亡检测：当前任务判失败（不自动重试——产物可能不完整）。"""
@@ -317,7 +346,8 @@ class WorkerProcessExecutor:
                 return
 
     def cancel(self, task_id: str) -> None:
-        if self._cancel_event is not None:
+        # 只取消当前运行的任务：错 id（如排队中任务）不得误杀运行中的任务
+        if self._cancel_event is not None and task_id == self._running_task_id:
             self._cancel_event.set()
 
     def shutdown(self) -> None:
@@ -334,3 +364,5 @@ class WorkerProcessExecutor:
                 self._process.join(timeout=2)
         if self._reader is not None:
             self._reader.join(timeout=2)
+        # 子进程与 reader 均已停止，回收队列/事件句柄
+        self._close_ipc()
