@@ -605,8 +605,17 @@ _task_manager: Optional[TaskManager] = None
 
 
 def get_task_manager() -> TaskManager:
-    """获取全局 TaskManager 单例（延迟初始化）。"""
+    """获取全局 TaskManager 单例（延迟初始化，生产装配）。
+
+    - SQLite 落在 data/tasks.db（daemon 重启后队列不丢）
+    - 执行器为 WorkerProcessExecutor（ML 崩溃不连坐 daemon）
+    """
     global _task_manager
     if _task_manager is None:
-        _task_manager = TaskManager()
+        from mediafactory.api.worker import WorkerProcessExecutor  # 延迟导入避免环
+
+        _task_manager = TaskManager(
+            db_path=Path("data/tasks.db"),
+            executor=WorkerProcessExecutor(),
+        )
     return _task_manager

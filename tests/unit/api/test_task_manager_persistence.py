@@ -264,3 +264,13 @@ class TestRestartRecovery:
         manager = asyncio.run(scenario())
         assert manager._tasks == {}
         assert manager._queue == []
+
+
+class TestProductionWiring:
+    def test_get_task_manager_uses_worker_executor(self, monkeypatch):
+        import mediafactory.api.task_manager as tm_module
+        from mediafactory.api.worker import WorkerProcessExecutor
+
+        monkeypatch.setattr(tm_module, "_task_manager", None)
+        manager = tm_module.get_task_manager()
+        assert isinstance(manager._executor, WorkerProcessExecutor)

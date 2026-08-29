@@ -52,8 +52,9 @@ async def lifespan(app: FastAPI):
 
     asyncio.create_task(_sync_models_background())
 
-    # 启动时：初始化任务管理器
+    # 启动时：初始化任务管理器，并恢复上次中断的队列（RUNNING→FAILED，QUEUED 保留）
     task_manager = get_task_manager()
+    await task_manager.recover()
 
     yield
 
