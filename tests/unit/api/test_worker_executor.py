@@ -5,6 +5,8 @@
 """
 
 import asyncio
+import os
+import signal
 import threading
 import time
 from types import SimpleNamespace
@@ -172,6 +174,47 @@ class TestExecutorReuseGuard:
 
         with pytest.raises(RuntimeError):
             asyncio.run(scenario())
+
+
+class TestCrashIsolation:
+    def test_crash_fails_task_and_respawns_worker(self):
+        # SIGKILL 子进程：当前任务判 WorkerCrashedError 失败（不重试），
+        # 下一次 execute 经 _ensure_started 自动 respawn（新 pid），旧 IPC 队列关闭
+        executor = WorkerProcessExecutor()
+
+        async def scenario():
+            loop = asyncio.get_running_loop()
+            first_task = loop.create_task(
+                executor.execute(
+                    "crashy",
+                    missing_audio_config(),
+                    lambda p, m, s: None,
+                    CancellationToken(),
+                )
+            )
+            # 等 executor 拉起子进程并拿到 pid（子进程 spawn 导入需数百毫秒，
+            # 击杀窗口充足；必须在子进程完成快速失败路径前 kill）
+            while executor._process is None or executor._process.pid is None:
+                await asyncio.sleep(0.02)
+            os.kill(executor._process.pid, signal.SIGKILL)
+            first = await first_task
+            crashed_pid = executor._process.pid
+            second = await executor.execute(
+                "next",
+                missing_audio_config(),
+                lambda p, m, s: None,
+                CancellationToken(),
+            )
+            return first, second, crashed_pid, executor._process.pid
+
+        first, second, crashed_pid, respawned_pid = asyncio.run(scenario())
+        executor.shutdown()
+        # 当前任务判失败，错误类型标记为 worker 崩溃
+        assert first.success is False
+        assert first.error_type == "WorkerCrashedError"
+        # 下一次执行自动重启子进程，任务正常走完（引擎）失败路径
+        assert second.error_type != "WorkerCrashedError"
+        assert respawned_pid != crashed_pid
 
 
 class TestReaderProgressDispatch:
