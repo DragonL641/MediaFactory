@@ -55,6 +55,8 @@ class TestSpaServing:
 
     def test_health_and_ws_paths_unaffected(self, client, webui):
         assert client.get("/health").status_code == 200
+        with client.websocket_connect("/ws"):
+            pass  # upgrade 请求不被根路径 mount 吞掉
 
     def test_missing_webui_dir_degrades_gracefully(self, tmp_path, monkeypatch):
         monkeypatch.setattr(api_main, "_webui_dir", lambda: tmp_path / "nope")

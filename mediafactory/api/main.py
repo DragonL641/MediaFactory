@@ -151,14 +151,15 @@ def create_app() -> FastAPI:
             app.add_api_route(
                 spa_path,
                 _make_spa_handler(webui / "index.html"),
-                methods=["GET"],
+                methods=["GET", "HEAD"],
                 include_in_schema=False,
             )
 
         app.mount("/", StaticFiles(directory=webui, html=True), name="webui")
     else:
         logger.warning(
-            f"Web UI directory not found at {webui} — running in API-only mode"
+            f"Web UI directory not found at {webui} — running in API-only mode "
+            f"(run `npm run build` to enable, then restart the daemon)"
         )
 
     return app
