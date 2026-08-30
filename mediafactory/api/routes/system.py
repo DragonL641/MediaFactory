@@ -94,5 +94,7 @@ async def reveal(req: RevealRequest) -> None:
         stdout=asyncio.subprocess.DEVNULL,
         stderr=asyncio.subprocess.DEVNULL,
     )
-    if await proc.wait() != 0:
+    returncode = await proc.wait()
+    # explorer.exe 成功时也返回 1——Windows 分支不据此告警
+    if returncode != 0 and sys.platform != "win32":
         logger.warning(f"reveal 命令返回非零（忽略）: {cmd}")

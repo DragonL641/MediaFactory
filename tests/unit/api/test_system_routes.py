@@ -99,6 +99,10 @@ class TestBrowse:
         assert ".hidden" not in names
         assert "visible.mp4" in names
 
+    @pytest.mark.skipif(
+        sys.platform == "win32",
+        reason="POSIX 权限语义；Windows chmod 不移除目录遍历权",
+    )
     def test_browse_skips_unstattable_entries(self, client, tmp_path):
         # POSIX 复现 Windows junction 场景：目录去掉 x 权限后可列名，
         # 但其下条目 is_dir() 抛 EACCES——应跳过条目而非 400
