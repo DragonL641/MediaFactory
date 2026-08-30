@@ -203,7 +203,7 @@ MediaFactory 功能架构:
 |------|----------|----------|
 | **语音识别** | Faster Whisper (CTranslate2) | 比 OpenAI Whisper 快 4-6x |
 | **翻译模型** | M2M100-1.2B | MIT 许可证，商用友好 |
-| **GUI 框架** | Electron + React + Ant Design | 跨平台、现代化 UI |
+| **GUI 框架** | Tauri 2 壳 + React + Ant Design（daemon 同源伺服 SPA，浏览器可直连） | 跨平台、壳轻量（系统 WebView，非捆绑 Chromium） |
 | **配置管理** | TOML + Pydantic v2 | 类型安全、热重载 |
 | **打包工具** | PyInstaller | 成熟稳定、跨平台支持 |
 
@@ -1135,9 +1135,9 @@ model = AutoModel.from_pretrained(
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│           前端层 (Electron + React + Ant Design)             │
-│                    electron/ (main+preload) + src/ (React)  │
-│  main/ (主进程) | preload/ | src/ (React SPA)              │
+│      前端层 (Tauri 壳 + React SPA，daemon 同源伺服)          │
+│   src-tauri/ (壳：daemon 生命周期) + src/ (React SPA)       │
+│   浏览器直连 http://127.0.0.1:8765 为等价形态              │
 └──────────────────────────┬──────────────────────────────────┘
                            │ HTTP/WebSocket (127.0.0.1:8765)
                            ▼
@@ -1171,7 +1171,7 @@ model = AutoModel.from_pretrained(
 **设计原则**：
 - **依赖倒置**：高层模块不依赖低层模块，都依赖抽象
 - **单一职责**：每层只负责自己的职责
-  - 前端层 (Electron)：展示和用户交互（React SPA，Ant Design UI）
+  - 前端层 (Tauri 壳)：系统窗口与 daemon 进程生命周期管理；React SPA：展示与用户交互（daemon 同源伺服，浏览器等价）
   - API 层 (FastAPI)：RESTful API + WebSocket 实时通信
   - 服务层：业务逻辑和编排，异步桥接
   - 流水线层：可组合的处理阶段编排
@@ -2238,24 +2238,24 @@ batch_size = 10
 
 ### GUI框架原理
 
-#### Electron + React 架构
+#### Tauri 壳 + React SPA 架构
 
-MediaFactory 使用 **Electron + React + TypeScript + Ant Design** 作为前端框架：
+MediaFactory 使用 **Tauri 2 壳 + React + TypeScript + Ant Design** 作为 GUI 方案：壳只管进程生命周期，界面本身是 daemon 同源伺服的普通网页。
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                    Electron 主进程                           │
-│  electron/main/                                         │
-│  ├── index.ts     窗口管理、Python 子进程管理                 │
-│  ├── ipcHandlers.ts  IPC 通信处理                           │
-│  └── pythonManager.ts  FastAPI 后端生命周期管理               │
+│             Tauri 2 壳 (src-tauri/，Rust 约 250 行)          │
+│  src/main.rs  唯一职责：daemon 进程生命周期，不含业务逻辑      │
+│  ├── spawn       拉起 PyInstaller daemon（独立进程组）        │
+│  ├── 就绪探测    TCP 连 127.0.0.1:8765（120s 超时含 ML 冷启动）│
+│  ├── 监护        轮询 daemon 生死 → 意外退出弹窗提示          │
+│  └── 优雅停机    POST /api/system/shutdown → 超时硬杀兜底     │
 ├─────────────────────────────────────────────────────────────┤
-│                    Preload 脚本                              │
-│  electron/preload/                                      │
-│  └── index.ts     安全桥接（contextBridge）                   │
+│              系统 WebView (WKWebView / WebView2)             │
+│  加载 http://127.0.0.1:8765 —— 与浏览器访问完全等价           │
+│  （无 preload 桥、无壳特有 API，SPA 即普通网页）              │
 ├─────────────────────────────────────────────────────────────┤
-│                    React 渲染进程                            │
-│  src/ (React 渲染进程)                                      │
+│              React SPA (src/，daemon 同源伺服)               │
 │  ├── App.tsx      路由配置 (Tasks/Settings)                  │
 │  ├── api/         HTTP + WebSocket API 客户端                 │
 │  │   ├── client.ts    Axios 实例 + WebSocket 管理            │
@@ -2270,6 +2270,35 @@ MediaFactory 使用 **Electron + React + TypeScript + Ant Design** 作为前端�
 │  └── types/       TypeScript 类型定义                        │
 └─────────────────────────────────────────────────────────────┘
 ```
+
+**壳的进程生命周期**（src-tauri/src/main.rs，学习点：GUI 壳与业务彻底解耦）：
+
+```
+启动：spawn resources/python-backend/ 下的 PyInstaller onedir 产物
+  → 轮询 TCP 连 127.0.0.1:8765（uvicorn lifespan 完成后才开始
+    accept，连通即 API 完全就绪，避免加载到半个后端）
+  → 就绪后才显示窗口（就绪前不露白屏）
+退出：POST /api/system/shutdown（优雅路径：RUNNING 任务落 CANCELLED）
+  → 15s 未退 → killpg 硬杀整个进程树（含 worker 子进程）兜底
+异常：daemon 启动期秒退或运行期意外退出 → 弹窗提示后壳退出
+  （退出码 42 = 撞实例锁让位，转复用已有 daemon，不视为崩溃）
+复用：端口已被占用（误双击）→ 不再 spawn，直接连接现有 daemon
+```
+
+**同源伺服形态**：daemon（FastAPI）直接伺服 vite 构建产物 `webui/`，前端与 API 同源：
+- 浏览器打开 `http://127.0.0.1:8765` 即获得完整功能，壳不是必需的
+- 壳的 WebView 加载同一 URL，SPA 感知不到自己跑在壳里还是浏览器里
+- 开发模式下 vite dev server（5173）代理 `/api` 与 `/ws` 到 daemon
+
+**与 Electron 的本质差异**（Phase 3 弃 Electron 选 Tauri 的原因）：
+
+| 维度 | Electron（旧方案） | Tauri 2（现行方案） |
+|------|--------------------|---------------------|
+| 渲染引擎 | 捆绑 Chromium（各平台一致） | 系统 WebView（macOS WKWebView / Windows WebView2） |
+| 壳体积 | ~200MB（Chromium + Node 运行时） | ~10MB（纯 Rust 壳） |
+| 壳的职责 | 主进程业务逻辑 + preload 桥 + IPC 通道 | 仅进程生命周期，零业务逻辑 |
+| 前后端通路 | 渲染进程 ↔ IPC ↔ 主进程 ↔ spawn Python | WebView 直接 HTTP/WS 到 daemon |
+| 运行时生态 | 双进程双生态（Node + Python 两套运行时） | 单 Python 进程树（daemon → worker），壳近乎零开销 |
 
 **前后端通信架构**：
 
@@ -2868,9 +2897,10 @@ class OpenAICompatibleBackend:
 
 ---
 
-**文档版本**: 4.0
-**更新日期**: 2026-03-28
+**文档版本**: 5.0
+**更新日期**: 2026-08-30
 **更新内容**:
+- 将 GUI 框架从 Electron 更新为 Tauri 2 壳 + daemon 同源伺服（Phase 3，Electron 于 Phase 2 移除）
 - 将 GUI 框架从 Flet 更新为 Electron + React + Ant Design
 - 更新架构设计图，反映 Electron + FastAPI 分层架构
 - 新增前端架构详解（React Query 状态管理、i18n 国际化、前后端通信）
