@@ -4,6 +4,7 @@
 配置默认值已移至 models.py 的 Field 中。
 """
 
+import os
 import sys
 from pathlib import Path
 
@@ -61,8 +62,6 @@ def get_data_root_dir() -> Path:
     Program Files）可能只读且升级会覆盖，可变数据不能放在那里。
     """
     if getattr(sys, "frozen", False):
-        import os
-
         if sys.platform == "darwin":
             return Path.home() / "Library" / "Application Support" / "MediaFactory"
         if sys.platform == "win32":

@@ -2,7 +2,7 @@
 
 import sys
 
-from mediafactory.config import get_app_root_dir, get_data_root_dir
+from mediafactory.config import get_app_root_dir, get_config_path, get_data_root_dir
 
 
 class TestDataRootDir:
@@ -12,10 +12,15 @@ class TestDataRootDir:
         # 非 frozen（开发环境）：数据根与应用根相同（项目根）
         assert get_data_root_dir() == get_app_root_dir()
 
+    def test_dev_config_path_follows_app_root(self):
+        # 开发环境 config.toml 仍在项目根（与数据根一致），防止回归到 exe 旁
+        assert get_config_path() == get_app_root_dir() / "config.toml"
+
     def test_frozen_darwin_uses_application_support(self, monkeypatch, tmp_path):
         monkeypatch.setattr(sys, "frozen", True, raising=False)
         monkeypatch.setattr(sys, "platform", "darwin")
-        monkeypatch.setenv("HOME", str(tmp_path))
+        # Windows 的 Path.home() 只认 USERPROFILE 不认 HOME，直接 patch 解析点保证跨平台
+        monkeypatch.setattr("mediafactory.config.defaults.Path.home", lambda: tmp_path)
         assert get_data_root_dir() == (
             tmp_path / "Library" / "Application Support" / "MediaFactory"
         )
@@ -31,7 +36,7 @@ class TestDataRootDir:
         monkeypatch.setattr(sys, "frozen", True, raising=False)
         monkeypatch.setattr(sys, "platform", "win32")
         monkeypatch.delenv("APPDATA", raising=False)
-        monkeypatch.setenv("HOME", str(tmp_path))
+        monkeypatch.setattr("mediafactory.config.defaults.Path.home", lambda: tmp_path)
         assert get_data_root_dir() == (
             tmp_path / "AppData" / "Roaming" / "MediaFactory"
         )
@@ -40,7 +45,7 @@ class TestDataRootDir:
         # 只读资产（webui/）仍跟随 app root，不随数据根迁移
         monkeypatch.setattr(sys, "frozen", True, raising=False)
         monkeypatch.setattr(sys, "platform", "darwin")
-        monkeypatch.setenv("HOME", str(tmp_path))
+        monkeypatch.setattr("mediafactory.config.defaults.Path.home", lambda: tmp_path)
         from mediafactory.api.main import _webui_dir
 
         assert _webui_dir().name == "webui"
@@ -50,8 +55,7 @@ class TestDataRootDir:
         # config.toml 是可变数据：frozen 下必须落数据根（用户目录），不落 exe 旁
         monkeypatch.setattr(sys, "frozen", True, raising=False)
         monkeypatch.setattr(sys, "platform", "darwin")
-        monkeypatch.setenv("HOME", str(tmp_path))
-        from mediafactory.config import get_config_path
+        monkeypatch.setattr("mediafactory.config.defaults.Path.home", lambda: tmp_path)
 
         assert get_config_path() == (
             tmp_path / "Library" / "Application Support" / "MediaFactory" / "config.toml"
