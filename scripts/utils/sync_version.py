@@ -28,6 +28,11 @@ VERSION_FILES = {
         r'"version":\s*"(\d+\.\d+\.\d+)"',
         '"version": "{version}"',
     ),
+    # 行首锚定，避免误匹配依赖行（如 tauri = { version = "2", ... }）
+    "src-tauri/Cargo.toml": (
+        r'^version = "(\d+\.\d+\.\d+)"',
+        'version = "{version}"',
+    ),
     "BUILD.md": [
         (r'version = "(\d+\.\d+\.\d+)"', 'version = "{version}"'),
         (r'git-cliff --tag v(\d+\.\d+\.\d+) --unreleased', 'git-cliff --tag v{version} --unreleased'),
@@ -84,7 +89,8 @@ def check_consistency() -> bool:
 
         file_consistent = True
         for pattern, _ in patterns:
-            matches = re.findall(pattern, content)
+            # MULTILINE 使 ^ 锚定到每一行行首（Cargo.toml/pyproject.toml 的 version 不在文件首行）
+            matches = re.findall(pattern, content, re.MULTILINE)
             for match in matches:
                 if match != current_version:
                     print(f"❌ {file_path}: 发现不一致版本 '{match}'")
@@ -134,7 +140,7 @@ def update_version(new_version: str, dry_run: bool = False) -> bool:
         for pattern, template in patterns:
             # 使用模板中的版本占位符进行替换
             replacement = template.format(version=new_version)
-            new_content, count = re.subn(pattern, replacement, content)
+            new_content, count = re.subn(pattern, replacement, content, flags=re.MULTILINE)
             if count > 0:
                 content = new_content
                 changes += count
