@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "主窗口最小权限（前端走 daemon HTTP/WS，不使用 Tauri IPC）",
+  "windows": ["main"],
+  "permissions": ["core:default"]
+}
