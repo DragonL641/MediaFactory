@@ -178,3 +178,8 @@ node_modules
 /config.toml*
 /data/
 /webui/
+
+# Tauri 构建产物（python-backend 由构建脚本组装；target 为 cargo 输出；gen 为 tauri 生成）
+/src-tauri/python-backend/
+/src-tauri/target/
+/src-tauri/gen/

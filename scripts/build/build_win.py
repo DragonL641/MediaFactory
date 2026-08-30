@@ -12,7 +12,7 @@ from pathlib import Path
 # 添加 utils 目录到路径
 sys.path.insert(0, str(Path(__file__).parent.parent / "utils"))
 
-from build_executor import build_backend
+from build_executor import build_desktop
 
 
 if __name__ == "__main__":
@@ -22,4 +22,4 @@ if __name__ == "__main__":
     parser.add_argument("--version", default=None, help="版本号（默认从 pyproject.toml 读取）")
     args = parser.parse_args()
 
-    sys.exit(build_backend("Windows", args.version))
+    sys.exit(build_desktop("Windows", args.version))
