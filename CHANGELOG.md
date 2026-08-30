@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+**desktop:** Tauri 2 桌面壳（src-tauri/）——拉起 daemon → 端口就绪显示窗口 → 退出优雅停机（15s 超时硬杀兜底）→ 崩溃提示；一键构建产出 macOS dmg（ad-hoc 签名）
+
+**config:** frozen 可变数据迁平台用户目录（macOS ~/Library/Application Support/MediaFactory、Windows %APPDATA%\MediaFactory），安装目录只留只读资产
+
+**api:** POST /api/system/shutdown 优雅停机端点（uvicorn should_exit → lifespan 收尾，RUNNING 任务落 CANCELLED）
+
 ### Fixed
 
 **pipeline:** stage 内取消异常必须立即传播，不再被当作警告继续执行

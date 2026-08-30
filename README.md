@@ -68,7 +68,7 @@ npm run build                          # Build the Web UI (outputs to webui/)
 uv run python -m mediafactory          # Start the daemon, then open http://127.0.0.1:8765 in your browser
 ```
 
-> **Note**: The daemon serves both the API and the Web UI at http://127.0.0.1:8765 — no desktop app install needed, just a browser.
+> **Note**: The desktop app (Tauri) is the primary distribution — build it with one command (`uv run python scripts/build/build_darwin.py`, see [BUILD.md](BUILD.md)); a plain browser can also connect to the daemon directly at http://127.0.0.1:8765.
 > For frontend development, run `npm run dev` in a second terminal (vite dev server at 5173, proxying `/api` and `/ws` to the daemon).
 > PyTorch is downloaded from `download.pytorch.org` (not PyPI) to ensure CUDA support.
 > CUDA 12.8 supports Blackwell (RTX 50 series) and earlier architectures.
@@ -123,6 +123,7 @@ AI video tools often force you to choose between quality and speed, or between c
 - **Python**: 3.11, 3.12, or 3.13 (3.12 recommended)
 - **uv**: Modern Python package manager ([install uv](https://docs.astral.sh/uv/))
 - **Node.js**: ≥20.19.0 (for Web UI development and build)
+- **Rust**: ≥1.77.2 (only needed when building the desktop installer; not required to run from source)
 - **FFmpeg**: Included via imageio-ffmpeg (no manual installation needed)
 - **macOS**: 12.0 (Monterey) or later
 

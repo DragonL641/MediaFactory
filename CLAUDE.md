@@ -8,10 +8,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **MediaFactory**（前身为 VideoDub）是一个多媒体处理平台，用于字幕生成和视频相关任务。提供统一的架构，包括服务层、流水线层和引擎层，用于处理音频提取、语音转文字转录（使用 Faster Whisper）、翻译（本地模型和 LLM API）和字幕生成等任务。
 
-**平台支持**：macOS、Windows（Linux 暂不支持）
+**平台支持**：macOS、Windows（Linux 暂不支持）；桌面交付 = Tauri 2 壳（`src-tauri/`，约 250 行 Rust 胶水：拉起 daemon → 就绪显示窗口 → 退出优雅停机，只做进程生命周期管理、无业务逻辑）
 
 **关键架构说明：**
-- **daemon 单进程架构**：FastAPI daemon（8765）提供 API 并同源伺服 React SPA（vite 产物 `webui/`），浏览器直接访问 `http://127.0.0.1:8765`（Tauri 壳待 Phase 3 引入）
+- **daemon 单进程架构**：FastAPI daemon（8765）提供 API 并同源伺服 React SPA（vite 产物 `webui/`）；Tauri 壳加载 `http://127.0.0.1:8765` 为主交付形态，浏览器直连为等价形态
 - **三层架构**：Frontend (React SPA，浏览器) → API (FastAPI) → Service → Pipeline → Engine
 - **单一包**：`mediafactory/` 包含所有后端代码（API、服务、流水线、引擎）
 - 使用 **Faster Whisper** 而非 OpenAI Whisper，转录速度快 4-6 倍
@@ -25,7 +25,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ```
 ┌───────────────────────────────────────────────────────────┐
-│    前端层（React SPA——daemon 同源伺服 webui/，浏览器访问）  │
+│  前端层（React SPA——daemon 同源伺服 webui/）                │
+│  主交付：Tauri 壳（src-tauri/，加载 127.0.0.1:8765）        │
+│  等价形态：浏览器直接访问同地址                               │
 │           src/ (React + TypeScript + Ant Design)           │
 └──────────────────────────┬────────────────────────────────┘
                            │ HTTP/WebSocket (127.0.0.1:8765)
@@ -64,7 +66,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ### 事件流
 
 ```
-用户操作 → Web UI (React，浏览器)
+用户操作 → Web UI (React)
+           （Tauri 壳主交付：壳拉起 daemon → 加载 127.0.0.1:8765 →
+             退出时优雅停机；浏览器直连为等价形态）
                │
                ▼ HTTP/WS
           FastAPI daemon
@@ -110,6 +114,9 @@ npm run dev                          # 终端 2：vite dev server（5173，代�
 # 或一体化：npm run build 后浏览器打开 http://127.0.0.1:8765
 # 注意：daemon 启动时固化 webui/ 伺服——重新 build 后需重启 daemon
 
+# 壳开发模式（debug 构建不 spawn 打包产物，需手动另起源码 daemon；窗口加载 127.0.0.1:8765）
+npm run tauri dev
+
 # 开发者：安装所有依赖
 uv sync --all-groups
 
@@ -137,20 +144,25 @@ uv run flake8 mediafactory/ tests/ && uv run bandit -r mediafactory/      # 运�
 uv run mypy mediafactory/                                          # 类型检查
 ```
 
-### 构建可执行文件
+### 构建可执行文件（桌面安装包）
 
 ```bash
-# Python 后端构建（通过入口脚本，内部调用 PyInstaller）
-uv run python scripts/build/build_darwin.py          # macOS
-uv run python scripts/build/build_win.py              # Windows
+# 桌面安装包全链（PyInstaller → 组装 src-tauri/python-backend → tauri build → 收集到 release/）
+uv run python scripts/build/build_darwin.py          # macOS → release/*.dmg（需 Rust ≥1.77.2）
+uv run python scripts/build/build_win.py              # Windows → release/*_setup.exe
 
-# Web UI 构建（需要 Node.js ≥20.19.0，package.json 在仓库根目录）
+# 壳开发模式（debug 构建不 spawn 打包产物，需手动另起源码 daemon）
+npm run tauri dev
+
+# 仅前端构建（需要 Node.js ≥20.19.0，package.json 在仓库根目录）
 npm run build        # vite 构建，产物输出 webui/（daemon 同源伺服）
 npm run typecheck    # TS 类型检查（src/tsconfig.json）
 
 # 清理所有构建产物
-rm -rf build/ dist/ release/ webui/
+rm -rf build/ dist/ release/ webui/ src-tauri/target/ src-tauri/python-backend/
 ```
+
+注意：全新 clone 后直接 `cd src-tauri && cargo build` 会报 resources 目录不存在（`python-backend/` 由构建脚本组装、不入库）——先跑一键构建或 `mkdir src-tauri/python-backend`。详见 BUILD.md。
 
 ### 版本管理
 
@@ -158,7 +170,7 @@ rm -rf build/ dist/ release/ webui/
 - **版本定义**：`pyproject.toml` 中的 `project.version`
 - **统一读取**：`_version.py` 是唯一的版本读取器（支持 tomli/tomllib 解析 + importlib.metadata 回退 + 简单解析器 fallback）
 - **所有消费者**通过 `_version.py` 获取版本：`from mediafactory._version import get_version`
-- **跨栈同步**：`sync_version.py` 将版本同步到 `package.json` 和 `BUILD.md`
+- **跨栈同步**：`sync_version.py` 将版本同步到 `package.json`、`src-tauri/Cargo.toml` 和 `BUILD.md`
 
 ```bash
 python scripts/utils/sync_version.py --check     # 检查版本一致性
@@ -199,11 +211,12 @@ result = await loop.run_in_executor(None, pipeline.execute, context)
 ### API 层（`mediafactory/api/`）
 
 - `main.py`：FastAPI 应用入口，生命周期管理，WebSocket 端点，SPA 同源伺服
-- `daemon_lock.py`：daemon 实例 PID 锁（`data/daemon.lock`，双开第二个直接 exit=1，死进程锁自动接管）
+- `daemon_lock.py`：daemon 实例 PID 锁（`data/daemon.lock`，双开第二个以 `SystemExit(42)` 让位特征码退出，死进程锁自动接管）
+- `server_ref.py`：uvicorn Server 实例引用（入口构造后 `set_server` 注册，`POST /api/system/shutdown` 优雅停机经 `request_shutdown()` 置 `should_exit` → lifespan 收尾）
 - `routes/config.py`：配置管理 API（读取、更新、保存、LLM 预设）
 - `routes/models.py`：模型管理 API
 - `routes/processing.py`：任务处理 API（字幕、音频、转录、翻译、增强）
-- `routes/system.py`：系统交互 API（`/browse` 目录浏览供 Web UI 文件选取、`/reveal` 在文件管理器中定位产物）
+- `routes/system.py`：系统交互 API（`/browse` 目录浏览供 Web UI 文件选取、`/reveal` 在文件管理器中定位产物、`/shutdown` 优雅停机供 Tauri 壳调用）
 - `schemas.py`：Pydantic 数据模型（TaskConfig、TaskProgress、TaskResult 等）
 - `websocket.py`：WebSocket 连接管理器，实时进度推送
 - `task_manager.py`：后台任务管理器（SQLite 持久队列 + `SimpleProgressAdapter` 进度适配、`get_task_manager` 单例装配 WorkerProcessExecutor；write-through 落库，重启 `recover()` 恢复队列）
@@ -306,7 +319,11 @@ save_config()
 - 自定义钩子在 `scripts/pyinstaller/hooks/`
 
 **Web UI**（`src/` + `vite.config.ts`）：
-- React + TypeScript + Ant Design，vite 构建产物输出 `webui/`，由 daemon 同源伺服（Tauri 壳待 Phase 3）
+- React + TypeScript + Ant Design，vite 构建产物输出 `webui/`，由 daemon 同源伺服
+
+**Tauri 桌面壳**（`src-tauri/`）：
+- 约束：只做进程生命周期管理（spawn daemon/就绪探测/优雅停机/崩溃提示），无业务逻辑；改业务去 SPA 或 daemon
+- 构建链：`build_darwin.py`/`build_win.py` 内部四步（PyInstaller → 组装 `src-tauri/python-backend/`（COLLECT + webui）→ tauri build → 收集到 release/）；`python-backend/`、`target/`、`gen/` 不入库
 
 **FFmpeg**：统一使用 `imageio-ffmpeg`，不依赖系统 FFmpeg
 
@@ -315,7 +332,7 @@ save_config()
 - 框架：pytest 带覆盖率
 - 结构：`tests/unit/`（按模块分子目录：api、config、core、engine、llm、pipeline、services、utils）+ `tests/integration/`
 - 标记：`unit`、`integration`、`slow`、`requires_ml`、`requires_network`（无 `e2e`）
-- **契约测试安全网**（共 105 个，精简重构 Phase 1-3、持久化队列 Phase 1 与 Electron 移除 Phase 2 的回归防线——**改动 runner/task_manager/task_store/worker/pipeline/download_task/daemon_lock/system 路由/SPA 伺服前先确认这些测试全绿**）：`tests/unit/services/test_runner_contract.py`（21 个：5 个 runner 全覆盖、LLM 三分支、字段改名映射、失败透传）、`tests/unit/api/test_task_manager_contract.py`（9 个：状态机/CANCELLED 不变量/串行队列/取消出队）、`tests/unit/api/test_download_task.py`（3 个：成功/失败/节流）、`tests/unit/pipeline/test_progress_mapping.py`（8 个：区间归一化/防叠加/恢复）、`tests/unit/api/test_task_store.py`（11 个：任务 CRUD/白名单更新/队列标记/崩溃恢复）、`tests/unit/api/test_worker_executor.py`（10 个：子进程执行往返/崩溃隔离 respawn/取消 IPC/进度回传）、`tests/unit/api/test_task_manager_persistence.py`（14 个：write-through 落库/重启恢复/corrupt-row 跳过/lifespan 启动恢复/生产装配/manager+worker+SQLite 端到端链路）、`tests/unit/api/test_daemon_lock.py`（10 个：PID 锁获取/双开拒绝/死锁接管/入口装配）、`tests/unit/api/test_system_routes.py`（13 个：browse 目录浏览排序与过滤/dotfile 跳过/reveal 平台命令）、`tests/unit/api/test_spa_serving.py`（6 个：index 伺服/客户端路由回退/静态资源/API 路径不受影响/缺 webui 优雅降级）
+- **契约测试安全网**（共 115 个，精简重构 Phase 1-3、持久化队列 Phase 1、Electron 移除 Phase 2 与 Tauri 壳 Phase 3 的回归防线——**改动 runner/task_manager/task_store/worker/pipeline/download_task/daemon_lock/system 路由/SPA 伺服/config 数据目录前先确认这些测试全绿**）：`tests/unit/services/test_runner_contract.py`（21 个：5 个 runner 全覆盖、LLM 三分支、字段改名映射、失败透传）、`tests/unit/api/test_task_manager_contract.py`（9 个：状态机/CANCELLED 不变量/串行队列/取消出队）、`tests/unit/api/test_download_task.py`（3 个：成功/失败/节流）、`tests/unit/pipeline/test_progress_mapping.py`（8 个：区间归一化/防叠加/恢复）、`tests/unit/api/test_task_store.py`（11 个：任务 CRUD/白名单更新/队列标记/崩溃恢复）、`tests/unit/api/test_worker_executor.py`（10 个：子进程执行往返/崩溃隔离 respawn/取消 IPC/进度回传）、`tests/unit/api/test_task_manager_persistence.py`（14 个：write-through 落库/重启恢复/corrupt-row 跳过/lifespan 启动恢复/生产装配/manager+worker+SQLite 端到端链路）、`tests/unit/api/test_daemon_lock.py`（11 个：PID 锁获取/双开拒绝/死锁接管/入口装配/server 注册）、`tests/unit/api/test_system_routes.py`（15 个：browse 目录浏览排序与过滤/dotfile 跳过/reveal 平台命令/shutdown 端点）、`tests/unit/config/test_defaults.py`（7 个：frozen 数据目录迁移——Application Support/%APPDATA% 落点、config 路径随数据根、webui 仍从 exe 旁解析）、`tests/unit/api/test_spa_serving.py`（6 个：index 伺服/客户端路由回退/静态资源/API 路径不受影响/缺 webui 优雅降级）
 
 ## 重要实现细节
 
@@ -351,6 +368,12 @@ def process_with_progress(data: str, progress: ProgressCallback = NO_OP_PROGRESS
 
 ### 线程安全取消模式
 使用 `CancellationToken`（`core/tool.py`），而不是 `threading.Event()`。
+
+### frozen 可变数据目录
+`get_data_root_dir()`（`config/defaults.py`）：可变数据（data/tasks.db、daemon.lock、config.toml、logs、models）的父目录——开发环境为项目根；PyInstaller frozen 下为平台用户目录（macOS `~/Library/Application Support/MediaFactory`、Windows `%APPDATA%\MediaFactory`）。只读资产（webui）仍随 exe（`get_app_root_dir()`）。
+
+### daemon 锁让位特征码
+双开时第二个 daemon 撞实例锁以 `SystemExit(42)` 退出——Tauri 壳据此区分「双启动让位」（转复用模式直连已有 daemon）与「真崩溃」（弹窗报错）。
 
 ## 重要说明
 

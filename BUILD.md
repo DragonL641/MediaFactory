@@ -1,188 +1,95 @@
 # MediaFactory 构建指南
 
-> **注意（2026-08，Phase 2 起）**：Electron 前端构建链已随 daemon + 浏览器形态移除——
-> 本文中 electron-vite / electron-builder 相关流程已失效。Web UI 现由 `npm run build`
-> 构建为 `webui/` 并由 daemon 同源伺服。桌面打包链待 Plan 3（Tauri）重写。
-> Python 后端（PyInstaller）部分仍有效。
-
-## 平台支持
-
-MediaFactory 支持 **macOS** 和 **Windows** 平台。Linux 平台暂不支持。
+**平台支持**：macOS / Windows（Linux 暂不支持）。macOS 产物已本地全链验证；Windows 为 CI 出包（`release.yml`），未真机验证。
 
 ## 前置要求
 
 - Python 3.11、3.12 或 3.13（推荐 3.12）
 - uv（推荐）或 pip
-- Node.js >= 18
+- Node.js >= 20.19.0（npm；前端构建与桌面打包都需要）
+- Rust >= 1.77.2（rustup 安装；仅桌面打包需要，源码运行不需要。Windows 需 MSVC 工具链——Visual Studio Installer 勾选 "Desktop development with C++"）
+- macOS：Xcode Command Line Tools（`xcode-select --install`）
 
-### macOS 额外要求
-- Xcode Command Line Tools
-
-### Windows 额外要求
-- 无额外要求
-
-## 安装依赖
+### 安装依赖
 
 MediaFactory 使用 `dependency-groups` 进行依赖分组（详见 `pyproject.toml`）：
 
 | 用途 | 命令 |
 |------|------|
 | 开发者（所有依赖） | `uv sync --all-groups` |
-| 完整功能（含 ML） | `uv sync --group core` |
+| 桌面打包（含 ML 依赖） | `uv sync --group core` |
 | 打包验证 | `uv sync --group bundle` |
 | 基础运行时 | `uv sync` |
 
-## 构建概览
-
-MediaFactory 的构建分为三个阶段：
-
-| 阶段 | 说明 | 产物 |
-|------|------|------|
-| **后端构建** | PyInstaller 打包 Python FastAPI 后端 | `dist/MediaFactory.app` + `dist/python/` |
-| **前端构建** | electron-vite 编译 React + TypeScript | `dist/electron/` |
-| **应用打包** | electron-builder 打包为安装包 | `release/{version}/MediaFactory-{version}-{arch}.dmg` |
-
-### 快速开始（完整构建）
+## 一键构建（桌面安装包）
 
 ```bash
-# 1. 后端构建
-uv run python scripts/build/build_darwin.py     # macOS
-uv run python scripts/build/build_win.py         # Windows
-
-# 2. 前端构建（在项目根目录执行，根 package.json 已配置 electron-vite 命令）
-npm run build
-
-# 3. 应用打包
-npx electron-builder --mac                        # macOS DMG
-npx electron-builder --win                        # Windows portable ZIP
+uv run python scripts/build/build_darwin.py    # macOS → release/MediaFactory_<version>_aarch64.dmg
+uv run python scripts/build/build_win.py       # Windows → release/MediaFactory_<version>_setup.exe
 ```
 
----
+前提：`webui/` 已存在（`npm run build` 产物）——组装步骤依赖它，缺失时脚本会提示先构建前端。支持 `--version` 参数覆盖版本号（默认读 `pyproject.toml`）。
 
-## 阶段一：后端构建（Python）
+内部流程（`scripts/utils/build_executor.py` 的 `build_desktop` 编排，四步）：
 
-### macOS
+1. **PyInstaller**（`installer_simple.spec`，onedir）：ML 依赖全量打包，产出 `dist/MediaFactory/`
+2. **组装 `src-tauri/python-backend/`**：COLLECT 产物 + `webui/` 复制到 exe 同级——daemon 在 frozen 下从 exe 旁找 webui（`get_app_root_dir`），故不打进 spec datas
+3. **`npm run tauri build`**：Rust 壳编译 + bundle（macOS .app/.dmg ad-hoc 签名；Windows NSIS）
+4. **安装包复制到 `release/`**
+
+## 分步构建 / 开发调试
 
 ```bash
-uv run python scripts/build/build_darwin.py
+npm run build                          # 仅前端（产物 webui/，daemon 同源伺服）
+uv run python -m mediafactory          # 源码跑 daemon（开发形态，可变数据仍在项目根）
+npm run tauri dev                      # 壳开发模式（debug 构建不 spawn 打包产物）
+npx tauri icon mediafactory/resources/icon.png -o src-tauri/icons   # 由源图重新生成 Tauri 图标集
 ```
 
-**产物**：
-- `dist/MediaFactory/` — PyInstaller COLLECT 目录（可执行文件 + 依赖）
-- `dist/MediaFactory.app/` — macOS .app 包
-- `dist/python/` — COLLECT 产物副本（用于 Electron 打包）
+- `npm run tauri dev`：debug 构建的壳**不会拉起打包产物**，需手动另起 `uv run python -m mediafactory`，壳等端口就绪后显示窗口加载 `http://127.0.0.1:8765`
+- 图标有两套、相互独立：Tauri 图标集在 `src-tauri/icons/`（上面的命令重新生成）；PyInstaller 可执行文件图标取 `mediafactory/resources/icon.icns`（macOS）/ `icon.ico`（Windows）
+- **注意**：全新 clone 后直接 `cd src-tauri && cargo build` 会报 resources 目录不存在——`python-backend/` 由构建脚本组装（`.gitignore` 排除）。先跑一键构建，或 `mkdir src-tauri/python-backend`
 
-### Windows
+## 桌面应用行为（Tauri 壳）
 
-```bash
-uv run python scripts/build/build_win.py
+`src-tauri/`（约 250 行 Rust 胶水，唯一职责是进程生命周期管理，无业务逻辑）：
+
+- **启动**：壳 spawn `python-backend` 内 daemon → TCP 轮询 8765 就绪（uvicorn lifespan 完成后才开始 accept，连通 = API 完全就绪；超时 120s）→ 显示窗口加载 `http://127.0.0.1:8765`
+- **数据目录**：frozen 可变数据（tasks.db、daemon.lock、config.toml、logs、models）落平台用户目录（macOS `~/Library/Application Support/MediaFactory`，Windows `%APPDATA%\MediaFactory`）；安装目录只留只读资产
+- **退出**：优雅链 `POST /api/system/shutdown` → daemon lifespan 收尾（RUNNING 任务落 CANCELLED）→ atexit 释放实例锁；15s 超时硬杀进程树（unix `killpg` / Windows `taskkill /T /F`，含 worker 子进程）
+- **双开**：第二个实例的 daemon 撞实例锁以 exit 42 让位，壳转复用模式直连已有 daemon（退出时不杀不属于它的 daemon）
+- **崩溃**：daemon 意外退出（非让位、非主动关闭）→ 弹窗提示后退出壳；任务状态下次启动 `recover()` 恢复
+
+## 签名说明（macOS）
+
+ad-hoc 签名（`tauri.conf.json` `signingIdentity: "-"`）：本地构建可直接运行；分发他人时对方首次打开需右键 → 打开（或 `xattr -dr com.apple.quarantine <app>`）放行。未做 Developer ID 签名与公证（Windows 同样未签名，SmartScreen 会警告）。
+
+## 已知限制
+
+- `kill -TERM` 直接杀壳不走 Tauri 事件流，会留孤儿 daemon——由实例锁陈锁接管 + 重启 recover 自愈兜底；正常退出（关窗/Cmd+Q）不受影响
+- tauri-bundler 的 `bundle_dmg.sh` 对上次构建残留的 attached 镜像敏感：构建报 `failed to run bundle_dmg.sh` 时，`hdiutil detach` 挂载点 + 删除 `src-tauri/target/release/bundle/dmg/rw.*.dmg` 后重跑
+- identifier `com.mediafactory.app` 以 `.app` 结尾会触发 tauri 构建 warning（cosmetic，产物正常；未来改 identifier 会重置 webview 本地存储）
+- Windows 产物未真机验证（无本地环境，CI 出包）
+
+## 构建产物
+
+### 最终安装包（`release/`）
+
+```
+release/
+├── MediaFactory_<version>_aarch64.dmg      # macOS（本机构架）安装包
+├── MediaFactory_<version>_setup.exe        # Windows NSIS 安装包（CI 产出）
+└── MediaFactory-<version>.source.zip       # 源码归档（build_source.py）
 ```
 
-**产物**：
-- `dist/MediaFactory/` — PyInstaller COLLECT 目录（可执行文件 + 依赖）
-- `dist/python/` — COLLECT 产物副本（用于 Electron 打包）
+### 中间产物（不入库，`.gitignore` 排除）
 
-### 清理构建产物
-
-```bash
-rm -rf build/ dist/
 ```
-
-> **注意**：后端构建会自动将 PyInstaller 产物复制到 `dist/python/`，供阶段三的 Electron 打包使用。
-
----
-
-## 阶段二：前端构建（Electron）
-
-MediaFactory 使用 Electron + React + TypeScript + Ant Design 作为前端，`electron-vite` 作为构建工具。
-
-### 开发模式
-
-```bash
-# 终端 1: 启动 Python 后端
-uv sync --group core
-uv run python -m mediafactory
-
-# 终端 2: 启动 Electron 开发服务器（热更新）
-npm run dev
+dist/MediaFactory/                          # PyInstaller COLLECT 产物
+src-tauri/python-backend/                   # 组装出的 Tauri resources（COLLECT + webui）
+src-tauri/target/                           # cargo / tauri-bundler 输出
+webui/                                      # vite 前端产物
 ```
-
-### 生产构建
-
-```bash
-npm run build
-```
-
-构建产物位于 `dist/electron/` 目录：
-- `dist/electron/main/` — Electron 主进程
-- `dist/electron/preload/` — Preload 脚本
-- `dist/electron/renderer/` — React 前端
-
-### 前端技术栈
-
-- **框架**: React 18 + TypeScript
-- **UI 库**: Ant Design 5
-- **状态管理**: @tanstack/react-query
-- **HTTP 客户端**: Axios
-- **实时通信**: WebSocket
-- **构建工具**: electron-vite
-
----
-
-## 阶段三：应用打包（DMG / ZIP）
-
-将后端和前端整合打包为用户可安装的桌面应用。
-
-> `electron-builder.yml` 位于项目根目录，npm 命令也需在根目录执行。
-
-### 前置条件
-
-确保已完成阶段一和阶段二，以下目录存在：
-- `dist/python/` — PyInstaller 后端产物
-- `dist/electron/` — 前端编译产物
-
-### macOS DMG
-
-```bash
-# 仅当前架构（arm64）
-npx electron-builder --mac --arm64
-
-# 仅 x64
-npx electron-builder --mac --x64
-
-# 同时构建两个架构
-npx electron-builder --mac
-```
-
-**产物**：`release/{version}/MediaFactory-{version}-arm64.dmg`、`MediaFactory-{version}-x64.dmg`
-
-### Windows Portable ZIP
-
-```bash
-npx electron-builder --win
-```
-
-**产物**：`release/{version}/MediaFactory-{version}-x64-portable.zip`
-
-### 注意事项
-
-- **模型不打包**：采用"无模型"构建策略，用户通过 Setup Wizard 下载模型
-- **代码签名**：本地开发跳过签名，正式发布需 Apple Developer / Windows 代码签名证书
-- **macOS Gatekeeper**：未签名应用会被 Gatekeeper 阻止，用户需右键 → 打开来绕过
-
----
-
-## 源码归档
-
-```bash
-# 构建 tar.gz 和 zip
-python scripts/build/build_source.py
-
-# 仅构建 zip（用于 GitHub Releases）
-python scripts/build/build_source.py --zip-only
-```
-
-**产物**：`release/MediaFactory-{version}.source.zip`
 
 ## 版本管理
 
@@ -193,7 +100,12 @@ python scripts/build/build_source.py --zip-only
 version = "0.4.0"
 ```
 
-构建脚本会自动读取此版本号。
+构建脚本会自动读取此版本号。`scripts/utils/sync_version.py` 负责跨栈同步，覆盖 `package.json`、`src-tauri/Cargo.toml` 与 `BUILD.md`（含本文件的 git-cliff 命令示例）。
+
+```bash
+python scripts/utils/sync_version.py --check     # 检查版本一致性
+python scripts/utils/sync_version.py 0.4.0       # 更新所有文件版本号
+```
 
 ## Changelog 自动生成
 
@@ -289,11 +201,25 @@ refactor(core): 重构进度跟踪系统
 docs: 更新安装文档
 ```
 
+## 源码归档
+
+```bash
+# 构建 tar.gz 和 zip
+python scripts/build/build_source.py
+
+# 仅构建 zip（用于 GitHub Releases）
+python scripts/build/build_source.py --zip-only
+```
+
+**产物**：`release/MediaFactory-{version}.source.zip`
+
 ## 直接使用 PyInstaller
 
 ```bash
 uv run python -m PyInstaller scripts/pyinstaller/installer_simple.spec --clean --noconfirm
 ```
+
+产出 `dist/MediaFactory/`（onedir COLLECT 产物）。注意这只完成四步链的第一步——桌面安装包还需组装 `src-tauri/python-backend/` 并跑 `tauri build`（直接用一键构建即可）。
 
 ## 构建系统架构
 
@@ -306,57 +232,30 @@ scripts/
 │   │   ├── hook-uvicorn.py         # Uvicorn 服务器支持
 │   │   └── hook-pkg_resources.py   # pkg_resources 模块
 ├── build/                     # 平台构建脚本
-│   ├── build_darwin.py        # macOS 构建入口
-│   ├── build_win.py           # Windows 构建入口
+│   ├── build_darwin.py        # macOS 构建入口（→ build_desktop）
+│   ├── build_win.py           # Windows 构建入口（→ build_desktop）
 │   └── build_source.py        # 源码 ZIP 构建脚本
 └── utils/                     # 工具脚本
     ├── build_common.py        # 构建通用模块
-    ├── build_executor.py      # 构建执行器
+    ├── build_executor.py      # 构建执行器（桌面打包全链编排）
     ├── check_gpu.py           # GPU 检测脚本
     ├── download_model.py      # 模型下载脚本
     ├── sync_version.py        # 版本同步脚本
     └── init_models_in_installation.py # 模型初始化脚本
+
+src-tauri/                     # Tauri 2 桌面壳（Rust）
+├── src/main.rs                # 壳唯一源文件（daemon 生命周期管理）
+├── tauri.conf.json            # 窗口 / bundle / resources 配置
+├── Cargo.toml                 # Rust 依赖（版本随 sync_version 同步）
+├── icons/                     # 图标集（tauri icon 生成，入库）
+└── python-backend/            # 构建脚本组装（不入库）
 ```
 
 ### 关键模块
 
 - **build_common.py**：项目信息、日志、文件工具等公共函数
-- **build_executor.py**：封装 PyInstaller 调用的通用逻辑
+- **build_executor.py**：桌面打包全链编排（`build_desktop`：PyInstaller → 组装 python-backend → tauri build → 收集安装包）
 - **installer_simple.spec**：PyInstaller 规范文件
-
-## 构建产物
-
-### 后端产物（`dist/`）
-
-```
-dist/
-├── MediaFactory/                      # PyInstaller COLLECT 目录
-│   ├── MediaFactory                   # 可执行文件
-│   └── ...                            # 依赖文件
-├── MediaFactory.app/                  # macOS .app 包（仅 macOS）
-├── python/                            # 用于 Electron 打包的副本
-└── electron/                          # 前端编译产物
-    ├── main/                          # Electron 主进程
-    ├── preload/                       # Preload 脚本
-    └── renderer/                      # React 前端
-```
-
-### 最终安装包（`release/{version}/`）
-
-```
-release/{version}/
-├── MediaFactory-{version}-arm64.dmg       # macOS ARM DMG
-├── MediaFactory-{version}-x64.dmg         # macOS x64 DMG
-└── MediaFactory-{version}-x64-portable.zip  # Windows portable ZIP
-```
-
-## 图标文件
-
-- **Windows**: 使用 `.ico` 格式，放置在 `mediafactory/resources/icon.ico`（electron-builder 使用 `electron/resources/icon.ico`）
-- **macOS**: 需要 `.icns` 格式，放置在 `mediafactory/resources/icon.icns`
-- **Linux**: 通常不需要图标文件
-
-如果没有对应的图标文件，构建会自动跳过图标设置。
 
 ## 体积优化
 
@@ -401,6 +300,18 @@ datas += collect_data_files('faster_whisper')
 1. 点击"更多信息"
 2. 选择"仍要运行"
 
+### 端口 8765 被占用
+
+壳检测到端口已通会直接复用已有 daemon（双开让位 exit 42 也走此路径），不是错误；源码形态下报地址占用说明已有 daemon 在跑，别起第二个即可。
+
+### 全新 clone 后 cargo build 报 resources 缺失
+
+`src-tauri/python-backend/` 由构建脚本组装、不在仓库中——先跑一键构建（或 `mkdir src-tauri/python-backend`）再 `cargo build`。
+
+### bundle_dmg.sh 失败
+
+见「已知限制」中的处理方法：`hdiutil detach` 挂载点 + 删除 `rw.*.dmg` 残留后重跑。
+
 ### 版本解析失败
 
 构建脚本通过 `mediafactory._version.get_version()` 获取版本号，支持多层回退（`importlib.metadata` → `tomli` 解析 → 简单文本解析）。如果解析失败：
@@ -413,4 +324,5 @@ datas += collect_data_files('faster_whisper')
 - **构建工具模块**：`scripts/utils/build_common.py`
 - **构建执行器**：`scripts/utils/build_executor.py`
 - **PyInstaller 配置**：`scripts/pyinstaller/installer_simple.spec`
+- **Tauri 壳源码与配置**：`src-tauri/src/main.rs`、`src-tauri/tauri.conf.json`
 - **CI/CD 配置**：`.github/workflows/release.yml`

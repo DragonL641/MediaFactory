@@ -68,7 +68,7 @@ npm run build                          # 构建 Web UI（产物输出到 webui/�
 uv run python -m mediafactory          # 启动 daemon，浏览器打开 http://127.0.0.1:8765
 ```
 
-> **说明**：daemon 在 http://127.0.0.1:8765 同时提供 API 与 Web UI——无需安装桌面应用，浏览器直接访问。
+> **说明**：桌面应用（Tauri）为主交付形式，一条命令构建（`uv run python scripts/build/build_darwin.py`，详见 [BUILD.md](BUILD.md)）；浏览器也可直连 daemon（http://127.0.0.1:8765）。
 > 前端开发请在第二个终端运行 `npm run dev`（vite dev server 端口 5173，`/api` 与 `/ws` 代理到 daemon）。
 > PyTorch 从 `download.pytorch.org`（而非 PyPI）下载，以确保 CUDA 支持。
 > CUDA 12.8 支持 Blackwell（RTX 50 系列）及更早架构。
@@ -123,6 +123,7 @@ AI 视频工具往往让你在质量和速度之间、云端便利和隐私之�
 - **Python**: 3.11、3.12 或 3.13（推荐 3.12）
 - **uv**: 现代 Python 包管理器（[安装 uv](https://docs.astral.sh/uv/)）
 - **Node.js**: ≥20.19.0（用于 Web 前端开发与构建）
+- **Rust**: ≥1.77.2（仅构建桌面安装包时需要，源码运行不需要）
 - **FFmpeg**: 通过 imageio-ffmpeg 自动包含（无需手动安装）
 - **macOS**: 12.0 (Monterey) 或更高版本
 
