@@ -34,7 +34,7 @@ class DaemonLock:
         self._path.parent.mkdir(parents=True, exist_ok=True)
         try:
             # 原子抢锁：文件已存在则失败
-            fd = os.open(self._path, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+            fd = os.open(self._path, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o644)
         except FileExistsError:
             holder = self._read_holder_pid()
             if holder is not None and self._pid_alive(holder):

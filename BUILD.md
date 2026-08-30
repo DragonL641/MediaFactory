@@ -1,5 +1,10 @@
 # MediaFactory 构建指南
 
+> **注意（2026-08，Phase 2 起）**：Electron 前端构建链已随 daemon + 浏览器形态移除——
+> 本文中 electron-vite / electron-builder 相关流程已失效。Web UI 现由 `npm run build`
+> 构建为 `webui/` 并由 daemon 同源伺服。桌面打包链待 Plan 3（Tauri）重写。
+> Python 后端（PyInstaller）部分仍有效。
+
 ## 平台支持
 
 MediaFactory 支持 **macOS** 和 **Windows** 平台。Linux 平台暂不支持。

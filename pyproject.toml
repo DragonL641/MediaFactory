@@ -49,7 +49,7 @@ dependencies = [
     "huggingface-hub>=0.30.0,<1.0.0",
     # LLM API SDKs (远程翻译，无需本地模型)
     "openai>=1.50.0",     # OpenAI SDK 支持 (统一后端)
-    # API Server (Electron 前端后端)
+    # API Server（daemon，同源伺服 Web UI）
     "fastapi>=0.109.0",
     "uvicorn[standard]>=0.27.0",
     "websockets>=12.0",
@@ -107,7 +107,7 @@ runtime = [
     "huggingface-hub>=0.30.0,<1.0.0",
     # LLM API SDKs
     "openai>=1.50.0",
-    # API Server (Electron 前端后端)
+    # API Server（daemon，同源伺服 Web UI）
     "fastapi>=0.109.0",
     "uvicorn[standard]>=0.27.0",
     "websockets>=12.0",

@@ -87,7 +87,7 @@ def build_backend(platform_name: str, version: Optional[str] = None) -> int:
     if python_dist.exists():
         shutil.rmtree(python_dist)
     shutil.copytree(project_root / "dist" / PROJECT_NAME, python_dist)
-    log_info(f"已复制到 {python_dist}（用于 Electron 打包）")
+    log_info(f"已复制到 {python_dist}（待 Plan 3 Tauri 打包消费）")
 
     elapsed = (datetime.now() - start).total_seconds()
     log_success(f"构建完成! 耗时: {elapsed:.1f}秒")
