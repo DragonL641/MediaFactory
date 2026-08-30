@@ -255,9 +255,13 @@ fn main() {
         .build(tauri::generate_context!())
         .expect("error while building tauri application");
 
-    app.run(move |_app_handle, event| {
-        if let RunEvent::ExitRequested { .. } = event {
+    app.run(move |_app_handle, event| match event {
+        // 两条退出事件都挂：ExitRequested（窗口全关/exit()）与 Exit（macOS
+        // Cmd+Q / AppleEvent quit 的终止路径）。漏挂会让壳先死、daemon 成孤儿。
+        // shutdown_daemon 可安全重入（daemon 已退时 try_wait 立即返回）
+        RunEvent::ExitRequested { .. } | RunEvent::Exit => {
             shutdown_daemon(&handle_state);
         }
+        _ => {}
     });
 }

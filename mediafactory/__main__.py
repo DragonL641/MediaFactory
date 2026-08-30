@@ -38,6 +38,13 @@ def main():
         # 42 = 实例锁让位特征码，桌面壳据此区分双启动让位与真崩溃
         raise SystemExit(42)
 
+    # 初始化 loguru 统一日志（与 api.main.start_server 一致——本入口是
+    # `python -m mediafactory` 与 PyInstaller frozen 的实际路径，缺此日志不落盘）
+    from mediafactory.logging import setup_app_logging, setup_logging_intercept
+
+    setup_app_logging()
+    setup_logging_intercept()
+
     parser = argparse.ArgumentParser(description="MediaFactory API Server")
     parser.add_argument("--reload", action="store_true", help="启用开发模式热加载")
     parser.add_argument("--port", type=int, default=8765, help="服务端口")
