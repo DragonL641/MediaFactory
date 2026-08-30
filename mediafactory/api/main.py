@@ -199,7 +199,8 @@ def start_server(port: int = 8765):
         DaemonLock(_daemon_lock_path()).acquire()
     except DaemonAlreadyRunning as e:
         logger.error(str(e))
-        raise SystemExit(1)
+        # 42 = 实例锁让位特征码，桌面壳据此区分双启动让位与真崩溃
+        raise SystemExit(42)
 
     # 初始化 loguru 统一日志（确保日志文件已创建）
     from mediafactory.logging import setup_app_logging, setup_logging_intercept

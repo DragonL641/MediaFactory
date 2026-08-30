@@ -87,7 +87,8 @@ class TestEntryWiring:
 
         with pytest.raises(SystemExit) as exc_info:
             entry.main()
-        assert exc_info.value.code == 1
+        # 42 = 实例锁让位特征码（桌面壳据此区分双启动让位与真崩溃）
+        assert exc_info.value.code == 42
 
     def test_main_module_registers_server(self, monkeypatch, tmp_path):
         """__main__ 生产分支（frozen exe 主路径）必须注册 server_ref，否则壳只能 503 回退硬杀"""
@@ -138,7 +139,8 @@ class TestEntryWiring:
 
         with pytest.raises(SystemExit) as exc_info:
             api_main.start_server()
-        assert exc_info.value.code == 1
+        # 42 = 实例锁让位特征码（桌面壳据此区分双启动让位与真崩溃）
+        assert exc_info.value.code == 42
         assert started == []  # 锁失败时 Server 根本不构造
 
     def test_start_server_happy_path_runs_uvicorn_and_releases(

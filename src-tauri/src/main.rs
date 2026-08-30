@@ -17,8 +17,8 @@ const DAEMON_PORT: u16 = 8765;
 const READY_TIMEOUT_SECS: u64 = 120;
 /// 优雅停机等待：daemon 收 RUNNING 任务（协作式取消在句边界生效，可能数秒）
 const SHUTDOWN_TIMEOUT_SECS: u64 = 15;
-/// 双启动交接宽限：spawn 的 daemon 撞实例锁秒退时，等先发实例接上端口转复用
-const HANDOFF_GRACE_SECS: u64 = 10;
+/// 实例锁让位特征码：daemon 撞锁退出时使用，壳据此区分双启动让位（42）与真崩溃
+const LOCK_YIELDED_EXIT_CODE: i32 = 42;
 const POLL_INTERVAL: Duration = Duration::from_millis(300);
 
 /// 壳持有的 daemon 子进程；复用已运行实例时为 None（退出时不杀别人的 daemon）
@@ -129,8 +129,6 @@ fn launch_supervisor(app: AppHandle, state: Arc<Mutex<DaemonHandle>>) {
 
         // 等端口就绪
         let deadline = Instant::now() + Duration::from_secs(READY_TIMEOUT_SECS);
-        // 交接宽限截止：spawn 的 daemon 撞实例锁秒退后，等先发实例接上端口
-        let mut handoff_deadline: Option<Instant> = None;
         while !port_ready() {
             if Instant::now() > deadline {
                 if !is_shutting_down(&state) {
@@ -140,27 +138,34 @@ fn launch_supervisor(app: AppHandle, state: Arc<Mutex<DaemonHandle>>) {
             }
             let mut guard = state.lock().unwrap();
             if let Some(c) = guard.child.as_mut() {
-                if matches!(c.try_wait(), Ok(Some(_))) {
-                    // daemon 秒退：多为双启动撞实例锁（先发实例已持锁、端口未 bind）。
-                    // 宽限内先发实例端口就绪则转复用语义；宽限耗尽仍无端口才是真崩溃
-                    let grace_end = handoff_deadline
-                        .get_or_insert_with(|| Instant::now() + Duration::from_secs(HANDOFF_GRACE_SECS));
-                    if Instant::now() > *grace_end {
-                        let shutting_down = guard.shutting_down;
+                if let Ok(Some(status)) = c.try_wait() {
+                    if status.code() == Some(LOCK_YIELDED_EXIT_CODE) {
+                        // 撞实例锁让位（退出码 42）：先发实例将继续服务，转复用语义（不杀不监护）
+                        guard.child = None;
                         drop(guard);
-                        if !shutting_down {
-                            fatal(&app, "Backend service exited unexpectedly during startup");
-                        }
-                        return;
+                        log("另一个 daemon 实例已在运行，接管连接");
+                        continue;
                     }
-                    if port_ready() {
-                        guard.child = None; // 转复用：退出时不杀、监护走端口探测
-                        drop(guard);
-                        log("spawn 的 daemon 已退出，接管先发实例的 daemon");
+                    let shutting_down = guard.shutting_down;
+                    drop(guard);
+                    if !shutting_down {
+                        // 非 42 秒退 = 真崩溃，立即报错
+                        fatal(&app, "Backend service exited unexpectedly during startup");
                     }
+                    return;
                 }
             }
             std::thread::sleep(POLL_INTERVAL);
+        }
+
+        // 竞态兜底：端口就绪从循环顶部（P1）退出时，本壳 spawn 的 child 若恰在同轮死亡
+        // 仍是 Some(已死)，监护循环会误判崩溃——统一规范化为复用语义
+        {
+            let mut guard = state.lock().unwrap();
+            if matches!(guard.child.as_mut().map(|c| c.try_wait()), Some(Ok(Some(_)))) {
+                guard.child = None;
+                log("接管先发实例的 daemon");
+            }
         }
 
         if let Some(window) = app.get_webview_window("main") {

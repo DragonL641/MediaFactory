@@ -35,7 +35,8 @@ def main():
         _lock.acquire()
     except DaemonAlreadyRunning as e:
         print(f"ERROR: {e}", file=sys.stderr)
-        raise SystemExit(1)
+        # 42 = 实例锁让位特征码，桌面壳据此区分双启动让位与真崩溃
+        raise SystemExit(42)
 
     parser = argparse.ArgumentParser(description="MediaFactory API Server")
     parser.add_argument("--reload", action="store_true", help="启用开发模式热加载")
