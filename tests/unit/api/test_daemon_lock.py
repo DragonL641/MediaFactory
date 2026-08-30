@@ -64,3 +64,12 @@ def test_release_does_not_delete_foreign_lock(tmp_path):
     lock = DaemonLock(lock_file)
     lock.release()  # 未 acquire 过，不得动别人的锁文件
     assert lock_file.read_text().strip() == "999999"
+
+
+def test_release_does_not_delete_rewritten_foreign_lock(tmp_path):
+    lock_file = tmp_path / "daemon.lock"
+    lock = DaemonLock(lock_file)
+    lock.acquire()
+    lock_file.write_text("999999")  # 模拟锁文件被改写为他者 PID
+    lock.release()
+    assert lock_file.read_text().strip() == "999999"
