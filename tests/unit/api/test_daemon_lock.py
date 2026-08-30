@@ -73,3 +73,36 @@ def test_release_does_not_delete_rewritten_foreign_lock(tmp_path):
     lock_file.write_text("999999")  # 模拟锁文件被改写为他者 PID
     lock.release()
     assert lock_file.read_text().strip() == "999999"
+
+
+class TestEntryWiring:
+    def test_main_module_wires_lock(self, monkeypatch, tmp_path):
+        # __main__.main() 在启动 uvicorn 前抢锁；锁被占时立刻报错退出
+        import mediafactory.__main__ as entry
+
+        lock_path = tmp_path / "daemon.lock"
+        monkeypatch.setattr(entry, "_daemon_lock_path", lambda: lock_path)
+        lock_path.write_text(str(os.getpid()))  # 活实例持锁
+
+        import pytest as _pytest
+
+        with _pytest.raises(SystemExit) as exc_info:
+            entry.main()
+        assert exc_info.value.code == 1
+
+    def test_start_server_wires_lock(self, monkeypatch, tmp_path):
+        import mediafactory.api.main as api_main
+
+        lock_path = tmp_path / "daemon.lock"
+        monkeypatch.setattr(api_main, "_daemon_lock_path", lambda: lock_path)
+        lock_path.write_text(str(os.getpid()))  # 活实例持锁
+
+        ran = []
+        monkeypatch.setattr("uvicorn.run", lambda *a, **k: ran.append(True))
+
+        import pytest as _pytest
+
+        with _pytest.raises(SystemExit) as exc_info:
+            api_main.start_server()
+        assert exc_info.value.code == 1
+        assert ran == []  # 锁失败时 uvicorn 根本不启动

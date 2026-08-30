@@ -14,12 +14,14 @@ from typing import Optional
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 
+from mediafactory.api.daemon_lock import DaemonAlreadyRunning, DaemonLock
 from mediafactory.api.routes import config, models, processing
 
 # re-export：保持 mediafactory.api.main.get_task_manager 旧导入路径兼容
 from mediafactory.api.task_manager import get_task_manager
 from mediafactory.api.websocket import manager as ws_manager
 from mediafactory._version import get_version
+from mediafactory.config import get_app_root_dir
 
 logger = logging.getLogger(__name__)
 # API 层使用标准 logging，通过 InterceptHandler 自动重定向到 loguru
@@ -136,6 +138,11 @@ def get_app() -> FastAPI:
     return _app
 
 
+def _daemon_lock_path():
+    """实例锁路径：data/daemon.lock（与 tasks.db 同目录）。"""
+    return get_app_root_dir() / "data" / "daemon.lock"
+
+
 def start_server(port: int = 8765):
     """启动 API 服务器（命令行入口点）
 
@@ -147,6 +154,13 @@ def start_server(port: int = 8765):
 
     # PyInstaller 冻结支持
     multiprocessing.freeze_support()
+
+    # 实例锁：任何时刻至多一个 daemon（保证 recover 的「running 行 = 死实例」假设）
+    try:
+        DaemonLock(_daemon_lock_path()).acquire()
+    except DaemonAlreadyRunning as e:
+        logger.error(str(e))
+        raise SystemExit(1)
 
     # 初始化 loguru 统一日志（确保日志文件已创建）
     from mediafactory.logging import setup_app_logging, setup_logging_intercept
