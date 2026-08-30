@@ -177,3 +177,4 @@ node_modules
 /build/
 /config.toml*
 /data/
+/webui/
