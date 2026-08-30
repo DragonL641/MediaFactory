@@ -45,3 +45,14 @@ class TestDataRootDir:
 
         assert _webui_dir().name == "webui"
         assert "Application Support" not in str(_webui_dir())
+
+    def test_frozen_config_path_follows_data_root(self, monkeypatch, tmp_path):
+        # config.toml 是可变数据：frozen 下必须落数据根（用户目录），不落 exe 旁
+        monkeypatch.setattr(sys, "frozen", True, raising=False)
+        monkeypatch.setattr(sys, "platform", "darwin")
+        monkeypatch.setenv("HOME", str(tmp_path))
+        from mediafactory.config import get_config_path
+
+        assert get_config_path() == (
+            tmp_path / "Library" / "Application Support" / "MediaFactory" / "config.toml"
+        )

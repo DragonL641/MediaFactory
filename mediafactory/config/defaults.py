@@ -75,5 +75,5 @@ def get_data_root_dir() -> Path:
 
 
 def get_config_path() -> Path:
-    """获取配置文件路径"""
-    return get_app_root_dir() / DEFAULT_CONFIG_FILE
+    """获取配置文件路径（config.toml 为可变数据，frozen 下落数据根）"""
+    return get_data_root_dir() / DEFAULT_CONFIG_FILE
