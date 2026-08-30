@@ -15,13 +15,8 @@ let baseUrl: string = "";
  * 初始化 API 客户端
  */
 export async function initApiClient(): Promise<void> {
-  // 从 Electron 主进程获取 API URL
-  if (window.electronAPI) {
-    baseUrl = await window.electronAPI.getApiUrl();
-  } else {
-    // 开发模式默认
-    baseUrl = "http://127.0.0.1:8765";
-  }
+  // 同源伺服：API 与前端同一 origin（开发模式经 vite 代理转发到 daemon）
+  baseUrl = "";
 
   apiClient = axios.create({
     baseURL: baseUrl,
@@ -114,12 +109,9 @@ export class WebSocketClient {
   private intentionalClose: boolean = false;
 
   async connect(): Promise<void> {
-    if (!baseUrl) {
-      console.warn("[WS] Skipping connection - baseUrl not set");
-      return;
-    }
-
-    const wsUrl = baseUrl.replace("http", "ws") + "/ws";
+    // 同源 WebSocket：ws(s)://<当前页面host>/ws
+    const wsProto = window.location.protocol === "https:" ? "wss:" : "ws:";
+    const wsUrl = `${wsProto}//${window.location.host}/ws`;
     const CONNECTION_TIMEOUT = 10000; // 10 秒连接超时
 
     return new Promise((resolve, reject) => {
