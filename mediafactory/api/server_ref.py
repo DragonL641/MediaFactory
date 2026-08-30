@@ -6,13 +6,16 @@
 
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import TYPE_CHECKING, Optional
 
-# uvicorn.Server 实例；类型用 Any（避免为类型标注导入 uvicorn 产生耦合）
-_server: Optional[Any] = None
+if TYPE_CHECKING:
+    from uvicorn import Server
+
+# uvicorn.Server 实例；类型仅静态检查期导入（TYPE_CHECKING），运行时零 uvicorn 耦合
+_server: Optional["Server"] = None
 
 
-def set_server(server: Any) -> None:
+def set_server(server: "Server") -> None:
     """注册当前 uvicorn Server 实例（入口启动时调用一次）"""
     global _server
     _server = server

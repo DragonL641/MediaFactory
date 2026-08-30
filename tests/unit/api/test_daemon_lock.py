@@ -5,6 +5,7 @@
 """
 
 import os
+import sys
 
 import pytest
 
@@ -87,6 +88,34 @@ class TestEntryWiring:
         with pytest.raises(SystemExit) as exc_info:
             entry.main()
         assert exc_info.value.code == 1
+
+    def test_main_module_registers_server(self, monkeypatch, tmp_path):
+        """__main__ 生产分支（frozen exe 主路径）必须注册 server_ref，否则壳只能 503 回退硬杀"""
+        import mediafactory.__main__ as entry
+        from mediafactory.api import server_ref
+
+        monkeypatch.setattr(
+            entry, "_daemon_lock_path", lambda: tmp_path / "daemon.lock"
+        )
+        monkeypatch.setattr(
+            server_ref, "_server", None
+        )  # teardown 自动还原，防全局污染
+        monkeypatch.setattr(sys, "argv", ["mediafactory"])  # 默认参数 → 生产分支
+
+        ran = []
+
+        class FakeServer:
+            def __init__(self, config):
+                self.config = config
+
+            def run(self):
+                ran.append(True)
+
+        # 与 start_server happy-path 同形态：只 stub Server，不碰真实 8765
+        monkeypatch.setattr("uvicorn.Server", FakeServer)
+        entry.main()
+        assert ran == [True]  # 生产分支正常启动
+        assert server_ref._server is not None  # Server 已注册（供 shutdown 端点）
 
     def test_start_server_wires_lock(self, monkeypatch, tmp_path):
         import mediafactory.api.main as api_main
