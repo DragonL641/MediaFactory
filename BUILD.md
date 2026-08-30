@@ -25,7 +25,7 @@ MediaFactory 使用 `dependency-groups` 进行依赖分组（详见 `pyproject.t
 
 ```bash
 uv run python scripts/build/build_darwin.py    # macOS → release/MediaFactory_<version>_aarch64.dmg
-uv run python scripts/build/build_win.py       # Windows → release/MediaFactory_<version>_setup.exe
+uv run python scripts/build/build_win.py       # Windows → release/MediaFactory_<version>_x64-setup.exe
 ```
 
 前提：`webui/` 已存在（`npm run build` 产物）——组装步骤依赖它，缺失时脚本会提示先构建前端。支持 `--version` 参数覆盖版本号（默认读 `pyproject.toml`）。
@@ -78,7 +78,7 @@ ad-hoc 签名（`tauri.conf.json` `signingIdentity: "-"`）：本地构建可直
 ```
 release/
 ├── MediaFactory_<version>_aarch64.dmg      # macOS（本机构架）安装包
-├── MediaFactory_<version>_setup.exe        # Windows NSIS 安装包（CI 产出）
+├── MediaFactory_<version>_x64-setup.exe    # Windows NSIS 安装包（CI 产出）
 └── MediaFactory-<version>.source.zip       # 源码归档（build_source.py）
 ```
 
