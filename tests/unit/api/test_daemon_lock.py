@@ -84,9 +84,7 @@ class TestEntryWiring:
         monkeypatch.setattr(entry, "_daemon_lock_path", lambda: lock_path)
         lock_path.write_text(str(os.getpid()))  # 活实例持锁
 
-        import pytest as _pytest
-
-        with _pytest.raises(SystemExit) as exc_info:
+        with pytest.raises(SystemExit) as exc_info:
             entry.main()
         assert exc_info.value.code == 1
 
@@ -100,9 +98,21 @@ class TestEntryWiring:
         ran = []
         monkeypatch.setattr("uvicorn.run", lambda *a, **k: ran.append(True))
 
-        import pytest as _pytest
-
-        with _pytest.raises(SystemExit) as exc_info:
+        with pytest.raises(SystemExit) as exc_info:
             api_main.start_server()
         assert exc_info.value.code == 1
         assert ran == []  # 锁失败时 uvicorn 根本不启动
+
+    def test_start_server_happy_path_runs_uvicorn_and_releases(
+        self, monkeypatch, tmp_path
+    ):
+        import mediafactory.api.main as api_main
+
+        lock_path = tmp_path / "daemon.lock"
+        monkeypatch.setattr(api_main, "_daemon_lock_path", lambda: lock_path)
+        ran = []
+        monkeypatch.setattr("uvicorn.run", lambda *a, **k: ran.append(True))
+        api_main.start_server()
+        assert ran == [True]  # 锁成功 → uvicorn 正常启动
+        assert lock_path.read_text().strip() == str(os.getpid())  # 持锁为本进程
+        # 进程退出时 atexit 释放——测试内不断言文件删除（atexit 在进程退出才跑）
