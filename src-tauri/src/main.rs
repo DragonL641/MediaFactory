@@ -3,7 +3,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 use std::io::{Read, Write};
-use std::net::TcpStream;
+use std::net::{SocketAddr, TcpStream};
 use std::path::PathBuf;
 use std::process::{Child, Command};
 use std::sync::{Arc, Mutex};
@@ -17,17 +17,26 @@ const DAEMON_PORT: u16 = 8765;
 const READY_TIMEOUT_SECS: u64 = 120;
 /// 优雅停机等待：daemon 收 RUNNING 任务（协作式取消在句边界生效，可能数秒）
 const SHUTDOWN_TIMEOUT_SECS: u64 = 15;
+/// 双启动交接宽限：spawn 的 daemon 撞实例锁秒退时，等先发实例接上端口转复用
+const HANDOFF_GRACE_SECS: u64 = 10;
 const POLL_INTERVAL: Duration = Duration::from_millis(300);
 
 /// 壳持有的 daemon 子进程；复用已运行实例时为 None（退出时不杀别人的 daemon）
 #[derive(Default)]
 struct DaemonHandle {
     child: Option<Child>,
+    /// 壳主动退出中：此间 daemon 之死是预期收尾，监护线程不弹崩溃框
+    shutting_down: bool,
+}
+
+fn daemon_addr() -> SocketAddr {
+    SocketAddr::from(([127, 0, 0, 1], DAEMON_PORT))
 }
 
 fn port_ready() -> bool {
-    // uvicorn 在 lifespan startup 完成后才开始 accept，TCP 连通 = API 完全就绪
-    TcpStream::connect((DAEMON_HOST, DAEMON_PORT)).is_ok()
+    // uvicorn 在 lifespan startup 完成后才开始 accept，TCP 连通 = API 完全就绪；
+    // connect_timeout 防 backlog 病态满载时连接无限挂起
+    TcpStream::connect_timeout(&daemon_addr(), Duration::from_secs(2)).is_ok()
 }
 
 fn daemon_exe_path(app: &AppHandle) -> Option<PathBuf> {
@@ -61,14 +70,20 @@ fn spawn_daemon(app: &AppHandle) -> Option<Child> {
 
 /// POST /api/system/shutdown（手写 HTTP，避免引入 HTTP 客户端依赖）
 fn request_http_shutdown() {
-    if let Ok(mut stream) = TcpStream::connect((DAEMON_HOST, DAEMON_PORT)) {
-        let req = format!(
-            "POST /api/system/shutdown HTTP/1.1\r\nHost: {DAEMON_HOST}:{DAEMON_PORT}\r\n\
-             Content-Length: 0\r\nConnection: close\r\n\r\n"
-        );
-        let _ = stream.write_all(req.as_bytes());
-        let _ = stream.read(&mut [0u8; 512]); // 等响应落盘，确保 daemon 已受理
-    }
+    // 连接/读/写全设超时：daemon 僵死时不能无限挂起，否则硬杀兜底被架空
+    let addr = daemon_addr();
+    let Ok(mut stream) = TcpStream::connect_timeout(&addr, Duration::from_secs(2)) else {
+        eprintln!("[mediafactory-shell] shutdown endpoint unreachable: {addr}");
+        return;
+    };
+    let _ = stream.set_read_timeout(Some(Duration::from_secs(2)));
+    let _ = stream.set_write_timeout(Some(Duration::from_secs(2)));
+    let req = format!(
+        "POST /api/system/shutdown HTTP/1.1\r\nHost: {DAEMON_HOST}:{DAEMON_PORT}\r\n\
+         Content-Length: 0\r\nConnection: close\r\n\r\n"
+    );
+    let _ = stream.write_all(req.as_bytes());
+    let _ = stream.read(&mut [0u8; 512]); // 等响应落盘，确保 daemon 已受理（读超时兜底）
 }
 
 /// 致命错误：弹窗提示后退出壳（spec：进程意外退出 → 提示而非白屏）
@@ -84,17 +99,22 @@ fn fatal(app: &AppHandle, msg: &str) {
     app.exit(1);
 }
 
+/// 壳是否已进入主动退出流程（此间 daemon 之死是预期，不弹错误框）
+fn is_shutting_down(state: &Arc<Mutex<DaemonHandle>>) -> bool {
+    state.lock().unwrap().shutting_down
+}
+
 /// 后台监护线程：拉起/复用 daemon → 等就绪 → 显示窗口 → 持续监视 daemon 生死
 fn launch_supervisor(app: AppHandle, state: Arc<Mutex<DaemonHandle>>) {
     std::thread::spawn(move || {
         // 复用已运行 daemon（用户误双击第二次启动），否则 spawn 新进程
         let child = if port_ready() {
-            log(&app, "daemon 已在运行，直接连接");
+            log("daemon 已在运行，直接连接");
             None
         } else if cfg!(debug_assertions) {
             // 开发模式（tauri dev）：不 spawn 打包产物，
             // 等开发者手动 `uv run python -m mediafactory`
-            log(&app, "开发模式：等待外部启动的 daemon (127.0.0.1:8765)");
+            log("开发模式：等待外部启动的 daemon (127.0.0.1:8765)");
             None
         } else {
             match spawn_daemon(&app) {
@@ -109,18 +129,35 @@ fn launch_supervisor(app: AppHandle, state: Arc<Mutex<DaemonHandle>>) {
 
         // 等端口就绪
         let deadline = Instant::now() + Duration::from_secs(READY_TIMEOUT_SECS);
+        // 交接宽限截止：spawn 的 daemon 撞实例锁秒退后，等先发实例接上端口
+        let mut handoff_deadline: Option<Instant> = None;
         while !port_ready() {
             if Instant::now() > deadline {
-                fatal(&app, "Backend service startup timed out. Please retry or check the logs.");
+                if !is_shutting_down(&state) {
+                    fatal(&app, "Backend service startup timed out. Please retry or check the logs.");
+                }
                 return;
             }
-            // spawn 的 daemon 秒退（崩溃等）——若期间端口被其他实例接上则转复用，否则报错
             let mut guard = state.lock().unwrap();
             if let Some(c) = guard.child.as_mut() {
-                if matches!(c.try_wait(), Ok(Some(_))) && !port_ready() {
-                    drop(guard);
-                    fatal(&app, "Backend service exited unexpectedly during startup");
-                    return;
+                if matches!(c.try_wait(), Ok(Some(_))) {
+                    // daemon 秒退：多为双启动撞实例锁（先发实例已持锁、端口未 bind）。
+                    // 宽限内先发实例端口就绪则转复用语义；宽限耗尽仍无端口才是真崩溃
+                    let grace_end = handoff_deadline
+                        .get_or_insert_with(|| Instant::now() + Duration::from_secs(HANDOFF_GRACE_SECS));
+                    if Instant::now() > *grace_end {
+                        let shutting_down = guard.shutting_down;
+                        drop(guard);
+                        if !shutting_down {
+                            fatal(&app, "Backend service exited unexpectedly during startup");
+                        }
+                        return;
+                    }
+                    if port_ready() {
+                        guard.child = None; // 转复用：退出时不杀、监护走端口探测
+                        drop(guard);
+                        log("spawn 的 daemon 已退出，接管先发实例的 daemon");
+                    }
                 }
             }
             std::thread::sleep(POLL_INTERVAL);
@@ -135,6 +172,9 @@ fn launch_supervisor(app: AppHandle, state: Arc<Mutex<DaemonHandle>>) {
         loop {
             std::thread::sleep(Duration::from_secs(2));
             let mut guard = state.lock().unwrap();
+            if guard.shutting_down {
+                return; // 壳主动退出中：daemon 之死是预期收尾，不弹崩溃框
+            }
             let alive = match guard.child.as_mut() {
                 Some(c) => matches!(c.try_wait(), Ok(None)),
                 None => port_ready(), // 复用模式：原 daemon 退出则本壳失去意义
@@ -151,6 +191,8 @@ fn launch_supervisor(app: AppHandle, state: Arc<Mutex<DaemonHandle>>) {
 /// 壳退出路径：优雅 shutdown → 等退出 → 硬杀进程树兜底
 fn shutdown_daemon(state: &Arc<Mutex<DaemonHandle>>) {
     let mut guard = state.lock().unwrap();
+    // 立即置位（先于任何 kill 动作）：监护线程此后见标志即收手，正常退出不弹假崩溃框
+    guard.shutting_down = true;
     let Some(child) = guard.child.as_mut() else {
         return; // 复用模式：不杀不属于本壳的 daemon
     };
@@ -161,9 +203,8 @@ fn shutdown_daemon(state: &Arc<Mutex<DaemonHandle>>) {
 
     let deadline = Instant::now() + Duration::from_secs(SHUTDOWN_TIMEOUT_SECS);
     loop {
-        match child.try_wait() {
-            Ok(Some(_)) => return, // 已优雅退出
-            _ => {}
+        if let Ok(Some(_)) = child.try_wait() {
+            return; // 已优雅退出
         }
         if Instant::now() > deadline {
             break;
@@ -172,6 +213,7 @@ fn shutdown_daemon(state: &Arc<Mutex<DaemonHandle>>) {
     }
 
     // 硬杀兜底（进程树含 worker 子进程）
+    eprintln!("[mediafactory-shell] graceful shutdown timed out, killing pid={pid}");
     #[cfg(unix)]
     unsafe {
         libc::killpg(pid as i32, libc::SIGKILL);
@@ -189,8 +231,7 @@ fn shutdown_daemon(state: &Arc<Mutex<DaemonHandle>>) {
 }
 
 /// 壳内日志（Rust 侧无文件日志，输出到 stderr 便于 tauri dev 排查）
-fn log(app: &AppHandle, msg: &str) {
-    let _ = app;
+fn log(msg: &str) {
     eprintln!("[mediafactory-shell] {msg}");
 }
 
@@ -209,10 +250,9 @@ fn main() {
         .build(tauri::generate_context!())
         .expect("error while building tauri application");
 
-    app.run(move |app_handle, event| {
+    app.run(move |_app_handle, event| {
         if let RunEvent::ExitRequested { .. } = event {
             shutdown_daemon(&handle_state);
-            let _ = app_handle;
         }
     });
 }
