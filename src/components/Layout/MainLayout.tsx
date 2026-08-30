@@ -11,7 +11,6 @@ import { FileTextOutlined, SettingOutlined, GlobalOutlined } from "@ant-design/i
 import { useLocation, Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useLanguage } from "../../hooks/useLanguage";
-import TitleBar from "./TitleBar";
 import { designTokens } from "../../theme";
 
 const { Content } = Layout;
@@ -35,9 +34,6 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
 
   return (
     <Layout style={{ minHeight: "100vh", background: designTokens.colorBgLayout, display: "flex", flexDirection: "column" }}>
-      {/* 顶部栏：Logo + 窗口控制 */}
-      <TitleBar />
-
       {/* Tab 栏 */}
       <div className="tab-bar">
         <div className="tab-bar-tabs">

@@ -393,64 +393,6 @@ body {
   transition: width 0.3s ease;
 }
 
-/* === 顶部栏 === */
-.top-bar {
-  -webkit-app-region: drag;
-  background: var(--mf-surface-inverse);
-  height: 44px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 24px;
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  z-index: 100;
-}
-
-.top-bar-logo {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  color: var(--mf-text-inverse);
-  font-weight: 600;
-  font-size: 16px;
-}
-
-.top-bar-controls {
-  display: flex;
-  -webkit-app-region: no-drag;
-  position: absolute;
-  right: 0;
-  top: 0;
-  height: 100%;
-}
-
-.top-bar-btn {
-  -webkit-app-region: no-drag;
-  border: none;
-  background: transparent;
-  width: 46px;
-  height: 44px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  color: rgba(255, 255, 255, 0.8);
-  transition: background 0.15s;
-  font-size: 14px;
-}
-
-.top-bar-btn:hover {
-  background: rgba(255, 255, 255, 0.1);
-}
-
-.top-bar-btn-close:hover {
-  background: #ef4444;
-  color: #ffffff;
-}
-
 /* === Tab 栏 === */
 .tab-bar {
   display: flex;
@@ -459,7 +401,6 @@ body {
   padding: 6px 24px;
   background: var(--mf-surface);
   border-bottom: 1px solid var(--mf-border);
-  margin-top: 44px;
 }
 
 .tab-bar-tabs {
