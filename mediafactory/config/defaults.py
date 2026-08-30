@@ -53,6 +53,27 @@ def get_app_root_dir() -> Path:
         return Path(__file__).parent.parent.parent.resolve()
 
 
+def get_data_root_dir() -> Path:
+    """获取可变数据根目录（data/、config.toml、logs/、models/ 的父目录）
+
+    开发环境与 get_app_root_dir 相同（项目根）。
+    PyInstaller 打包环境返回平台用户数据目录——安装目录（.app/Resources、
+    Program Files）可能只读且升级会覆盖，可变数据不能放在那里。
+    """
+    if getattr(sys, "frozen", False):
+        import os
+
+        if sys.platform == "darwin":
+            return Path.home() / "Library" / "Application Support" / "MediaFactory"
+        if sys.platform == "win32":
+            appdata = os.environ.get("APPDATA")
+            if appdata:
+                return Path(appdata) / "MediaFactory"
+            return Path.home() / "AppData" / "Roaming" / "MediaFactory"
+        return Path.home() / ".mediafactory"
+    return get_app_root_dir()
+
+
 def get_config_path() -> Path:
     """获取配置文件路径"""
     return get_app_root_dir() / DEFAULT_CONFIG_FILE

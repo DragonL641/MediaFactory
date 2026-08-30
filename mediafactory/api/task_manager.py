@@ -630,10 +630,10 @@ def get_task_manager() -> TaskManager:
     if _task_manager is None:
         from mediafactory.api.worker import WorkerProcessExecutor
 
-        from mediafactory.config import get_app_root_dir
+        from mediafactory.config import get_data_root_dir
 
         _task_manager = TaskManager(
-            db_path=get_app_root_dir() / "data" / "tasks.db",
+            db_path=get_data_root_dir() / "data" / "tasks.db",
             executor=WorkerProcessExecutor(),
         )
     return _task_manager

@@ -404,9 +404,9 @@ def get_enhancement_model_by_scale_and_type(
 
 def get_models_base_dir() -> Path:
     """获取模型存储基础目录。"""
-    from ..config import get_app_root_dir
+    from ..config import get_data_root_dir
 
-    return get_app_root_dir() / "models"
+    return get_data_root_dir() / "models"
 
 
 def get_enhancement_models_dir() -> Path:

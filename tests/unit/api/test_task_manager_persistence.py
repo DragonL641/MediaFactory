@@ -295,9 +295,9 @@ class TestProductionWiring:
         import mediafactory.api.task_manager as tm_module
         from mediafactory.api.worker import WorkerProcessExecutor
 
-        # get_app_root_dir 基于 __file__ 解析（与 CWD 无关），patch 到 tmp_path
+        # get_data_root_dir 基于 __file__ 解析（与 CWD 无关），patch 到 tmp_path
         # 使 data/tasks.db 落临时目录，不在仓库根产生真实文件
-        monkeypatch.setattr("mediafactory.config.get_app_root_dir", lambda: tmp_path)
+        monkeypatch.setattr("mediafactory.config.get_data_root_dir", lambda: tmp_path)
         monkeypatch.setattr(tm_module, "_task_manager", None)
         manager = tm_module.get_task_manager()
         assert isinstance(manager._executor, WorkerProcessExecutor)

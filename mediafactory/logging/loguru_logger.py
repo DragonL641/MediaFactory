@@ -55,12 +55,12 @@ class LoguruAppLogger:
 
         candidates = []
 
-        # Primary: app root
+        # Primary: 数据根（frozen 下为平台用户目录，dev 下为项目根）
         try:
-            from ..config import get_app_root_dir
+            from ..config import get_data_root_dir
 
-            app_root = get_app_root_dir()
-            candidates.append(app_root / "logs")
+            data_root = get_data_root_dir()
+            candidates.append(data_root / "logs")
         except (ImportError, AttributeError):
             pass
 

@@ -24,7 +24,7 @@ from mediafactory.api.routes import config, models, processing, system
 from mediafactory.api.task_manager import get_task_manager
 from mediafactory.api.websocket import manager as ws_manager
 from mediafactory._version import get_version
-from mediafactory.config import get_app_root_dir
+from mediafactory.config import get_app_root_dir, get_data_root_dir
 
 logger = logging.getLogger(__name__)
 # API 层使用标准 logging，通过 InterceptHandler 自动重定向到 loguru
@@ -179,7 +179,7 @@ def get_app() -> FastAPI:
 
 def _daemon_lock_path():
     """实例锁路径：data/daemon.lock（与 tasks.db 同目录）。"""
-    return get_app_root_dir() / "data" / "daemon.lock"
+    return get_data_root_dir() / "data" / "daemon.lock"
 
 
 def start_server(port: int = 8765):

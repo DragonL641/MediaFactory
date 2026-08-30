@@ -400,9 +400,9 @@ class LocalModelManager:
             huggingface_id: 没找到的 HuggingFace 模型 ID
         """
         model_info = get_translation_model_info(huggingface_id)
-        from ..config import get_app_root_dir
+        from ..config import get_data_root_dir
 
-        models_dir = str(get_app_root_dir() / "models")
+        models_dir = str(get_data_root_dir() / "models")
 
         if model_info:
             error_msg = (

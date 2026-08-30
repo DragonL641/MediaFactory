@@ -53,7 +53,12 @@ from .manager import (
 
 # 默认值
 from . import defaults
-from .defaults import get_app_root_dir, get_config_path, get_models_path
+from .defaults import (
+    get_app_root_dir,
+    get_config_path,
+    get_data_root_dir,
+    get_models_path,
+)
 
 __all__ = [
     # 主 API
@@ -72,6 +77,7 @@ __all__ = [
     "defaults",
     "get_app_root_dir",
     "get_config_path",
+    "get_data_root_dir",
     "get_models_path",
     # 便捷函数
     "reload_config",

@@ -147,9 +147,9 @@ class AppConfigManager:
         """
         from ..models.model_registry import is_model_complete
         from ..models.model_registry import MODEL_REGISTRY, ModelType
-        from .defaults import get_app_root_dir
+        from .defaults import get_data_root_dir
 
-        models_dir = get_app_root_dir() / "models"
+        models_dir = get_data_root_dir() / "models"
         translation_models: list[str] = []
         whisper_models: list[str] = []
 
