@@ -10,6 +10,7 @@ data/daemon.lock 记录持锁 PID：
 import atexit
 import logging
 import os
+import sys
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
@@ -69,8 +70,26 @@ class DaemonLock:
 
     @staticmethod
     def _pid_alive(pid: int) -> bool:
+        if sys.platform == "win32":
+            # Windows 惯用法：OpenProcess 探测（注意：os.kill 在 Windows 上
+            # 对任何信号值都会 TerminateProcess，绝不能用于存在性探测）
+            import ctypes
+
+            PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
+            STILL_ACTIVE = 259
+            kernel32 = ctypes.windll.kernel32
+            handle = kernel32.OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, False, pid)
+            if not handle:
+                return False
+            try:
+                exit_code = ctypes.c_ulong()
+                if kernel32.GetExitCodeProcess(handle, ctypes.byref(exit_code)):
+                    return exit_code.value == STILL_ACTIVE
+                return False
+            finally:
+                kernel32.CloseHandle(handle)
         try:
-            os.kill(pid, 0)  # 信号 0 = 仅探测存在性
+            os.kill(pid, 0)  # POSIX：信号 0 = 仅探测存在性
         except ProcessLookupError:
             return False
         except PermissionError:

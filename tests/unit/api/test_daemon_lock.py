@@ -1,4 +1,8 @@
-"""DaemonLock（daemon 实例 PID 锁）单元测试。"""
+"""DaemonLock（daemon 实例 PID 锁）单元测试。
+
+存活探测的平台分支：Windows 走 ctypes OpenProcess（仅在 win32 生效），
+本测试套在 POSIX 分支上运行，Windows 分支以代码评审背书。
+"""
 
 import os
 
