@@ -1,7 +1,7 @@
 """
 FastAPI 应用入口
 
-提供 HTTP + WebSocket API 供 Electron 前端调用。
+提供 HTTP + WebSocket API 供 Web UI 调用，并同源伺服前端构建产物（webui/）。
 """
 
 from __future__ import annotations
@@ -89,7 +89,7 @@ def create_app() -> FastAPI:
         lifespan=lifespan,
     )
 
-    # CORS 配置（允许所有来源，本地桌面工具无安全风险）
+    # CORS 配置：本地工具，同源伺服的 Web UI 不依赖跨源；全开策略为未来远程访问场景保留
     app.add_middleware(
         CORSMiddleware,
         allow_origins=["*"],

@@ -3,7 +3,7 @@ MediaFactory 包主入口点
 
 支持: python -m mediafactory [--reload] [--port PORT]
 
-这将启动 FastAPI 服务器（为 Electron 前端提供 API）。
+这将启动 FastAPI daemon（提供 API 并同源伺服 Web UI）。
 --reload 参数启用开发模式热加载。
 --port 参数指定服务端口（默认 8765）。
 """

@@ -38,7 +38,7 @@ async def browse(path: Optional[str] = None, ext: Optional[str] = None) -> Brows
     """列出目录内容供 Web UI 文件选取。
 
     目录始终显示；文件按逗号分隔的扩展名过滤（缺省不过滤）；
-    跳过 dotfile（对齐 Electron 原生对话框默认行为）。
+    跳过 dotfile（隐藏配置文件，减少列表噪音）。
     """
     # resolve()：手输相对路径（如 Downloads）规范化为绝对路径，不落 daemon CWD
     target = Path(path).expanduser().resolve() if path else Path.home()
@@ -55,7 +55,7 @@ async def browse(path: Optional[str] = None, ext: Optional[str] = None) -> Brows
     try:
         for item in sorted(target.iterdir(), key=lambda p: p.name.lower()):
             if item.name.startswith("."):
-                continue  # 隐藏 dotfile（对齐 Electron 原生对话框默认行为）
+                continue  # 隐藏 dotfile
             try:
                 is_dir = item.is_dir()
             except OSError:
@@ -75,7 +75,7 @@ async def browse(path: Optional[str] = None, ext: Optional[str] = None) -> Brows
 
 @router.post("/reveal", status_code=204)
 async def reveal(req: RevealRequest) -> None:
-    """在系统文件管理器中定位文件（原 Electron shell.showItemInFolder 的替代）。"""
+    """在系统文件管理器中定位并选中文件。"""
     target = Path(req.path).expanduser()
     if not target.exists():
         raise HTTPException(status_code=400, detail=t("error.pathNotAccessible"))

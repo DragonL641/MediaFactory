@@ -62,7 +62,7 @@ def run_pyinstaller(version: str, extra_args: Optional[List[str]] = None) -> boo
 def build_backend(platform_name: str, version: Optional[str] = None) -> int:
     """执行 Python 后端构建（通用，跨平台）。
 
-    流程：PyInstaller 打包 → 复制到 dist/python/（供 electron-builder 使用）
+    流程：PyInstaller 打包 → 复制到 dist/python/
 
     Args:
         platform_name: 平台显示名称（如 "macOS"、"Windows"）
@@ -80,7 +80,8 @@ def build_backend(platform_name: str, version: Optional[str] = None) -> int:
         log_error("PyInstaller 失败")
         return 1
 
-    # 复制 PyInstaller COLLECT 产物到 dist/python/（electron-builder 需要）
+    # 复制 PyInstaller COLLECT 产物到 dist/python/
+    # Electron 链已移除（Phase 2），此复制步骤待 Plan 3 Tauri 打包重写
     project_root = get_project_root()
     python_dist = project_root / "dist" / "python"
     if python_dist.exists():

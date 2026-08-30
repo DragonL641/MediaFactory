@@ -15,7 +15,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python](https://img.shields.io/badge/python-3.11%20%7C%203.12%20%7C%203.13-blue.svg)](https://www.python.org/downloads/)
-[![Node](https://img.shields.io/badge/node-%3E%3D18.0.0-green.svg)](https://nodejs.org/)
+[![Node](https://img.shields.io/badge/node-%3E%3D20.19.0-green.svg)](https://nodejs.org/)
 
 ---
 
@@ -58,19 +58,20 @@ cd MediaFactory
 
 # 2. 安装依赖
 uv sync --group core          # Python 后端依赖（包含 CUDA 12.8 版本的 PyTorch）
-npm install                   # Electron 前端依赖
+npm install                   # Web 前端依赖
 
 # 3. 下载模型（首次运行前必须）
 uv run python scripts/utils/download_model.py facebook/m2m100_1.2B
 
 # 4. 运行应用
-npm run dev
+npm run build                          # 构建 Web UI（产物输出到 webui/）
+uv run python -m mediafactory          # 启动 daemon，浏览器打开 http://127.0.0.1:8765
 ```
 
-> **说明**：`npm run dev` 启动 Electron 桌面应用，自动拉起 Python 后端。
+> **说明**：daemon 在 http://127.0.0.1:8765 同时提供 API 与 Web UI——无需安装桌面应用，浏览器直接访问。
+> 前端开发请在第二个终端运行 `npm run dev`（vite dev server 端口 5173，`/api` 与 `/ws` 代理到 daemon）。
 > PyTorch 从 `download.pytorch.org`（而非 PyPI）下载，以确保 CUDA 支持。
 > CUDA 12.8 支持 Blackwell（RTX 50 系列）及更早架构。
-> 如只需后端 API 服务，可运行 `uv run mediafactory`。
 
 ---
 
@@ -121,7 +122,7 @@ AI 视频工具往往让你在质量和速度之间、云端便利和隐私之�
 
 - **Python**: 3.11、3.12 或 3.13（推荐 3.12）
 - **uv**: 现代 Python 包管理器（[安装 uv](https://docs.astral.sh/uv/)）
-- **Node.js**: ≥20.19.0（用于 Electron 前端开发）
+- **Node.js**: ≥20.19.0（用于 Web 前端开发与构建）
 - **FFmpeg**: 通过 imageio-ffmpeg 自动包含（无需手动安装）
 - **macOS**: 12.0 (Monterey) 或更高版本
 

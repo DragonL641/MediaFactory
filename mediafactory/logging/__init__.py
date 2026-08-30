@@ -13,8 +13,8 @@ Usage:
     from mediafactory.logging import log_info, log_error
 
     # All logging writes to the same unified log file
-    # Electron 前端不直接写日志；日志仅由 FastAPI 后端写入，
-    # 进度与状态通过 WebSocket 推送给前端
+    # Web UI 不直接写日志；日志仅由 daemon 写入，
+    # 进度与状态通过 WebSocket 推送给 Web UI
 """
 
 # Auto-initialization removed - _ensure_logger() handles lazy init

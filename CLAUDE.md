@@ -11,8 +11,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 **平台支持**：macOS、Windows（Linux 暂不支持）
 
 **关键架构说明：**
-- **Electron + FastAPI 架构**：React + TypeScript 前端通过 HTTP/WebSocket 与 FastAPI 后端通信
-- **三层架构**：Frontend (Electron) → API (FastAPI) → Service → Pipeline → Engine
+- **daemon 单进程架构**：FastAPI daemon（8765）提供 API 并同源伺服 React SPA（vite 产物 `webui/`），浏览器直接访问 `http://127.0.0.1:8765`（Tauri 壳待 Phase 3 引入）
+- **三层架构**：Frontend (React SPA，浏览器) → API (FastAPI) → Service → Pipeline → Engine
 - **单一包**：`mediafactory/` 包含所有后端代码（API、服务、流水线、引擎）
 - 使用 **Faster Whisper** 而非 OpenAI Whisper，转录速度快 4-6 倍
 - LLM 翻译使用**逐句顺序翻译**，每句添加上下文参考以提高翻译质量
@@ -25,9 +25,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ```
 ┌───────────────────────────────────────────────────────────┐
-│         前端层 (Electron + React + TypeScript)             │
-│           electron/ (main+preload) + src/ (React)          │
-│  main/ (主进程) | preload/ | src/ (React + Ant Design)      │
+│    前端层（React SPA——daemon 同源伺服 webui/，浏览器访问）  │
+│           src/ (React + TypeScript + Ant Design)           │
 └──────────────────────────┬────────────────────────────────┘
                            │ HTTP/WebSocket (127.0.0.1:8765)
                            ▼
@@ -65,16 +64,16 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ### 事件流
 
 ```
-用户操作 → Electron (React)
+用户操作 → Web UI (React，浏览器)
                │
                ▼ HTTP/WS
-          FastAPI Server
+          FastAPI daemon
                │
                ▼
           TaskManager → worker 子进程（runner → Pipeline → Stage → Engine）
                │
                ▼
-          WebSocket → Electron (实时进度更新)
+          WebSocket → Web UI（实时进度更新）
 ```
 
 ### 流水线阶段与进度权重
@@ -105,6 +104,12 @@ MediaFactory 使用 `dependency-groups` + `include-group` 进行依赖分组，�
 | **dev** | 开发依赖（开发工具） | `uv sync --group dev` |
 
 ```bash
+# 开发工作流（两个终端）：
+uv run python -m mediafactory        # 终端 1：daemon（8765）
+npm run dev                          # 终端 2：vite dev server（5173，代理 /api 与 /ws）
+# 或一体化：npm run build 后浏览器打开 http://127.0.0.1:8765
+# 注意：daemon 启动时固化 webui/ 伺服——重新 build 后需重启 daemon
+
 # 开发者：安装所有依赖
 uv sync --all-groups
 
@@ -139,13 +144,12 @@ uv run mypy mediafactory/                                          # 类型检�
 uv run python scripts/build/build_darwin.py          # macOS
 uv run python scripts/build/build_win.py              # Windows
 
-# Electron 前端构建（需要 Node.js ≥20.19.0，package.json 在仓库根目录）
-npm run dev          # 启动 Electron 应用（自动拉起 Python 后端）
-npm run typecheck    # TS 类型检查（electron/main、preload、src 三份 tsconfig）
-npm run lint         # ESLint（仅 electron/）
+# Web UI 构建（需要 Node.js ≥20.19.0，package.json 在仓库根目录）
+npm run build        # vite 构建，产物输出 webui/（daemon 同源伺服）
+npm run typecheck    # TS 类型检查（src/tsconfig.json）
 
 # 清理所有构建产物
-rm -rf build/ dist/ release/
+rm -rf build/ dist/ release/ webui/
 ```
 
 ### 版本管理
@@ -171,12 +175,11 @@ python scripts/utils/download_model.py facebook/m2m100_1.2B --source=https://hf-
 
 ### 运行应用程序
 ```bash
-# 启动 API 服务器（为 Electron 前端提供后端）
+# 启动 daemon（提供 API 并同源伺服 Web UI），浏览器打开 http://127.0.0.1:8765
 python -m mediafactory          # 直接运行模块（推荐）
 mediafactory                    # 使用 console script
 
-# Electron 前端开发模式（根目录运行；开发模式下 Electron 会 spawn
-# .venv/bin/python -m uvicorn mediafactory.api.main:get_app，因此需先 uv sync）
+# 前端开发模式（vite dev server 5173，代理 /api 与 /ws 到 daemon；需先 uv sync 并另起 daemon）
 npm run dev
 ```
 
@@ -195,10 +198,12 @@ result = await loop.run_in_executor(None, pipeline.execute, context)
 
 ### API 层（`mediafactory/api/`）
 
-- `main.py`：FastAPI 应用入口，生命周期管理，WebSocket 端点
+- `main.py`：FastAPI 应用入口，生命周期管理，WebSocket 端点，SPA 同源伺服
+- `daemon_lock.py`：daemon 实例 PID 锁（`data/daemon.lock`，双开第二个直接 exit=1，死进程锁自动接管）
 - `routes/config.py`：配置管理 API（读取、更新、保存、LLM 预设）
 - `routes/models.py`：模型管理 API
 - `routes/processing.py`：任务处理 API（字幕、音频、转录、翻译、增强）
+- `routes/system.py`：系统交互 API（`/browse` 目录浏览供 Web UI 文件选取、`/reveal` 在文件管理器中定位产物）
 - `schemas.py`：Pydantic 数据模型（TaskConfig、TaskProgress、TaskResult 等）
 - `websocket.py`：WebSocket 连接管理器，实时进度推送
 - `task_manager.py`：后台任务管理器（SQLite 持久队列 + `SimpleProgressAdapter` 进度适配、`get_task_manager` 单例装配 WorkerProcessExecutor；write-through 落库，重启 `recover()` 恢复队列）
@@ -300,9 +305,8 @@ save_config()
 - 完整打包所有依赖（含 ML：torch, transformers, faster-whisper 等），开箱即用
 - 自定义钩子在 `scripts/pyinstaller/hooks/`
 
-**Electron**（`electron/`）：
-- Electron + React + TypeScript + Ant Design
-- `electron.vite.config.ts` + `electron-builder.yml`
+**Web UI**（`src/` + `vite.config.ts`）：
+- React + TypeScript + Ant Design，vite 构建产物输出 `webui/`，由 daemon 同源伺服（Tauri 壳待 Phase 3）
 
 **FFmpeg**：统一使用 `imageio-ffmpeg`，不依赖系统 FFmpeg
 
@@ -311,7 +315,7 @@ save_config()
 - 框架：pytest 带覆盖率
 - 结构：`tests/unit/`（按模块分子目录：api、config、core、engine、llm、pipeline、services、utils）+ `tests/integration/`
 - 标记：`unit`、`integration`、`slow`、`requires_ml`、`requires_network`（无 `e2e`）
-- **契约测试安全网**（共 74 个，精简重构 Phase 1-3 与持久化队列计划 Phase 1 的回归防线——**改动 runner/task_manager/task_store/worker/pipeline/download_task 前先确认这些测试全绿**）：`tests/unit/services/test_runner_contract.py`（21 个：5 个 runner 全覆盖、LLM 三分支、字段改名映射、失败透传）、`tests/unit/api/test_task_manager_contract.py`（9 个：状态机/CANCELLED 不变量/串行队列/取消出队）、`tests/unit/api/test_download_task.py`（3 个：成功/失败/节流）、`tests/unit/pipeline/test_progress_mapping.py`（8 个：区间归一化/防叠加/恢复）、`tests/unit/api/test_task_store.py`（11 个：任务 CRUD/白名单更新/队列标记/崩溃恢复）、`tests/unit/api/test_worker_executor.py`（10 个：子进程执行往返/崩溃隔离 respawn/取消 IPC/进度回传）、`tests/unit/api/test_task_manager_persistence.py`（12 个：write-through 落库/重启恢复/生产装配/manager+worker+SQLite 端到端链路）
+- **契约测试安全网**（共 103 个，精简重构 Phase 1-3、持久化队列 Phase 1 与 Electron 移除 Phase 2 的回归防线——**改动 runner/task_manager/task_store/worker/pipeline/download_task/daemon_lock/system 路由/SPA 伺服前先确认这些测试全绿**）：`tests/unit/services/test_runner_contract.py`（21 个：5 个 runner 全覆盖、LLM 三分支、字段改名映射、失败透传）、`tests/unit/api/test_task_manager_contract.py`（9 个：状态机/CANCELLED 不变量/串行队列/取消出队）、`tests/unit/api/test_download_task.py`（3 个：成功/失败/节流）、`tests/unit/pipeline/test_progress_mapping.py`（8 个：区间归一化/防叠加/恢复）、`tests/unit/api/test_task_store.py`（11 个：任务 CRUD/白名单更新/队列标记/崩溃恢复）、`tests/unit/api/test_worker_executor.py`（10 个：子进程执行往返/崩溃隔离 respawn/取消 IPC/进度回传）、`tests/unit/api/test_task_manager_persistence.py`（12 个：write-through 落库/重启恢复/生产装配/manager+worker+SQLite 端到端链路）、`tests/unit/api/test_daemon_lock.py`（10 个：PID 锁获取/双开拒绝/死锁接管/入口装配）、`tests/unit/api/test_system_routes.py`（13 个：browse 目录浏览排序与过滤/dotfile 跳过/reveal 平台命令）、`tests/unit/api/test_spa_serving.py`（6 个：index 伺服/客户端路由回退/静态资源/API 路径不受影响/缺 webui 优雅降级）
 
 ## 重要实现细节
 

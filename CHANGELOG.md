@@ -35,6 +35,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 **api:** 任务队列落 SQLite 持久化（data/tasks.db），任务执行移入独立 worker 子进程：ML 崩溃不再拖垮服务，daemon 重启后任务记录与排队队列不丢（恢复为待执行）、中断任务标记失败
 
+**build:** 开发形态切换为 daemon + 浏览器——移除 Electron 壳，daemon 同源伺服 Web UI（vite 产物 webui/）
+
+**api:** daemon 实例锁（data/daemon.lock）杜绝双开；新增 system 路由（目录浏览 / 产物定位）
+
+**web:** 文件选取改为手动输入 + 服务端目录浏览（PathInput/BrowseModal），打开产物改为后端 reveal
+
 ## [0.4.0]
 
 ### Added

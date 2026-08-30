@@ -1,7 +1,7 @@
 """
 MediaFactory FastAPI Backend
 
-为 Electron 前端提供 HTTP + WebSocket API。
+为 Web UI 提供 HTTP + WebSocket API。
 """
 
 from mediafactory.api.main import create_app, get_app

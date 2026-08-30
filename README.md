@@ -15,7 +15,7 @@ A professional multimedia processing platform for subtitle generation and video-
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python](https://img.shields.io/badge/python-3.11%20%7C%203.12%20%7C%203.13-blue.svg)](https://www.python.org/downloads/)
-[![Node](https://img.shields.io/badge/node-%3E%3D18.0.0-green.svg)](https://nodejs.org/)
+[![Node](https://img.shields.io/badge/node-%3E%3D20.19.0-green.svg)](https://nodejs.org/)
 
 ---
 
@@ -58,19 +58,20 @@ cd MediaFactory
 
 # 2. Install dependencies
 uv sync --group core          # Python backend deps (includes PyTorch with CUDA 12.8)
-npm install                   # Electron frontend deps
+npm install                   # Web UI deps
 
 # 3. Download models (required before first run)
 uv run python scripts/utils/download_model.py facebook/m2m100_1.2B
 
 # 4. Run the application
-npm run dev
+npm run build                          # Build the Web UI (outputs to webui/)
+uv run python -m mediafactory          # Start the daemon, then open http://127.0.0.1:8765 in your browser
 ```
 
-> **Note**: `npm run dev` launches the Electron desktop app, which automatically starts the Python backend.
+> **Note**: The daemon serves both the API and the Web UI at http://127.0.0.1:8765 — no desktop app install needed, just a browser.
+> For frontend development, run `npm run dev` in a second terminal (vite dev server at 5173, proxying `/api` and `/ws` to the daemon).
 > PyTorch is downloaded from `download.pytorch.org` (not PyPI) to ensure CUDA support.
 > CUDA 12.8 supports Blackwell (RTX 50 series) and earlier architectures.
-> For backend API only, run `uv run mediafactory`.
 
 ---
 
@@ -121,7 +122,7 @@ AI video tools often force you to choose between quality and speed, or between c
 
 - **Python**: 3.11, 3.12, or 3.13 (3.12 recommended)
 - **uv**: Modern Python package manager ([install uv](https://docs.astral.sh/uv/))
-- **Node.js**: ≥20.19.0 (for Electron GUI development)
+- **Node.js**: ≥20.19.0 (for Web UI development and build)
 - **FFmpeg**: Included via imageio-ffmpeg (no manual installation needed)
 - **macOS**: 12.0 (Monterey) or later
 
