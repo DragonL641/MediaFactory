@@ -57,13 +57,19 @@ def main():
             log_level="info",
         )
     else:
-        # 生产模式
-        uvicorn.run(
-            get_app(),
-            host="127.0.0.1",
-            port=args.port,
-            log_level="info",
+        # 生产模式（手动构造 Server 以支持 /api/system/shutdown 优雅停机）
+        from mediafactory.api.server_ref import set_server
+
+        server = uvicorn.Server(
+            uvicorn.Config(
+                get_app(),
+                host="127.0.0.1",
+                port=args.port,
+                log_level="info",
+            )
         )
+        set_server(server)
+        server.run()
 
 
 if __name__ == "__main__":

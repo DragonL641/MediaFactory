@@ -213,12 +213,18 @@ def start_server(port: int = 8765):
         format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     )
 
-    # 启动服务器
+    # 启动服务器（手动构造 Server 以支持 /api/system/shutdown 优雅停机）
     logger.info(f"Starting MediaFactory API server on http://127.0.0.1:{port}")
-    uvicorn.run(
-        "mediafactory.api.main:get_app",
-        host="127.0.0.1",
-        port=port,
-        factory=True,
-        log_level="info",
+    from mediafactory.api.server_ref import set_server
+
+    server = uvicorn.Server(
+        uvicorn.Config(
+            "mediafactory.api.main:get_app",
+            host="127.0.0.1",
+            port=port,
+            factory=True,
+            log_level="info",
+        )
     )
+    set_server(server)
+    server.run()

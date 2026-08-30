@@ -1,13 +1,15 @@
-"""system 路由（browse/reveal）单元测试。"""
+"""system 路由（browse/reveal/shutdown）单元测试。"""
 
 import asyncio
 import os
 import sys
+import types
 from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
 
+from mediafactory.api import server_ref
 from mediafactory.api.main import get_app
 
 pytestmark = [pytest.mark.unit]
@@ -156,3 +158,20 @@ class TestReveal:
         monkeypatch.setattr(sys, "platform", "linux")
         resp = client.post("/api/system/reveal", json={"path": str(target)})
         assert resp.status_code == 400
+
+
+class TestShutdownEndpoint:
+    """POST /api/system/shutdown：壳退出时触发 uvicorn 优雅停机"""
+
+    def test_shutdown_sets_should_exit(self, client, monkeypatch):
+        fake_server = types.SimpleNamespace(should_exit=False)
+        monkeypatch.setattr(server_ref, "_server", fake_server)
+        resp = client.post("/api/system/shutdown")
+        assert resp.status_code == 200
+        assert resp.json()["status"] == "shutting_down"
+        assert fake_server.should_exit is True
+
+    def test_shutdown_without_server_returns_503(self, client, monkeypatch):
+        monkeypatch.setattr(server_ref, "_server", None)
+        resp = client.post("/api/system/shutdown")
+        assert resp.status_code == 503

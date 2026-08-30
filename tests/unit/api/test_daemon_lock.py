@@ -95,24 +95,46 @@ class TestEntryWiring:
         monkeypatch.setattr(api_main, "_daemon_lock_path", lambda: lock_path)
         lock_path.write_text(str(os.getpid()))  # 活实例持锁
 
-        ran = []
-        monkeypatch.setattr("uvicorn.run", lambda *a, **k: ran.append(True))
+        started = []
+
+        class FakeServer:
+            def __init__(self, config):
+                started.append("constructed")
+
+            def run(self):
+                started.append("ran")
+
+        # 入口手动构造 uvicorn.Server（供 /api/system/shutdown 优雅停机）
+        monkeypatch.setattr("uvicorn.Server", FakeServer)
 
         with pytest.raises(SystemExit) as exc_info:
             api_main.start_server()
         assert exc_info.value.code == 1
-        assert ran == []  # 锁失败时 uvicorn 根本不启动
+        assert started == []  # 锁失败时 Server 根本不构造
 
     def test_start_server_happy_path_runs_uvicorn_and_releases(
         self, monkeypatch, tmp_path
     ):
         import mediafactory.api.main as api_main
+        from mediafactory.api import server_ref
 
         lock_path = tmp_path / "daemon.lock"
         monkeypatch.setattr(api_main, "_daemon_lock_path", lambda: lock_path)
+        # 先钉住全局 _server，teardown 自动还原（防 set_server 污染后续测试）
+        monkeypatch.setattr(server_ref, "_server", None)
+
         ran = []
-        monkeypatch.setattr("uvicorn.run", lambda *a, **k: ran.append(True))
+
+        class FakeServer:
+            def __init__(self, config):
+                self.config = config
+
+            def run(self):
+                ran.append(True)
+
+        monkeypatch.setattr("uvicorn.Server", FakeServer)
         api_main.start_server()
         assert ran == [True]  # 锁成功 → uvicorn 正常启动
+        assert server_ref._server is not None  # Server 已注册（供 shutdown 端点）
         assert lock_path.read_text().strip() == str(os.getpid())  # 持锁为本进程
         # 进程退出时 atexit 释放——测试内不断言文件删除（atexit 在进程退出才跑）

@@ -98,3 +98,17 @@ async def reveal(req: RevealRequest) -> None:
     # explorer.exe 成功时也返回 1——Windows 分支不据此告警
     if returncode != 0 and sys.platform != "win32":
         logger.warning(f"reveal 命令返回非零（忽略）: {cmd}")
+
+
+@router.post("/shutdown")
+async def shutdown_daemon():
+    """优雅停机（桌面壳退出时调用）
+
+    触发 uvicorn should_exit → lifespan 收尾 → TaskManager.shutdown()
+    （RUNNING 任务落 CANCELLED）→ atexit 释放实例锁。
+    """
+    from mediafactory.api import server_ref
+
+    if server_ref.request_shutdown():
+        return {"status": "shutting_down"}
+    raise HTTPException(status_code=503, detail="uvicorn server not registered")
