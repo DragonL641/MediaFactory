@@ -7,15 +7,10 @@
   "license": "MIT",
   "main": "dist/electron/main/index.js",
   "scripts": {
-    "dev": "electron-vite dev",
-    "build": "electron-vite build",
-    "pack": "electron-builder --dir",
-    "dist": "electron-builder",
-    "dist:mac": "electron-builder --mac",
-    "dist:win": "electron-builder --win",
-    "typecheck": "tsc --noEmit -p electron/tsconfig.json && tsc --noEmit -p electron/preload/tsconfig.json && tsc --noEmit -p src/tsconfig.json",
-    "lint": "eslint electron/",
-    "lint:fix": "eslint electron/ --fix"
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit -p src/tsconfig.json"
   },
   "dependencies": {
     "@ant-design/icons": "^5.2.0",
@@ -35,9 +30,6 @@
     "@types/react-dom": "^18.2.0",
     "@vitejs/plugin-react": "^4.2.0",
     "concurrently": "^8.2.0",
-    "electron": "^41.0.0",
-    "electron-builder": "^26.4.0",
-    "electron-vite": "^5.0.0",
     "eslint": "^9.39.4",
     "eslint-plugin-react": "^7.37.5",
     "eslint-plugin-react-hooks": "^5.2.0",
