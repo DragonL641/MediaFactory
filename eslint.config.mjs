@@ -10,7 +10,6 @@ export default tseslint.config(
     ignores: [
       "dist/**",
       "release/**",
-      "out/**",
       "node_modules/**",
       "src/locales/**",
     ],
@@ -50,7 +49,7 @@ export default tseslint.config(
 
   // 全局 TypeScript 规则覆盖
   {
-    files: ["electron/**/*.{ts,tsx}", "src/**/*.{ts,tsx}"],
+    files: ["src/**/*.{ts,tsx}"],
     rules: {
       // 允许 _ 前缀的未使用变量
       "@typescript-eslint/no-unused-vars": [

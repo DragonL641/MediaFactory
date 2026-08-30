@@ -9,17 +9,14 @@ import axios, { AxiosInstance, AxiosError, isAxiosError } from "axios";
 import type { WebSocketMessage } from "../types";
 
 let apiClient: AxiosInstance | null = null;
-let baseUrl: string = "";
 
 /**
  * 初始化 API 客户端
  */
 export async function initApiClient(): Promise<void> {
-  // 同源伺服：API 与前端同一 origin（开发模式经 vite 代理转发到 daemon）
-  baseUrl = "";
-
   apiClient = axios.create({
-    baseURL: baseUrl,
+    // 同源伺服：API 与前端同一 origin（开发模式经 vite 代理转发到 daemon）
+    baseURL: "",
     timeout: 300000, // 5 分钟（长时间任务）
     headers: {
       "Content-Type": "application/json",
@@ -59,8 +56,6 @@ export async function initApiClient(): Promise<void> {
       return Promise.reject(error);
     }
   );
-
-  console.log(`[API] Client initialized with baseUrl: ${baseUrl}`);
 }
 
 /**
@@ -71,13 +66,6 @@ export function getApiClient(): AxiosInstance {
     throw new Error("API client not initialized. Call initApiClient() first.");
   }
   return apiClient;
-}
-
-/**
- * 获取 API 基础 URL
- */
-export function getBaseUrl(): string {
-  return baseUrl;
 }
 
 /**

@@ -33,7 +33,7 @@ repos:
 
       - id: eslint
         name: ESLint check
-        entry: npx eslint electron/ src/
+        entry: npx eslint src/
         language: system
-        files: ^(electron|src)/.*\.(ts|tsx)$
+        files: ^src/.*\.(ts|tsx)$
         pass_filenames: false
