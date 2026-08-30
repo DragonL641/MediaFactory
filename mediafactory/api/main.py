@@ -15,7 +15,7 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 
 from mediafactory.api.daemon_lock import DaemonAlreadyRunning, DaemonLock
-from mediafactory.api.routes import config, models, processing
+from mediafactory.api.routes import config, models, processing, system
 
 # re-export：保持 mediafactory.api.main.get_task_manager 旧导入路径兼容
 from mediafactory.api.task_manager import get_task_manager
@@ -100,6 +100,7 @@ def create_app() -> FastAPI:
     app.include_router(processing.router, prefix="/api/processing", tags=["processing"])
     app.include_router(models.router, prefix="/api/models", tags=["models"])
     app.include_router(config.router, prefix="/api/config", tags=["config"])
+    app.include_router(system.router, prefix="/api/system", tags=["system"])
 
     # WebSocket 端点
 

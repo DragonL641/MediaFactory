@@ -80,6 +80,8 @@
     "eitherSrtOrTextRequired": "Either srt_path or text is required",
     "startupFailed": "Startup Failed",
     "backendStartupFailed": "Failed to start MediaFactory backend service:\n{{error}}\n\nPlease check the Python environment configuration.",
+    "pathNotAccessible": "Path does not exist or is not accessible",
+    "platformNotSupported": "This feature is not supported on this platform",
     "generic": {
       "fileNotFound": "File not found",
       "permissionDenied": "Permission denied",
