@@ -55,11 +55,10 @@
     "llmProvider": "LLM Provider"
   },
   "placeholder": {
-    "selectVideo": "Click to select video file...",
-    "selectAudioVideo": "Click to select audio or video file...",
-    "selectSrt": "Click to select SRT file...",
-    "selectProvider": "Select provider",
-    "selectFile": "Click to select file..."
+    "selectVideo": "Enter or browse for a video file...",
+    "selectAudioVideo": "Enter or browse for an audio/video file...",
+    "selectSrt": "Enter or browse for a subtitle file...",
+    "selectProvider": "Select provider"
   },
   "audioOptions": {
     "wav": "WAV (Best Quality)",

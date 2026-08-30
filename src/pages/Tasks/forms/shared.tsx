@@ -61,21 +61,25 @@ export const useBilingualLayoutOptions = () => {
   ];
 };
 
+// 各任务类型的输入文件扩展名（BrowseModal 服务端过滤用）
+// 模块级常量：稳定引用，避免每次渲染新数组导致下游 useCallback/useEffect 失效
+export const FILE_EXTENSIONS = {
+  video: ["mp4", "avi", "mov", "mkv", "wmv", "flv", "webm"],
+  audio_video: [
+    "mp4",
+    "avi",
+    "mov",
+    "mkv",
+    "wav",
+    "mp3",
+    "m4a",
+    "flac",
+    "webm",
+    "ogg",
+  ],
+  srt: ["srt"],
+};
+
 export const useFileExtensions = () => {
-  return {
-    video: ["mp4", "avi", "mov", "mkv", "wmv", "flv", "webm"],
-    audio_video: [
-      "mp4",
-      "avi",
-      "mov",
-      "mkv",
-      "wav",
-      "mp3",
-      "m4a",
-      "flac",
-      "webm",
-      "ogg",
-    ],
-    srt: ["srt"],
-  };
+  return FILE_EXTENSIONS;
 };

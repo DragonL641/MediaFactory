@@ -5,9 +5,10 @@
  */
 
 import React, { useState } from "react";
-import { Form, Input, Button } from "antd";
+import { Form, Input, Button, Tooltip } from "antd";
 import type { FormInstance } from "antd";
 import { FolderOpenOutlined } from "@ant-design/icons";
+import { useTranslation } from "react-i18next";
 import BrowseModal from "../BrowseModal";
 
 export interface PathInputProps {
@@ -30,6 +31,7 @@ const PathInput: React.FC<PathInputProps> = ({
   required = true,
   requiredMessage = "Please select a file",
 }) => {
+  const { t } = useTranslation("forms");
   const [browseOpen, setBrowseOpen] = useState(false);
 
   return (
@@ -43,12 +45,14 @@ const PathInput: React.FC<PathInputProps> = ({
           placeholder={placeholder}
           allowClear
           suffix={
-            <Button
-              type="link"
-              size="small"
-              icon={<FolderOpenOutlined />}
-              onClick={() => setBrowseOpen(true)}
-            />
+            <Tooltip title={t("pathInput.browse")}>
+              <Button
+                type="link"
+                size="small"
+                icon={<FolderOpenOutlined />}
+                onClick={() => setBrowseOpen(true)}
+              />
+            </Tooltip>
           }
         />
       </Form.Item>

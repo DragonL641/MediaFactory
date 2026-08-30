@@ -55,11 +55,10 @@
     "llmProvider": "LLM 供应商"
   },
   "placeholder": {
-    "selectVideo": "点击选择视频文件...",
-    "selectAudioVideo": "点击选择音频或视频文件...",
-    "selectSrt": "点击选择 SRT 文件...",
-    "selectProvider": "选择供应商",
-    "selectFile": "点击选择文件..."
+    "selectVideo": "输入或浏览选择视频文件...",
+    "selectAudioVideo": "输入或浏览选择音频/视频文件...",
+    "selectSrt": "输入或浏览选择字幕文件...",
+    "selectProvider": "选择供应商"
   },
   "audioOptions": {
     "wav": "WAV（最佳质量）",
