@@ -9,10 +9,13 @@ from __future__ import annotations
 import asyncio
 import logging
 from contextlib import asynccontextmanager
+from pathlib import Path
 from typing import Optional
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
+from starlette.staticfiles import StaticFiles
 
 from mediafactory.api.daemon_lock import DaemonAlreadyRunning, DaemonLock
 from mediafactory.api.routes import config, models, processing, system
@@ -66,6 +69,15 @@ async def lifespan(app: FastAPI):
     await ws_manager.broadcast(
         {"type": "server_shutdown", "message": "Server is shutting down"}
     )
+
+
+# SPA 客户端路由（BrowserRouter history 模式）——新页面在此追加
+_SPA_PATHS = ("/tasks", "/settings")
+
+
+def _webui_dir() -> Path:
+    """Web UI 构建产物目录（vite 输出；缺失时纯 API 模式）。"""
+    return get_app_root_dir() / "webui"
 
 
 def create_app() -> FastAPI:
@@ -123,6 +135,31 @@ def create_app() -> FastAPI:
     async def health_check():
         """健康检查"""
         return {"status": "healthy"}
+
+    # ---- Web UI 同源伺服（注册顺序在既有路由之后，不影响 /api、/ws、/health）----
+    webui = _webui_dir()
+    if webui.is_dir():
+
+        def _make_spa_handler(index_file: Path):
+            async def _spa_index() -> FileResponse:
+                return FileResponse(index_file)
+
+            return _spa_index
+
+        for spa_path in _SPA_PATHS:
+            # 客户端路由显式回 index.html（history 模式 fallback）
+            app.add_api_route(
+                spa_path,
+                _make_spa_handler(webui / "index.html"),
+                methods=["GET"],
+                include_in_schema=False,
+            )
+
+        app.mount("/", StaticFiles(directory=webui, html=True), name="webui")
+    else:
+        logger.warning(
+            f"Web UI directory not found at {webui} — running in API-only mode"
+        )
 
     return app
 
