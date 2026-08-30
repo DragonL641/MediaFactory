@@ -1,6 +1,7 @@
 """system 路由（browse/reveal）单元测试。"""
 
-import subprocess
+import asyncio
+import os
 import sys
 from pathlib import Path
 
@@ -68,6 +69,51 @@ class TestBrowse:
         is_dirs = [e["is_dir"] for e in entries]
         assert is_dirs == sorted(is_dirs, reverse=True)  # 目录在前
 
+    def test_browse_defaults_to_home(self, client):
+        resp = client.get("/api/system/browse")
+        assert resp.status_code == 200
+        assert resp.json()["path"] == str(Path.home())
+
+    def test_browse_ext_normalization(self, client, tmp_path):
+        (tmp_path / "V.MP4").write_text("x")
+        (tmp_path / "c.mov").write_text("x")
+        resp = client.get(
+            "/api/system/browse",
+            params={"path": str(tmp_path), "ext": " .MP4 ,, avi"},
+        )
+        names = {e["name"] for e in resp.json()["entries"]}
+        assert "V.MP4" in names
+        assert "c.mov" not in names
+
+    def test_browse_root_parent_is_none(self, client):
+        resp = client.get("/api/system/browse", params={"path": "/"})
+        assert resp.json()["parent"] is None
+
+    def test_browse_skips_dotfiles(self, client, tmp_path):
+        (tmp_path / ".hidden").write_text("x")
+        (tmp_path / "visible.mp4").write_text("x")
+        resp = client.get(
+            "/api/system/browse", params={"path": str(tmp_path), "ext": "mp4"}
+        )
+        names = {e["name"] for e in resp.json()["entries"]}
+        assert ".hidden" not in names
+        assert "visible.mp4" in names
+
+    def test_browse_skips_unstattable_entries(self, client, tmp_path):
+        # POSIX 复现 Windows junction 场景：目录去掉 x 权限后可列名，
+        # 但其下条目 is_dir() 抛 EACCES——应跳过条目而非 400
+        locked = tmp_path / "locked"
+        locked.mkdir()
+        (locked / "a.mp4").write_text("x")
+        (locked / "sub").mkdir()
+        os.chmod(locked, 0o644)
+        try:
+            resp = client.get("/api/system/browse", params={"path": str(locked)})
+            assert resp.status_code == 200
+            assert resp.json()["entries"] == []
+        finally:
+            os.chmod(locked, 0o755)  # 还原权限，避免影响 tmp_path 清理
+
 
 class TestReveal:
     def test_reveal_calls_platform_command(self, client, tmp_path, monkeypatch):
@@ -75,15 +121,20 @@ class TestReveal:
         target.write_text("x")
         calls = []
 
-        def fake_run(cmd, **kwargs):
-            calls.append(cmd)
+        class FakeProc:
+            async def wait(self):
+                return 0
 
-        monkeypatch.setattr(subprocess, "run", fake_run)
+        async def fake_spawn(*cmd, **kwargs):
+            calls.append(cmd)
+            return FakeProc()
+
+        monkeypatch.setattr(asyncio, "create_subprocess_exec", fake_spawn)
         resp = client.post("/api/system/reveal", json={"path": str(target)})
         assert resp.status_code == 204
         assert calls, "应调用系统命令"
         if sys.platform == "darwin":
-            assert calls[0][:2] == ["open", "-R"]
+            assert calls[0][:2] == ("open", "-R")
         elif sys.platform == "win32":
             assert "explorer" in calls[0][0]
 
@@ -91,4 +142,13 @@ class TestReveal:
         resp = client.post(
             "/api/system/reveal", json={"path": str(tmp_path / "nope.mp4")}
         )
+        assert resp.status_code == 400
+
+    def test_reveal_unsupported_platform_returns_400(
+        self, client, tmp_path, monkeypatch
+    ):
+        target = tmp_path / "x.mp4"
+        target.write_text("x")
+        monkeypatch.setattr(sys, "platform", "linux")
+        resp = client.post("/api/system/reveal", json={"path": str(target)})
         assert resp.status_code == 400

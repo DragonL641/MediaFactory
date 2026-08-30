@@ -1,7 +1,7 @@
 """系统级 API：目录浏览（Web UI 文件选取）与产物定位（reveal）。"""
 
+import asyncio
 import logging
-import subprocess
 import sys
 from pathlib import Path
 from typing import List, Optional
@@ -37,20 +37,30 @@ class RevealRequest(BaseModel):
 async def browse(path: Optional[str] = None, ext: Optional[str] = None) -> BrowseResult:
     """列出目录内容供 Web UI 文件选取。
 
-    目录始终显示；文件按逗号分隔的扩展名过滤（缺省不过滤）。
+    目录始终显示；文件按逗号分隔的扩展名过滤（缺省不过滤）；
+    跳过 dotfile（对齐 Electron 原生对话框默认行为）。
     """
-    target = Path(path).expanduser() if path else Path.home()
+    # resolve()：手输相对路径（如 Downloads）规范化为绝对路径，不落 daemon CWD
+    target = Path(path).expanduser().resolve() if path else Path.home()
     if not target.exists() or not target.is_dir():
         raise HTTPException(status_code=400, detail=t("error.pathNotAccessible"))
 
     extensions = (
-        {e.strip().lower().lstrip(".") for e in ext.split(",")} if ext else None
+        {e.strip().lower().lstrip(".") for e in ext.split(",") if e.strip()}
+        if ext
+        else None
     )
 
     entries: List[BrowseEntry] = []
     try:
         for item in sorted(target.iterdir(), key=lambda p: p.name.lower()):
-            if item.is_dir():
+            if item.name.startswith("."):
+                continue  # 隐藏 dotfile（对齐 Electron 原生对话框默认行为）
+            try:
+                is_dir = item.is_dir()
+            except OSError:
+                continue  # 无法 stat 的条目（受保护 junction 等）跳过，不炸整个目录
+            if is_dir:
                 entries.append(BrowseEntry(name=item.name, is_dir=True))
             elif extensions is None or item.suffix.lower().lstrip(".") in extensions:
                 entries.append(BrowseEntry(name=item.name, is_dir=False))
@@ -77,5 +87,12 @@ async def reveal(req: RevealRequest) -> None:
     else:
         raise HTTPException(status_code=400, detail=t("error.platformNotSupported"))
 
-    # 列表参数 + 无 shell：无注入面
-    subprocess.run(cmd, check=False)
+    # 列表参数 + 无 shell：无注入面；异步执行避免阻塞事件循环。
+    # 便利性操作失败不打断用户（仍 204），但留日志可查。
+    proc = await asyncio.create_subprocess_exec(
+        *cmd,
+        stdout=asyncio.subprocess.DEVNULL,
+        stderr=asyncio.subprocess.DEVNULL,
+    )
+    if await proc.wait() != 0:
+        logger.warning(f"reveal 命令返回非零（忽略）: {cmd}")
