@@ -1,6 +1,10 @@
 name: Release Management
 
-# 当给仓库打版本标签（git tag -a v1.0.0 -m ""）并推送到 GitHub时，自动运行。
+# 当给仓库打版本标签（git tag -a v1.0.0 -m ""）并推送到 GitHub 时，自动运行。
+# Phase 3 Tauri 桌面安装包链：build_darwin.py / build_win.py 内部完成
+# PyInstaller 后端 → 组装 src-tauri/python-backend → npm run tauri build → 安装包复制到 release/
+# （macOS dmg / Windows NSIS exe），CI 只调这两个入口脚本，构建编排全在脚本内。
+# 注意：macOS 已本地全链验证；Windows 无本地环境，为 CI 出包、未真机验证。
 on:
   push:
     tags:
@@ -11,11 +15,11 @@ permissions:
   contents: write
 
 jobs:
-  # Build Python backend for each platform
-  # Electron 发布链已随 Phase 2 移除（daemon 同源伺服 Web UI）；Tauri 壳打包待 Plan 3 重写
+  # 构建桌面安装包（Tauri 全链：后端 PyInstaller + 前端 + Tauri 壳）
   build:
     name: Build (${{ matrix.platform }})
     strategy:
+      fail-fast: false
       matrix:
         os: [windows-latest, macos-latest]
         include:
@@ -27,48 +31,56 @@ jobs:
     runs-on: ${{ matrix.os }}
 
     steps:
-      - name: Checkout code
+      - name: Checkout
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      # ---- Python 后端 ----
-      - name: Set up Python
+      - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
 
-      - name: Install uv
+      - name: Setup uv
         uses: astral-sh/setup-uv@v4
 
-      - name: Install Python dependencies (all, including ML)
-        run: uv sync --group core
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
 
-      - name: Install PyInstaller
-        run: uv pip install pyinstaller
+      - name: Rust cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
 
-      - name: Build Python backend (Windows)
-        if: matrix.os == 'windows-latest'
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: |
+          uv sync --group core
+          uv pip install pyinstaller
+          npm ci
+
+      - name: Build desktop bundle (Windows)
+        if: matrix.platform == 'windows'
         run: uv run python scripts/build/build_win.py
 
-      - name: Build Python backend (macOS)
-        if: matrix.os == 'macos-latest'
-        run: uv run python scripts/build/build_darwin.py
+      - name: Build desktop bundle (macOS)
+        if: matrix.platform == 'macos'
+        run: |
+          uv run python scripts/build/build_darwin.py
+          uv run python scripts/build/build_source.py --zip-only
 
-      # ---- 源码归档（macOS 执行一次即可）----
-      - name: Build source ZIP
-        if: matrix.os == 'macos-latest'
-        run: uv run python scripts/build/build_source.py --zip-only
-
-      # ---- 上传产物 ----
-      # 后端 PyInstaller 产物（dist/python/）+ 源码归档（release/）
+      # 桌面安装包（release/：macOS dmg / Windows NSIS exe + macOS 侧源码 ZIP）
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: build-${{ matrix.platform }}
           path: |
-            dist/python/**
-            release/**/*
+            release/**
           retention-days: 7
 
   # Create GitHub Release with all artifacts
@@ -101,6 +113,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           path: artifacts
+          merge-multiple: true
 
       - name: Create Release
         uses: softprops/action-gh-release@v2
@@ -109,6 +122,8 @@ jobs:
           draft: false
           prerelease: ${{ contains(github.ref, 'alpha') || contains(github.ref, 'beta') || contains(github.ref, 'rc') }}
           files: |
+            artifacts/**/*.dmg
+            artifacts/**/*.exe
             artifacts/**/*.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
