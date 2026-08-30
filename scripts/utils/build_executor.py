@@ -97,7 +97,7 @@ def assemble_tauri_backend() -> bool:
 def run_tauri_build() -> bool:
     """运行 tauri build（产物在 src-tauri/target/release/bundle/）"""
     root = get_project_root()
-    npm = shutil.which("npm")
+    npm = shutil.which("npm.cmd") or shutil.which("npm")
     if npm is None:
         log_error("未找到 npm（桌面打包需要 Node.js >= 20.19.0）")
         return False
@@ -114,7 +114,8 @@ def collect_bundle_artifacts() -> bool:
     release_dir = root / "release"
     release_dir.mkdir(exist_ok=True)
 
-    patterns = ["dmg/*.dmg", "nsis/*.exe"]
+    # 各平台只找自己会产出的安装包（macOS dmg / Windows NSIS exe）
+    patterns = ["dmg/*.dmg"] if sys.platform == "darwin" else ["nsis/*.exe"]
     found = []
     for pattern in patterns:
         found.extend(glob.glob(str(bundle_dir / pattern)))
