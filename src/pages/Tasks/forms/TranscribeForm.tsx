@@ -5,7 +5,7 @@
 import React from "react";
 import type { FormInstance } from "antd";
 import { useTranslation } from "react-i18next";
-import { useFileFilters } from "./shared";
+import { useFileExtensions } from "./shared";
 import TaskFormWrapper from "./TaskFormWrapper";
 import TranscribeFormFields from "./TranscribeFormFields";
 
@@ -15,7 +15,7 @@ interface TranscribeFormProps {
 
 const TranscribeForm: React.FC<TranscribeFormProps> = ({ form }) => {
   const { t } = useTranslation("forms");
-  const fileFilters = useFileFilters();
+  const fileExtensions = useFileExtensions();
 
   return (
     <TaskFormWrapper
@@ -29,7 +29,7 @@ const TranscribeForm: React.FC<TranscribeFormProps> = ({ form }) => {
         name: "audio_path",
         label: t("forms:label.audioVideoFile"),
         placeholder: t("forms:placeholder.selectAudioVideo"),
-        filters: fileFilters.audio_video,
+        extensions: fileExtensions.audio_video,
       }}
     >
       <TranscribeFormFields form={form} />

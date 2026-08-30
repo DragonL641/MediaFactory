@@ -5,7 +5,7 @@
 import React from "react";
 import type { FormInstance } from "antd";
 import { useTranslation } from "react-i18next";
-import { useFileFilters } from "./shared";
+import { useFileExtensions } from "./shared";
 import TaskFormWrapper from "./TaskFormWrapper";
 import AudioFormFields from "./AudioFormFields";
 
@@ -15,7 +15,7 @@ interface AudioFormProps {
 
 const AudioForm: React.FC<AudioFormProps> = ({ form }) => {
   const { t } = useTranslation("forms");
-  const fileFilters = useFileFilters();
+  const fileExtensions = useFileExtensions();
 
   return (
     <TaskFormWrapper
@@ -33,7 +33,7 @@ const AudioForm: React.FC<AudioFormProps> = ({ form }) => {
         name: "video_path",
         label: t("forms:label.videoFile"),
         placeholder: t("forms:placeholder.selectVideo"),
-        filters: fileFilters.video,
+        extensions: fileExtensions.video,
       }}
     >
       <AudioFormFields form={form} />

@@ -21,7 +21,7 @@ import {
 import { useTranslation } from "react-i18next";
 import { Task, TaskStatus } from "../../types";
 import { useStartTaskMutation } from "../../api/queries";
-import { getErrorDetail } from "../../api/client";
+import { getApiClient, getErrorDetail } from "../../api/client";
 
 const { Text } = Typography;
 
@@ -51,8 +51,11 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, onCancel, onDelete, onRetry, 
 
   const handleOpenLocation = async () => {
     const outputPath = task.outputPath;
-    if (outputPath && window.electronAPI) {
-      await window.electronAPI.openFileLocation(outputPath);
+    if (!outputPath) return;
+    try {
+      await getApiClient().post("/api/system/reveal", { path: outputPath });
+    } catch {
+      message.error(t("revealFailed"));
     }
   };
 

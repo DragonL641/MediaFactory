@@ -2,14 +2,5 @@
   "tabs": {
     "tasks": "任务",
     "settings": "设置"
-  },
-  "brand": {
-    "full": "MediaFactory",
-    "short": "MF"
-  },
-  "language": {
-    "label": "语言",
-    "en": "English",
-    "zhCN": "简体中文"
   }
 }

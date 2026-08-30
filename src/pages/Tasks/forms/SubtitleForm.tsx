@@ -5,7 +5,7 @@
 import React from "react";
 import type { FormInstance } from "antd";
 import { useTranslation } from "react-i18next";
-import { useFileFilters } from "./shared";
+import { useFileExtensions } from "./shared";
 import TaskFormWrapper from "./TaskFormWrapper";
 import SubtitleFormFields from "./SubtitleFormFields";
 
@@ -16,7 +16,7 @@ interface SubtitleFormProps {
 
 const SubtitleForm: React.FC<SubtitleFormProps> = ({ form, llmAvailable = true }) => {
   const { t } = useTranslation("forms");
-  const fileFilters = useFileFilters();
+  const fileExtensions = useFileExtensions();
 
   return (
     <TaskFormWrapper
@@ -34,7 +34,7 @@ const SubtitleForm: React.FC<SubtitleFormProps> = ({ form, llmAvailable = true }
         name: "video_path",
         label: t("forms:label.videoFile"),
         placeholder: t("forms:placeholder.selectVideo"),
-        filters: fileFilters.video,
+        extensions: fileExtensions.video,
       }}
     >
       <SubtitleFormFields form={form} llmAvailable={llmAvailable} />

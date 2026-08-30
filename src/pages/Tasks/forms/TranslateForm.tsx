@@ -5,7 +5,7 @@
 import React from "react";
 import type { FormInstance } from "antd";
 import { useTranslation } from "react-i18next";
-import { useFileFilters } from "./shared";
+import { useFileExtensions } from "./shared";
 import TaskFormWrapper from "./TaskFormWrapper";
 import TranslateFormFields from "./TranslateFormFields";
 
@@ -16,7 +16,7 @@ interface TranslateFormProps {
 
 const TranslateForm: React.FC<TranslateFormProps> = ({ form, llmAvailable = true }) => {
   const { t } = useTranslation("forms");
-  const fileFilters = useFileFilters();
+  const fileExtensions = useFileExtensions();
 
   return (
     <TaskFormWrapper
@@ -30,7 +30,7 @@ const TranslateForm: React.FC<TranslateFormProps> = ({ form, llmAvailable = true
         name: "srt_path",
         label: t("forms:label.srtFile"),
         placeholder: t("forms:placeholder.selectSrt"),
-        filters: fileFilters.srt,
+        extensions: fileExtensions.srt,
       }}
     >
       <TranslateFormFields form={form} llmAvailable={llmAvailable} />

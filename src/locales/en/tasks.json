@@ -52,6 +52,7 @@
     "retryFailed": "Failed to retry task",
     "confirmDelete": "Are you sure you want to delete this task?"
   },
+  "revealFailed": "Failed to open file location",
   "typeLabels": {
     "subtitle": "Subtitle Generation",
     "audio": "Audio Extraction",

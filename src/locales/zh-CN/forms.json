@@ -33,10 +33,12 @@
     "translateOnly": "仅译文",
     "originalOnly": "仅原文"
   },
-  "fileFilter": {
-    "video": "视频文件",
-    "audioVideo": "音频/视频文件",
-    "srt": "SRT 文件"
+  "pathInput": {
+    "browse": "浏览",
+    "browseTitle": "选择文件",
+    "up": "上一级",
+    "empty": "目录为空",
+    "loadError": "目录读取失败"
   },
   "label": {
     "videoFile": "视频文件",

@@ -5,7 +5,7 @@
 import React from "react";
 import type { FormInstance } from "antd";
 import { useTranslation } from "react-i18next";
-import { useFileFilters } from "./shared";
+import { useFileExtensions } from "./shared";
 import TaskFormWrapper from "./TaskFormWrapper";
 import EnhanceFormFields from "./EnhanceFormFields";
 
@@ -15,7 +15,7 @@ interface EnhanceFormProps {
 
 const EnhanceForm: React.FC<EnhanceFormProps> = ({ form }) => {
   const { t } = useTranslation("forms");
-  const fileFilters = useFileFilters();
+  const fileExtensions = useFileExtensions();
 
   return (
     <TaskFormWrapper
@@ -30,7 +30,7 @@ const EnhanceForm: React.FC<EnhanceFormProps> = ({ form }) => {
         name: "video_path",
         label: t("forms:label.videoFile"),
         placeholder: t("forms:placeholder.selectVideo"),
-        filters: fileFilters.video,
+        extensions: fileExtensions.video,
       }}
     >
       <EnhanceFormFields />

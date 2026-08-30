@@ -61,11 +61,21 @@ export const useBilingualLayoutOptions = () => {
   ];
 };
 
-export const useFileFilters = () => {
-  const { t } = useTranslation("forms");
+export const useFileExtensions = () => {
   return {
-    video: [{ name: t("forms:fileFilter.video"), extensions: ["mp4", "avi", "mov", "mkv", "wmv", "flv", "webm"] }],
-    audio_video: [{ name: t("forms:fileFilter.audioVideo"), extensions: ["mp4", "avi", "mov", "mkv", "wav", "mp3", "m4a", "flac", "webm", "ogg"] }],
-    srt: [{ name: t("forms:fileFilter.srt"), extensions: ["srt"] }],
+    video: ["mp4", "avi", "mov", "mkv", "wmv", "flv", "webm"],
+    audio_video: [
+      "mp4",
+      "avi",
+      "mov",
+      "mkv",
+      "wav",
+      "mp3",
+      "m4a",
+      "flac",
+      "webm",
+      "ogg",
+    ],
+    srt: ["srt"],
   };
 };

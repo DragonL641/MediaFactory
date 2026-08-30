@@ -1,13 +1,13 @@
 /**
  * 通用任务表单包装器
  *
- * 提取各任务表单的公共结构：Form + FileDialogInput + Fields
+ * 提取各任务表单的公共结构：Form + PathInput + Fields
  */
 
 import React from "react";
 import { Form } from "antd";
 import type { FormInstance } from "antd";
-import FileDialogInput from "../../../components/Form/FileDialogInput";
+import PathInput from "../../../components/Form/PathInput";
 
 interface TaskFormWrapperProps {
   form: FormInstance;
@@ -16,7 +16,7 @@ interface TaskFormWrapperProps {
     name: string;
     label: string;
     placeholder: string;
-    filters: any;
+    extensions?: string[];
   };
   children: React.ReactNode;
 }
@@ -28,12 +28,12 @@ const TaskFormWrapper: React.FC<TaskFormWrapperProps> = ({
   children,
 }) => (
   <Form form={form} layout="vertical" initialValues={initialValues}>
-    <FileDialogInput
+    <PathInput
       form={form}
       name={fileInput.name}
       label={fileInput.label}
       placeholder={fileInput.placeholder}
-      filters={fileInput.filters}
+      extensions={fileInput.extensions}
     />
     {children}
   </Form>

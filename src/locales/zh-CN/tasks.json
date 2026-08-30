@@ -52,6 +52,7 @@
     "retryFailed": "重试任务失败",
     "confirmDelete": "确定要删除此任务吗？"
   },
+  "revealFailed": "打开文件位置失败",
   "typeLabels": {
     "subtitle": "字幕生成",
     "audio": "音频提取",

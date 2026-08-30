@@ -33,10 +33,12 @@
     "translateOnly": "Only Translation",
     "originalOnly": "Only Original"
   },
-  "fileFilter": {
-    "video": "Video Files",
-    "audioVideo": "Audio/Video Files",
-    "srt": "SRT Files"
+  "pathInput": {
+    "browse": "Browse",
+    "browseTitle": "Select File",
+    "up": "Up",
+    "empty": "Empty directory",
+    "loadError": "Failed to browse directory"
   },
   "label": {
     "videoFile": "Video File",
