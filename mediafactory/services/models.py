@@ -6,13 +6,13 @@
 
 import asyncio
 import time
-from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from dataclasses import dataclass
+from typing import Any
 
 from mediafactory.config import get_config
 from mediafactory.constants import PRESET_NAMES
-from mediafactory.logging import log_info, log_error
 from mediafactory.core.error_utils import sanitize_error
+from mediafactory.logging import log_error
 
 
 @dataclass
@@ -38,9 +38,14 @@ class ModelStatusService:
     def get_whisper_status(self) -> ModelStatusInfo:
         """获取 Whisper 模型状态"""
         try:
-            from mediafactory.models.model_registry import is_model_downloaded, is_model_complete
+            from mediafactory.models.model_registry import (
+                is_model_complete,
+                is_model_downloaded,
+            )
 
-            available = is_model_downloaded("Systran/faster-whisper-large-v3") and is_model_complete("Systran/faster-whisper-large-v3")
+            available = is_model_downloaded(
+                "Systran/faster-whisper-large-v3"
+            ) and is_model_complete("Systran/faster-whisper-large-v3")
 
             return ModelStatusInfo(
                 name="faster-whisper-large-v3",
@@ -62,12 +67,13 @@ class ModelStatusService:
         try:
             from mediafactory.models.model_registry import (
                 get_all_translation_models,
-                is_model_downloaded,
                 is_model_complete,
+                is_model_downloaded,
             )
 
             available = any(
-                is_model_downloaded(m.huggingface_id) and is_model_complete(m.huggingface_id)
+                is_model_downloaded(m.huggingface_id)
+                and is_model_complete(m.huggingface_id)
                 for m in get_all_translation_models()
             )
 
@@ -86,12 +92,12 @@ class ModelStatusService:
                 enabled=True,
             )
 
-    def get_translation_model_statuses(self) -> List[Dict[str, Any]]:
+    def get_translation_model_statuses(self) -> list[dict[str, Any]]:
         """获取所有翻译模型的状态列表"""
         from mediafactory.models.model_registry import (
-            is_model_downloaded,
-            is_model_complete,
             get_all_translation_models,
+            is_model_complete,
+            is_model_downloaded,
         )
 
         models = []
@@ -156,7 +162,7 @@ class ModelStatusService:
                 enabled=True,
             )
 
-    def get_llm_config(self) -> Optional[Dict[str, Any]]:
+    def get_llm_config(self) -> dict[str, Any] | None:
         """获取 LLM 配置"""
         try:
             oa_config = getattr(self.config, "openai_compatible", None)
@@ -172,7 +178,7 @@ class ModelStatusService:
         except Exception:
             return None
 
-    async def test_llm_connection(self, preset: str) -> Dict[str, Any]:
+    async def test_llm_connection(self, preset: str) -> dict[str, Any]:
         """
         测试 LLM 连接
 
@@ -221,7 +227,7 @@ class ModelStatusService:
                 "error": sanitize_error(e),
             }
 
-    async def test_all_llm_connections(self) -> Dict[str, Dict[str, Any]]:
+    async def test_all_llm_connections(self) -> dict[str, dict[str, Any]]:
         """测试所有 LLM 预设连接（并行）"""
         results = {}
 
@@ -257,7 +263,7 @@ class ModelStatusService:
 
         return results
 
-    def get_readiness(self) -> Dict[str, Any]:
+    def get_readiness(self) -> dict[str, Any]:
         """
         获取模型就绪状态
 
@@ -274,8 +280,8 @@ class ModelStatusService:
             from mediafactory.models.model_registry import (
                 MODEL_REGISTRY,
                 ModelType,
-                is_model_downloaded,
                 is_model_complete,
+                is_model_downloaded,
             )
 
             # Whisper: 任意模型已下载且完整即可
@@ -308,8 +314,8 @@ class ModelStatusService:
             oa_config = getattr(self.config, "openai_compatible", None)
             preset_names = PRESET_NAMES
 
-            configured_presets: List[str] = []
-            current_preset: Optional[str] = None
+            configured_presets: list[str] = []
+            current_preset: str | None = None
             current_ready = False
 
             if oa_config:

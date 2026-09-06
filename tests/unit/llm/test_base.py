@@ -1,6 +1,7 @@
 """LLM 后端基类测试。"""
 
 import pytest
+
 from mediafactory.llm.base import (
     TranslationBackend,
     TranslationRequest,

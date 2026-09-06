@@ -4,8 +4,9 @@
 """
 
 from abc import ABC, abstractmethod
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Optional, List, Callable, Tuple, TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 if TYPE_CHECKING:
     from mediafactory.core.progress_protocol import ProgressCallback
@@ -16,7 +17,7 @@ if TYPE_CHECKING:
 # ============================================================================
 
 
-def prepare_texts(texts: List[str]) -> Tuple[List[str], List[int]]:
+def prepare_texts(texts: list[str]) -> tuple[list[str], list[int]]:
     """准备文本：过滤空字符串，记录空字符串位置。
 
     Args:
@@ -38,8 +39,8 @@ def prepare_texts(texts: List[str]) -> Tuple[List[str], List[int]]:
 
 
 def restore_result(
-    translated_non_empty: List[str], empty_indices: List[int], original_count: int
-) -> List[str]:
+    translated_non_empty: list[str], empty_indices: list[int], original_count: int
+) -> list[str]:
     """将翻译结果与空字符串合并，恢复原始结构。
 
     Args:
@@ -79,7 +80,7 @@ class TranslationRequest:
     text: str | list[str]
     src_lang: str
     tgt_lang: str
-    cancelled_callback: Optional[Callable[[], bool]] = field(default=None, repr=False)
+    cancelled_callback: Callable[[], bool] | None = field(default=None, repr=False)
     progress_callback: Optional["ProgressCallback"] = field(default=None, repr=False)
 
 
@@ -204,4 +205,3 @@ class TranslationBackend(ABC):
             }
 
         return None
-

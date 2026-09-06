@@ -58,5 +58,9 @@ class TestDataRootDir:
         monkeypatch.setattr("mediafactory.config.defaults.Path.home", lambda: tmp_path)
 
         assert get_config_path() == (
-            tmp_path / "Library" / "Application Support" / "MediaFactory" / "config.toml"
+            tmp_path
+            / "Library"
+            / "Application Support"
+            / "MediaFactory"
+            / "config.toml"
         )

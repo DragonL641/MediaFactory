@@ -3,8 +3,9 @@
 覆盖各配置模型的默认值、字段约束、预设配置和 TOML 序列化。
 """
 
-import pytest
 from pathlib import Path
+
+import pytest
 
 from mediafactory.config.models import (
     AppConfig,
@@ -138,7 +139,9 @@ class TestOpenAICompatibleConfig:
 
     def test_preset_config_can_be_customized(self):
         cfg = OpenAICompatibleConfig(
-            openai=PresetServiceConfig(api_key="sk-test", base_url="https://api.openai.com/v1", model="gpt-4o")
+            openai=PresetServiceConfig(
+                api_key="sk-test", base_url="https://api.openai.com/v1", model="gpt-4o"
+            )
         )
         assert cfg.openai.api_key == "sk-test"
         assert cfg.openai.base_url == "https://api.openai.com/v1"
@@ -264,7 +267,9 @@ class TestAppConfig:
 
     def test_to_toml_dict_round_trip(self):
         """to_toml_dict 输出应可用于重建 AppConfig"""
-        cfg = AppConfig(whisper=WhisperConfig(beam_size=7), llm_api=LLMApiConfig(timeout=60))
+        cfg = AppConfig(
+            whisper=WhisperConfig(beam_size=7), llm_api=LLMApiConfig(timeout=60)
+        )
         d = cfg.to_toml_dict()
         # 用字典重建
         cfg2 = AppConfig(**d)

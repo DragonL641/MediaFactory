@@ -11,9 +11,6 @@ from functools import lru_cache
 from pathlib import Path
 
 
-from typing import Optional
-
-
 def _get_version_from_pyproject() -> str:
     """Read version from pyproject.toml.
 
@@ -48,7 +45,7 @@ def _get_version_from_pyproject() -> str:
 
 def _parse_version_simple(pyproject_path: Path) -> str:
     """简单版本解析器，仅提取 version 字段。"""
-    with open(pyproject_path, "r", encoding="utf-8") as f:
+    with open(pyproject_path, encoding="utf-8") as f:
         for line in f:
             line = line.strip()
             if line.startswith("version = "):

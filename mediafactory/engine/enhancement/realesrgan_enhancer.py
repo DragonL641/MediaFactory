@@ -3,14 +3,14 @@
 import cv2
 import numpy as np
 import torch
-from typing import List, Optional, Tuple
+
+from mediafactory.logging import log_info
 
 from .base_enhancer import (
-    BaseEnhancer,
-    PIXEL_NORMALIZATION_FACTOR,
     PIXEL_DENORMALIZATION_FACTOR,
+    PIXEL_NORMALIZATION_FACTOR,
+    BaseEnhancer,
 )
-from mediafactory.logging import log_info
 
 # 分块处理常量（此类特有）
 DEFAULT_TILE_PAD = 10
@@ -42,7 +42,7 @@ class RealESRGANEnhancer(BaseEnhancer):
         self,
         scale: int = 4,
         model_type: str = "general",
-        device: Optional[str] = None,
+        device: str | None = None,
         half_precision: bool = False,
         tile: int = 0,
         tile_pad: int = DEFAULT_TILE_PAD,
@@ -79,16 +79,16 @@ class RealESRGANEnhancer(BaseEnhancer):
         self.pre_pad = pre_pad
 
         # Tensor 缓存
-        self._input_tensor_cache: Optional[torch.Tensor] = None
-        self._cached_frame_shape: Optional[Tuple[int, int]] = None
+        self._input_tensor_cache: torch.Tensor | None = None
+        self._cached_frame_shape: tuple[int, int] | None = None
 
     def load_model(self) -> None:
         """加载 Real-ESRGAN 模型"""
         try:
-            from spandrel import ModelLoader, ImageModelDescriptor
+            from spandrel import ImageModelDescriptor, ModelLoader
         except ImportError as e:
             raise ImportError(
-                "请安装依赖: pip install spandrel\n" "或运行: pip install -e '.[ml]'"
+                "请安装依赖: pip install spandrel\n或运行: pip install -e '.[ml]'"
             ) from e
 
         # 获取模型路径（使用统一注册表）
@@ -248,13 +248,9 @@ class RealESRGANEnhancer(BaseEnhancer):
 
                 pad_y = min(tile_pad, y_start) if y > 0 else 0
                 pad_x = min(tile_pad, x_start) if x > 0 else 0
-                pad_y_end = min(tile_pad, H - y_end) if y < tiles_y - 1 else 0
-                pad_x_end = min(tile_pad, W - x_end) if x < tiles_x - 1 else 0
 
                 in_y_start = pad_y * self.scale
                 in_x_start = pad_x * self.scale
-                in_y_end = tile_out_H - pad_y_end * self.scale
-                in_x_end = tile_out_W - pad_x_end * self.scale
 
                 out_y_start_valid = out_y_start + pad_y * self.scale
                 out_x_start_valid = out_x_start + pad_x * self.scale
@@ -279,8 +275,8 @@ class RealESRGANEnhancer(BaseEnhancer):
         return output
 
     def enhance_batch(
-        self, frames: List[np.ndarray], batch_size: Optional[int] = None
-    ) -> List[np.ndarray]:
+        self, frames: list[np.ndarray], batch_size: int | None = None
+    ) -> list[np.ndarray]:
         """
         批量增强帧 - 实现真正的批量推理
 

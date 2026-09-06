@@ -5,13 +5,13 @@
 """
 
 import time
-from typing import Any, Dict, List
+from typing import Any
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-from mediafactory.services.models import ModelStatusService
 from mediafactory.i18n import t
+from mediafactory.services.models import ModelStatusService
 
 router = APIRouter()
 
@@ -19,7 +19,7 @@ router = APIRouter()
 _status_service = ModelStatusService()
 
 # 模型状态缓存（60 秒）
-_models_status_cache: Dict[str, Any] = None
+_models_status_cache: dict[str, Any] = None
 
 _models_status_cache_time: float = 0
 _MODELS_STATUS_CACHE_TTL = 60
@@ -45,7 +45,7 @@ class LLMTestRequest(BaseModel):
 
 
 @router.get("/status")
-async def get_models_status() -> Dict[str, Any]:
+async def get_models_status() -> dict[str, Any]:
     """
     获取所有模型状态
 
@@ -113,13 +113,12 @@ async def get_models_status() -> Dict[str, Any]:
     return result
 
 
-def _get_model_statuses_by_type(model_type) -> List[Dict[str, Any]]:
+def _get_model_statuses_by_type(model_type) -> list[dict[str, Any]]:
     """从 MODEL_REGISTRY 获取指定类型模型的状态列表"""
     from mediafactory.models.model_registry import (
         MODEL_REGISTRY,
-        ModelType,
-        is_model_downloaded,
         is_model_complete,
+        is_model_downloaded,
     )
 
     def _format_size(mb: int) -> str:
@@ -150,21 +149,21 @@ def _get_model_statuses_by_type(model_type) -> List[Dict[str, Any]]:
     return result
 
 
-def _get_whisper_model_statuses() -> List[Dict[str, Any]]:
+def _get_whisper_model_statuses() -> list[dict[str, Any]]:
     """获取 Whisper 模型状态列表"""
     from mediafactory.models.model_registry import ModelType
 
     return _get_model_statuses_by_type(ModelType.WHISPER)
 
 
-def _get_enhancement_model_statuses() -> List[Dict[str, Any]]:
+def _get_enhancement_model_statuses() -> list[dict[str, Any]]:
     """获取 Real-ESRGAN 增强模型状态"""
     from mediafactory.models.model_registry import ModelType
 
     return _get_model_statuses_by_type(ModelType.SUPER_RESOLUTION)
 
 
-def _get_denoise_model_statuses() -> List[Dict[str, Any]]:
+def _get_denoise_model_statuses() -> list[dict[str, Any]]:
     """获取 NAFNet 降噪模型状态"""
     from mediafactory.models.model_registry import ModelType
 
@@ -172,7 +171,7 @@ def _get_denoise_model_statuses() -> List[Dict[str, Any]]:
 
 
 @router.get("/whisper")
-async def get_whisper_status() -> Dict[str, Any]:
+async def get_whisper_status() -> dict[str, Any]:
     """获取 Whisper 模型状态"""
     status = _status_service.get_whisper_status()
     return {
@@ -184,7 +183,7 @@ async def get_whisper_status() -> Dict[str, Any]:
 
 
 @router.get("/translation")
-async def get_translation_status() -> Dict[str, Any]:
+async def get_translation_status() -> dict[str, Any]:
     """获取翻译模型状态"""
     status = _status_service.get_translation_status()
     models = _status_service.get_translation_model_statuses()
@@ -198,7 +197,7 @@ async def get_translation_status() -> Dict[str, Any]:
 
 
 @router.get("/llm")
-async def get_llm_status() -> Dict[str, Any]:
+async def get_llm_status() -> dict[str, Any]:
     """获取 LLM 状态"""
     status = _status_service.get_llm_status()
     config = _status_service.get_llm_config()
@@ -212,7 +211,7 @@ async def get_llm_status() -> Dict[str, Any]:
 
 
 @router.get("/readiness")
-async def get_readiness() -> Dict[str, Any]:
+async def get_readiness() -> dict[str, Any]:
     """获取任务前置条件就绪状态"""
     return _status_service.get_readiness()
 

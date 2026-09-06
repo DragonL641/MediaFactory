@@ -11,13 +11,17 @@ Test Structure:
 from pathlib import Path
 
 import pytest
+
+
 def pytest_configure(config):
     """Configure pytest settings."""
     config.addinivalue_line("markers", "unit: Fast tests with all dependencies mocked")
     config.addinivalue_line("markers", "integration: Tests requiring real resources")
     config.addinivalue_line("markers", "slow: Tests taking more than 5 seconds")
     config.addinivalue_line("markers", "requires_ml: Tests requiring ML model files")
-    config.addinivalue_line("markers", "requires_network: Tests making real network calls")
+    config.addinivalue_line(
+        "markers", "requires_network: Tests making real network calls"
+    )
 
 
 # ========== Singleton Reset Fixtures ==========
@@ -30,12 +34,14 @@ def reset_singletons():
 
     try:
         from mediafactory.config import reset_config_manager
+
         reset_config_manager()
     except ImportError:
         pass
 
     try:
         from mediafactory.models.local_models import reset_local_model_manager
+
         reset_local_model_manager()
     except ImportError:
         pass

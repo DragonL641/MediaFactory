@@ -139,9 +139,9 @@ uv run pytest tests/unit/ --override-ini="addopts=" --cov=mediafactory --cov-rep
 rm -rf build/ dist/ *.egg-info/ .pytest_cache/ htmlcov/ .coverage
 
 # 代码质量
-uv run black mediafactory/ tests/ && uv run isort mediafactory/ tests/    # 格式化代码
-uv run flake8 mediafactory/ tests/ && uv run bandit -r mediafactory/      # 运行 lint
-uv run mypy mediafactory/                                          # 类型检查
+uv run ruff format mediafactory/ tests/                       # 格式化代码
+uv run ruff check mediafactory/ tests/ && uv run bandit -r mediafactory/    # 运行 lint
+uv run mypy mediafactory/                                     # 类型检查
 ```
 
 ### 构建可执行文件（桌面安装包）

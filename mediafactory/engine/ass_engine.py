@@ -8,14 +8,13 @@ ASS 格式支持：字体、颜色、位置、边框、阴影、特效等。
 import os
 import re
 from pathlib import Path
-from typing import Dict, Any, List, Optional
+from typing import Any
 
-from .srt import BilingualLayout
-from ..exceptions import ProcessingError
 from ..core.exception_wrapper import convert_exception
-from ..logging import log_info, log_warning
+from ..exceptions import ProcessingError
 from ..i18n import t
-
+from ..logging import log_info, log_warning
+from .srt import BilingualLayout
 
 # 样式模板目录
 STYLES_DIR = Path(__file__).parent.parent / "resources" / "subtitle_styles"
@@ -136,10 +135,10 @@ class ASSEngine:
     def generate_to_path(
         self,
         output_path: str,
-        segments: List[Dict[str, Any]],
+        segments: list[dict[str, Any]],
         style_preset: str = "default",
-        style_file: Optional[str] = None,
-        custom_styles: Optional[Dict[str, Dict[str, str]]] = None,
+        style_file: str | None = None,
+        custom_styles: dict[str, dict[str, str]] | None = None,
         bilingual: bool = False,
         layout: str = BilingualLayout.TRANSLATE_ON_TOP,
         play_res_x: int = 1280,
@@ -206,7 +205,7 @@ class ASSEngine:
                 context={"output_path": output_path, "segment_count": len(segments)},
             ) from e
 
-    def _load_styles_from_file(self, filepath: str) -> Dict[str, Dict[str, str]]:
+    def _load_styles_from_file(self, filepath: str) -> dict[str, dict[str, str]]:
         """从 ASS 文件加载样式。
 
         Args:
@@ -237,7 +236,7 @@ class ASSEngine:
             )
 
         try:
-            with open(path, "r", encoding="utf-8-sig") as f:
+            with open(path, encoding="utf-8-sig") as f:
                 content = f.read()
         except Exception as e:
             raise ProcessingError(
@@ -279,7 +278,7 @@ class ASSEngine:
 
         return styles
 
-    def _parse_style_line(self, line: str) -> Optional[Dict[str, str]]:
+    def _parse_style_line(self, line: str) -> dict[str, str] | None:
         """解析 ASS 样式行。
 
         Args:
@@ -334,8 +333,8 @@ class ASSEngine:
     def _get_styles(
         self,
         preset: str,
-        custom_styles: Optional[Dict[str, Dict[str, str]]] = None,
-    ) -> Dict[str, Dict[str, str]]:
+        custom_styles: dict[str, dict[str, str]] | None = None,
+    ) -> dict[str, dict[str, str]]:
         """获取样式配置。
 
         Args:
@@ -360,8 +359,8 @@ class ASSEngine:
 
     def _build_ass_content(
         self,
-        segments: List[Dict[str, Any]],
-        styles: Dict[str, Dict[str, str]],
+        segments: list[dict[str, Any]],
+        styles: dict[str, dict[str, str]],
         bilingual: bool,
         layout: str,
         play_res_x: int,
@@ -451,7 +450,7 @@ class ASSEngine:
 
         return "\n".join(lines)
 
-    def _format_style(self, name: str, style: Dict[str, str]) -> str:
+    def _format_style(self, name: str, style: dict[str, str]) -> str:
         """格式化样式行。
 
         Args:
@@ -526,7 +525,7 @@ class ASSEngine:
         centisecs = int((seconds - int(seconds)) * 100)
         return f"{hours}:{minutes:02d}:{secs:02d}.{centisecs:02d}"
 
-    def get_available_presets(self) -> List[str]:
+    def get_available_presets(self) -> list[str]:
         """获取可用的样式预设列表。
 
         Returns:
@@ -534,7 +533,7 @@ class ASSEngine:
         """
         return list(self.STYLE_PRESETS.keys())
 
-    def get_available_style_files(self) -> List[str]:
+    def get_available_style_files(self) -> list[str]:
         """获取可用的外部样式文件列表。
 
         Returns:
@@ -550,7 +549,7 @@ class ASSEngine:
 
         return sorted(files)
 
-    def get_style_file_path(self, name: str) -> Optional[str]:
+    def get_style_file_path(self, name: str) -> str | None:
         """获取样式文件的完整路径。
 
         Args:

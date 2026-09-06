@@ -22,9 +22,20 @@
 
 import json
 import re
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Optional, List, Dict, Callable
 
+from ..constants import CHINESE_LANG_CODES, LANGUAGE_NAMES
+from ..core.progress_protocol import ProgressCallback
+from ..exceptions import OperationCancelledError
+from ..logging import (
+    log_debug,
+    log_error,
+    log_info,
+    log_llm_request,
+    log_llm_response,
+    log_warning,
+)
 from .base import (
     TranslationBackend,
     TranslationRequest,
@@ -33,17 +44,6 @@ from .base import (
     restore_result,
 )
 from .local_fallback import LocalModelFallback
-from ..constants import LANGUAGE_NAMES, CHINESE_LANG_CODES
-from ..core.progress_protocol import ProgressCallback
-from ..exceptions import OperationCancelledError
-from ..logging import (
-    log_debug,
-    log_info,
-    log_warning,
-    log_error,
-    log_llm_request,
-    log_llm_response,
-)
 
 
 @dataclass
@@ -55,8 +55,8 @@ class BatchResult:
         failed_indices: 失败位置索引（相对于本批次的局部索引）
     """
 
-    translations: List[str]
-    failed_indices: List[int] = field(default_factory=list)
+    translations: list[str]
+    failed_indices: list[int] = field(default_factory=list)
 
 
 class OpenAICompatibleBackend(TranslationBackend):
@@ -72,9 +72,9 @@ class OpenAICompatibleBackend(TranslationBackend):
 
     def __init__(
         self,
-        api_key: Optional[str] = None,
-        base_url: Optional[str] = None,
-        model: Optional[str] = None,
+        api_key: str | None = None,
+        base_url: str | None = None,
+        model: str | None = None,
         temperature: float = 0.3,
         timeout: int = 30,
         max_retries: int = 3,
@@ -105,7 +105,7 @@ class OpenAICompatibleBackend(TranslationBackend):
         self._split_threshold = split_threshold
         self._client = None
         self._kwargs = kwargs
-        self._local_fallback: Optional[LocalModelFallback] = None
+        self._local_fallback: LocalModelFallback | None = None
 
         try:
             self._init_client()
@@ -322,12 +322,12 @@ class OpenAICompatibleBackend(TranslationBackend):
 
     def _translate_all_texts(
         self,
-        texts: List[str],
+        texts: list[str],
         src_lang: str,
         tgt_lang: str,
-        cancelled_callback: Optional[Callable] = None,
-        progress_callback: Optional[ProgressCallback] = None,
-    ) -> List[str]:
+        cancelled_callback: Callable | None = None,
+        progress_callback: ProgressCallback | None = None,
+    ) -> list[str]:
         """翻译所有文本（分批处理 + 统一失败收集）。
 
         Args:
@@ -372,7 +372,7 @@ class OpenAICompatibleBackend(TranslationBackend):
 
         # 分批翻译 + 收集失败位置
         all_translated = list(non_empty_texts)  # 预填原文
-        failed_global_indices: List[int] = []
+        failed_global_indices: list[int] = []
         total_batches = (
             len(non_empty_texts) + self._batch_size - 1
         ) // self._batch_size
@@ -393,7 +393,10 @@ class OpenAICompatibleBackend(TranslationBackend):
 
             try:
                 result = self._translate_batch(
-                    batch, tgt_lang, cancelled_callback, allow_split=True,
+                    batch,
+                    tgt_lang,
+                    cancelled_callback,
+                    allow_split=True,
                     src_lang=src_lang,
                 )
                 # 填入翻译结果
@@ -413,7 +416,10 @@ class OpenAICompatibleBackend(TranslationBackend):
                         f"触发内容过滤，开始二分处理..."
                     )
                     result = self._translate_batch_with_content_filter_split(
-                        batch, tgt_lang, cancelled_callback, src_lang=src_lang,
+                        batch,
+                        tgt_lang,
+                        cancelled_callback,
+                        src_lang=src_lang,
                     )
                     for i, text in enumerate(result.translations):
                         all_translated[global_start + i] = text
@@ -474,9 +480,9 @@ class OpenAICompatibleBackend(TranslationBackend):
 
     def _translate_batch(
         self,
-        batch: List[str],
+        batch: list[str],
         tgt_lang: str,
-        cancelled_callback: Optional[Callable] = None,
+        cancelled_callback: Callable | None = None,
         allow_split: bool = True,
         src_lang: str = "",
     ) -> BatchResult:
@@ -493,14 +499,20 @@ class OpenAICompatibleBackend(TranslationBackend):
         src_name = self.get_language_name(src_lang) if src_lang else ""
 
         # 1. 尝试批量翻译
-        response = self._call_llm_batch(batch, tgt_name, cancelled_callback, src_name=src_name)
+        response = self._call_llm_batch(
+            batch, tgt_name, cancelled_callback, src_name=src_name
+        )
         result = self._parse_json_response(response)
 
         if result and self._validate_keys(result, batch):
             # 类型安全提取：确保所有值都是字符串
-            translations = [str(result.get(str(i), batch[i])) for i in range(len(batch))]
+            translations = [
+                str(result.get(str(i), batch[i])) for i in range(len(batch))
+            ]
             # 检测未翻译的条目，标记为失败以触发本地回退
-            untranslated_indices = self._flag_untranslated(translations, batch, tgt_lang)
+            untranslated_indices = self._flag_untranslated(
+                translations, batch, tgt_lang
+            )
             if untranslated_indices:
                 return BatchResult(
                     translations=translations,
@@ -517,11 +529,17 @@ class OpenAICompatibleBackend(TranslationBackend):
             )
 
             first = self._translate_batch(
-                batch[:half], tgt_lang, cancelled_callback, allow_split=True,
+                batch[:half],
+                tgt_lang,
+                cancelled_callback,
+                allow_split=True,
                 src_lang=src_lang,
             )
             second = self._translate_batch(
-                batch[half:], tgt_lang, cancelled_callback, allow_split=True,
+                batch[half:],
+                tgt_lang,
+                cancelled_callback,
+                allow_split=True,
                 src_lang=src_lang,
             )
 
@@ -552,9 +570,9 @@ class OpenAICompatibleBackend(TranslationBackend):
 
     def _translate_batch_with_content_filter_split(
         self,
-        batch: List[str],
+        batch: list[str],
         tgt_lang: str,
-        cancelled_callback: Optional[Callable] = None,
+        cancelled_callback: Callable | None = None,
         src_lang: str = "",
     ) -> BatchResult:
         """contentFilter 错误的二分递归处理。
@@ -567,7 +585,10 @@ class OpenAICompatibleBackend(TranslationBackend):
 
         try:
             return self._translate_batch(
-                batch, tgt_lang, cancelled_callback, allow_split=True,
+                batch,
+                tgt_lang,
+                cancelled_callback,
+                allow_split=True,
                 src_lang=src_lang,
             )
         except OperationCancelledError:
@@ -595,10 +616,16 @@ class OpenAICompatibleBackend(TranslationBackend):
                 f"{len(batch)} → {half} + {len(batch) - half}"
             )
             first = self._translate_batch_with_content_filter_split(
-                batch[:half], tgt_lang, cancelled_callback, src_lang=src_lang,
+                batch[:half],
+                tgt_lang,
+                cancelled_callback,
+                src_lang=src_lang,
             )
             second = self._translate_batch_with_content_filter_split(
-                batch[half:], tgt_lang, cancelled_callback, src_lang=src_lang,
+                batch[half:],
+                tgt_lang,
+                cancelled_callback,
+                src_lang=src_lang,
             )
             return BatchResult(
                 translations=first.translations + second.translations,
@@ -613,7 +640,7 @@ class OpenAICompatibleBackend(TranslationBackend):
         self,
         system_prompt: str,
         user_content: str,
-        cancelled_callback: Optional[Callable] = None,
+        cancelled_callback: Callable | None = None,
     ) -> str:
         """底层 API 调用（无应用层重试，依赖 SDK 内置重试）。
 
@@ -646,9 +673,9 @@ class OpenAICompatibleBackend(TranslationBackend):
 
     def _call_llm_batch(
         self,
-        batch: List[str],
+        batch: list[str],
         tgt_name: str,
-        cancelled_callback: Optional[Callable] = None,
+        cancelled_callback: Callable | None = None,
         src_name: str = "",
     ) -> str:
         """批量翻译 API 调用。
@@ -672,7 +699,7 @@ class OpenAICompatibleBackend(TranslationBackend):
 
     # ==================== 辅助方法 ====================
 
-    def _parse_json_response(self, response_text: str) -> Optional[Dict[str, str]]:
+    def _parse_json_response(self, response_text: str) -> dict[str, str] | None:
         """解析 JSON 响应。
 
         依次尝试：1. 直接解析 2. 提取 markdown 代码块 3. 提取 JSON 对象
@@ -710,7 +737,7 @@ class OpenAICompatibleBackend(TranslationBackend):
 
         return None
 
-    def _validate_keys(self, result: Dict[str, str], batch: List[str]) -> bool:
+    def _validate_keys(self, result: dict[str, str], batch: list[str]) -> bool:
         """验证结果键是否包含所有期望的键。
 
         宽容匹配：LLM 可能返回额外的键，只要包含所有期望键即可。
@@ -730,10 +757,9 @@ class OpenAICompatibleBackend(TranslationBackend):
     _HIRAGANA = re.compile(r"[\u3040-\u309F]")
     _KATAKANA = re.compile(r"[\u30A0-\u30FF]")
 
-
     def _flag_untranslated(
-        self, translations: List[str], originals: List[str], tgt_lang: str
-    ) -> List[int]:
+        self, translations: list[str], originals: list[str], tgt_lang: str
+    ) -> list[int]:
         """检测未翻译的段落，返回应回退本地模型的索引列表。
 
         检测规则：目标语言是中文时，如果译文仍包含日语假名，则视为未翻译。

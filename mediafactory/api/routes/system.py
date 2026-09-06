@@ -4,7 +4,6 @@ import asyncio
 import logging
 import sys
 from pathlib import Path
-from typing import List, Optional
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
@@ -25,8 +24,8 @@ class BrowseEntry(BaseModel):
 
 class BrowseResult(BaseModel):
     path: str
-    parent: Optional[str]
-    entries: List[BrowseEntry]
+    parent: str | None
+    entries: list[BrowseEntry]
 
 
 class RevealRequest(BaseModel):
@@ -34,7 +33,7 @@ class RevealRequest(BaseModel):
 
 
 @router.get("/browse", response_model=BrowseResult)
-async def browse(path: Optional[str] = None, ext: Optional[str] = None) -> BrowseResult:
+async def browse(path: str | None = None, ext: str | None = None) -> BrowseResult:
     """列出目录内容供 Web UI 文件选取。
 
     目录始终显示；文件按逗号分隔的扩展名过滤（缺省不过滤）；
@@ -51,7 +50,7 @@ async def browse(path: Optional[str] = None, ext: Optional[str] = None) -> Brows
         else None
     )
 
-    entries: List[BrowseEntry] = []
+    entries: list[BrowseEntry] = []
     try:
         for item in sorted(target.iterdir(), key=lambda p: p.name.lower()):
             if item.name.startswith("."):
@@ -64,8 +63,8 @@ async def browse(path: Optional[str] = None, ext: Optional[str] = None) -> Brows
                 entries.append(BrowseEntry(name=item.name, is_dir=True))
             elif extensions is None or item.suffix.lower().lstrip(".") in extensions:
                 entries.append(BrowseEntry(name=item.name, is_dir=False))
-    except PermissionError:
-        raise HTTPException(status_code=400, detail=t("error.pathNotAccessible"))
+    except PermissionError as e:
+        raise HTTPException(status_code=400, detail=t("error.pathNotAccessible")) from e
 
     # 目录在前、各自按名排序（sorted 已保证字母序，这里只做分区稳定排序）
     entries.sort(key=lambda e: not e.is_dir)

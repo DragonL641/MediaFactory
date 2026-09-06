@@ -4,16 +4,15 @@ Pydantic 数据模型
 定义 API 请求和响应的数据结构。
 """
 
-from enum import Enum
-from typing import Any, Dict, List, Optional
+from enum import StrEnum
+from typing import Any
 
 from pydantic import BaseModel, Field
-
 
 # ==================== 枚举类型 ====================
 
 
-class TaskType(str, Enum):
+class TaskType(StrEnum):
     """任务类型"""
 
     SUBTITLE = "subtitle"
@@ -24,7 +23,7 @@ class TaskType(str, Enum):
     DOWNLOAD = "download"
 
 
-class TaskStatus(str, Enum):
+class TaskStatus(StrEnum):
     """任务状态"""
 
     PENDING = "pending"
@@ -34,7 +33,7 @@ class TaskStatus(str, Enum):
     CANCELLED = "cancelled"
 
 
-class ProcessingStage(str, Enum):
+class ProcessingStage(StrEnum):
     """处理阶段"""
 
     MODEL_LOADING = "model_loading"
@@ -83,8 +82,8 @@ class TaskConfig(BaseModel):
 
     task_type: TaskType
     input_path: str
-    input_text: Optional[str] = None
-    output_path: Optional[str] = None
+    input_text: str | None = None
+    output_path: str | None = None
 
     # 语言设置
     source_lang: str = "auto"
@@ -98,9 +97,9 @@ class TaskConfig(BaseModel):
     output_format: str = "srt"  # srt, ass, vtt, txt
 
     # 分类型配置（按任务类型使用）
-    audio_config: Optional[AudioConfig] = None
-    subtitle_config: Optional[SubtitleConfig] = None
-    enhancement_config: Optional[EnhancementConfig] = None
+    audio_config: AudioConfig | None = None
+    subtitle_config: SubtitleConfig | None = None
+    enhancement_config: EnhancementConfig | None = None
 
 
 class TaskProgress(BaseModel):
@@ -110,7 +109,7 @@ class TaskProgress(BaseModel):
     status: TaskStatus
     progress: float = Field(ge=0, le=100)
     message: str = ""
-    stage: Optional[ProcessingStage] = None
+    stage: ProcessingStage | None = None
 
 
 class TaskResult(BaseModel):
@@ -118,16 +117,16 @@ class TaskResult(BaseModel):
 
     task_id: str
     success: bool
-    output_path: Optional[str] = None
-    error: Optional[str] = None
-    error_type: Optional[str] = None
-    metadata: Dict[str, Any] = Field(default_factory=dict)
+    output_path: str | None = None
+    error: str | None = None
+    error_type: str | None = None
+    metadata: dict[str, Any] = Field(default_factory=dict)
 
 
 # ==================== 模型相关 ====================
 
 
-class ModelType(str, Enum):
+class ModelType(StrEnum):
     """模型类型"""
 
     WHISPER = "whisper"
@@ -145,8 +144,8 @@ class ModelStatus(BaseModel):
     enabled: bool = True
 
     # LLM 特有
-    preset: Optional[str] = None
-    connection_available: Optional[bool] = None
+    preset: str | None = None
+    connection_available: bool | None = None
 
 
 class TranslationModelInfo(BaseModel):
@@ -164,8 +163,8 @@ class LLMTestResult(BaseModel):
 
     preset: str
     success: bool
-    latency_ms: Optional[int] = None
-    error: Optional[str] = None
+    latency_ms: int | None = None
+    error: str | None = None
 
 
 # ==================== 配置相关 ====================
@@ -174,29 +173,29 @@ class LLMTestResult(BaseModel):
 class WhisperConfigUpdate(BaseModel):
     """Whisper 配置更新"""
 
-    beam_size: Optional[int] = Field(None, ge=1, le=10)
-    patience: Optional[float] = Field(None, ge=0.0, le=10.0)
-    length_penalty: Optional[float] = None
-    no_speech_threshold: Optional[float] = Field(None, ge=0.0, le=1.0)
-    condition_on_previous_text: Optional[bool] = None
-    word_timestamps: Optional[bool] = None
-    vad_filter: Optional[bool] = None
-    vad_threshold: Optional[float] = Field(None, ge=0.0, le=1.0)
+    beam_size: int | None = Field(None, ge=1, le=10)
+    patience: float | None = Field(None, ge=0.0, le=10.0)
+    length_penalty: float | None = None
+    no_speech_threshold: float | None = Field(None, ge=0.0, le=1.0)
+    condition_on_previous_text: bool | None = None
+    word_timestamps: bool | None = None
+    vad_filter: bool | None = None
+    vad_threshold: float | None = Field(None, ge=0.0, le=1.0)
 
 
 class LLMApiConfigUpdate(BaseModel):
     """LLM API 配置更新"""
 
-    current_preset: Optional[str] = None
-    timeout: Optional[int] = Field(None, ge=1, le=300)
-    max_retries: Optional[int] = Field(None, ge=0, le=10)
+    current_preset: str | None = None
+    timeout: int | None = Field(None, ge=1, le=300)
+    max_retries: int | None = Field(None, ge=0, le=10)
 
 
 class ConfigUpdate(BaseModel):
     """配置更新请求"""
 
-    whisper: Optional[WhisperConfigUpdate] = None
-    llm_api: Optional[LLMApiConfigUpdate] = None
+    whisper: WhisperConfigUpdate | None = None
+    llm_api: LLMApiConfigUpdate | None = None
 
 
 # ==================== API 请求/响应 ====================
@@ -206,7 +205,7 @@ class SubtitleRequest(BaseModel):
     """字幕生成请求"""
 
     video_path: str
-    output_path: Optional[str] = None
+    output_path: str | None = None
     source_lang: str = "auto"
     target_lang: str = "zh"
     use_llm: bool = False
@@ -221,7 +220,7 @@ class AudioRequest(BaseModel):
     """音频提取请求"""
 
     video_path: str
-    output_path: Optional[str] = None
+    output_path: str | None = None
     output_format: str = "wav"
     sample_rate: int = 48000
     channels: int = 2
@@ -235,7 +234,7 @@ class TranscribeRequest(BaseModel):
     """转录请求"""
 
     audio_path: str
-    output_path: Optional[str] = None
+    output_path: str | None = None
     source_lang: str = "auto"
     output_format: str = "srt"  # srt, ass, vtt, txt
     style_preset: str = "default"
@@ -244,8 +243,8 @@ class TranscribeRequest(BaseModel):
 class TranslateRequest(BaseModel):
     """翻译请求"""
 
-    srt_path: Optional[str] = None
-    text: Optional[str] = None
+    srt_path: str | None = None
+    text: str | None = None
     source_lang: str = "auto"
     target_lang: str = "zh"
     output_format: str = "srt"  # srt, ass, vtt, txt
@@ -257,7 +256,7 @@ class EnhanceRequest(BaseModel):
     """视频增强请求"""
 
     video_path: str
-    output_path: Optional[str] = None
+    output_path: str | None = None
     scale: int = Field(default=4, ge=2, le=4)
     model_type: str = "general"
     denoise: bool = False
@@ -267,16 +266,16 @@ class EnhanceRequest(BaseModel):
 class TaskConfigUpdateRequest(BaseModel):
     """任务配置更新请求 - 仅允许修改可变参数（不含 task_type 和 input_path）"""
 
-    output_path: Optional[str] = None
-    source_lang: Optional[str] = None
-    target_lang: Optional[str] = None
-    use_llm: Optional[bool] = None
-    llm_preset: Optional[str] = None
+    output_path: str | None = None
+    source_lang: str | None = None
+    target_lang: str | None = None
+    use_llm: bool | None = None
+    llm_preset: str | None = None
 
     # 分类型配置更新
-    audio_config: Optional[AudioConfig] = None
-    subtitle_config: Optional[SubtitleConfig] = None
-    enhancement_config: Optional[EnhancementConfig] = None
+    audio_config: AudioConfig | None = None
+    subtitle_config: SubtitleConfig | None = None
+    enhancement_config: EnhancementConfig | None = None
 
 
 class TaskResponse(BaseModel):

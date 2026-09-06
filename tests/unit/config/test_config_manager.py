@@ -4,10 +4,9 @@
 """
 
 import pytest
-from pathlib import Path
 
 from mediafactory.config.manager import AppConfigManager
-from mediafactory.config.models import AppConfig, WhisperConfig, LLMApiConfig
+from mediafactory.config.models import AppConfig
 
 pytestmark = [pytest.mark.unit]
 
@@ -134,8 +133,8 @@ class TestUpdateValidationRollback:
 
         with pytest.raises(Exception):
             manager.update(
-                whisper__beam_size=7,      # 这个是合法的
-                llm_api__timeout=9999,     # 这个不合法
+                whisper__beam_size=7,  # 这个是合法的
+                llm_api__timeout=9999,  # 这个不合法
             )
 
         # 两个字段都应保持原值

@@ -1,13 +1,12 @@
 """MediaFactory 的语言资源工具。"""
 
-import os
 import configparser
-from typing import Dict
+import os
 
 from ..logging import log_warning
 
 
-def _load_languages() -> Dict[str, str]:
+def _load_languages() -> dict[str, str]:
     """从 languages.ini 加载语言映射，如果不存在则使用默认值。"""
     default_map = {
         "auto": "Auto Detect (自动检测)",

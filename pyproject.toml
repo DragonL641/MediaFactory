@@ -141,8 +141,7 @@ dev = [
     "pytest>=7.0.0",
     "pytest-cov>=4.0.0",
     # 代码质量
-    "black>=22.0.0",
-    "flake8>=5.0.0",
+    "ruff>=0.16.0",
     "mypy>=1.0.0",
     "pre-commit>=3.0.0",            # Git hooks 代码检查
     # 构建
@@ -201,24 +200,40 @@ exclude_lines = [
 [tool.setuptools.packages.find]
 where = ["."]
 
-##### Black Check Settings #####
-[tool.black]
+##### Ruff Lint & Format Settings #####
+[tool.ruff]
 line-length = 88
-target-version = ['py311']
-include = '\\.pyi?$'
-extend-exclude = '''
-^/
-  # directories
-  \.eggs
-  | \.git
-  | \.hg
-  | \.mypy_cache
-  | \.tox
-  | \.venv
-  | build
-  | dist
-$
-'''
+target-version = "py311"
+extend-exclude = [
+    "build",
+    "dist",
+    "release",
+    "webui",
+    "src-tauri",
+    "node_modules",
+    "data",
+    "logs",
+    "models",
+]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP"]
+ignore = [
+    "E501",   # 行长交给 formatter 处理（ruff format 与 black 同为 88）
+    "B008",   # FastAPI 的 Depends() 函数默认参数模式
+    "B905",   # zip() 显式 strict 需逐处语义判断，暂缓
+    "UP042",  # str Enum→StrEnum 影响序列化行为，暂缓
+]
+
+[tool.ruff.lint.per-file-ignores]
+# 测试中 pytest.raises(Exception) 宽断言是既有模式
+"tests/**" = ["B017"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["mediafactory"]
+
+[tool.ruff.format]
+# 默认即 black 风格，无需额外配置
 
 ##### Bandit Security Check Settings #####
 [tool.bandit]
@@ -229,14 +244,6 @@ skips = [
     # Skip tests for issues that are not applicable to this project
 ]
 exclude_dirs = ["tests/"]
-
-##### isort Import Sorting Settings #####
-[tool.isort]
-profile = "black"
-line_length = 88
-known_first_party = ["mediafactory"]
-sections = ["FUTURE", "STDLIB", "THIRDPARTY", "FIRSTPARTY", "LOCALFOLDER"]
-skip = [".venv", "venv", ".git", "__pycache__", ".eggs", "*.egg", "build", "dist"]
 
 ##### Type & Annotation Check Settings #####
 [tool.mypy]

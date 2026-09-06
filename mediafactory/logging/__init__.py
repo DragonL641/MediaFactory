@@ -19,41 +19,28 @@ Usage:
 
 # Auto-initialization removed - _ensure_logger() handles lazy init
 # This prevents multiple log initializations across repeated imports / threads
-from .loguru_logger import setup_app_logging
-
 # Core setup functions
+# Simple logging functions (unified for all backend layers)
+# Structured logging functions
+# LLM API specific logging
+# Processing operation logging
 from .loguru_logger import (
     get_app_logger,
     get_log_file_path,
     is_initialized,
-    setup_logging_intercept,
-)
-
-# Simple logging functions (unified for all backend layers)
-from .loguru_logger import (
     log_debug,
-    log_info,
-    log_warning,
     log_error,
-    log_exception,
     log_error_with_context,
-)
-
-# Structured logging functions
-from .loguru_logger import (
-    log_step,
-    log_success,
-)
-
-# LLM API specific logging
-from .loguru_logger import (
+    log_exception,
+    log_info,
+    log_language_detection,
     log_llm_request,
     log_llm_response,
-)
-
-# Processing operation logging
-from .loguru_logger import (
-    log_language_detection,
+    log_step,
+    log_success,
+    log_warning,
+    setup_app_logging,
+    setup_logging_intercept,
 )
 
 __all__ = [

@@ -3,14 +3,14 @@
 import cv2
 import numpy as np
 import torch
-from typing import List, Optional
+
+from mediafactory.logging import log_info
 
 from .base_enhancer import (
-    BaseEnhancer,
-    PIXEL_NORMALIZATION_FACTOR,
     PIXEL_DENORMALIZATION_FACTOR,
+    PIXEL_NORMALIZATION_FACTOR,
+    BaseEnhancer,
 )
-from mediafactory.logging import log_info
 
 
 class Denoiser(BaseEnhancer):
@@ -33,7 +33,7 @@ class Denoiser(BaseEnhancer):
         self,
         strength: float = 1.0,
         model_name: str = "NAFNet-GoPro-width64",
-        device: Optional[str] = None,
+        device: str | None = None,
         half_precision: bool = False,
         **kwargs,
     ):
@@ -60,10 +60,10 @@ class Denoiser(BaseEnhancer):
     def load_model(self) -> None:
         """加载 NAFNet 模型"""
         try:
-            from spandrel import ModelLoader, ImageModelDescriptor
+            from spandrel import ImageModelDescriptor, ModelLoader
         except ImportError as e:
             raise ImportError(
-                "请安装依赖: pip install spandrel\n" "或运行: pip install -e '.[ml]'"
+                "请安装依赖: pip install spandrel\n或运行: pip install -e '.[ml]'"
             ) from e
 
         # 获取模型路径（使用统一注册表）
@@ -73,8 +73,7 @@ class Denoiser(BaseEnhancer):
 
         if model_path is None or not model_path.exists():
             raise FileNotFoundError(
-                f"去噪模型未下载: {self.model_name}\n"
-                "请在 Models 页面下载相应的去噪模型"
+                f"去噪模型未下载: {self.model_name}\n请在 Models 页面下载相应的去噪模型"
             )
 
         # 加载模型
@@ -145,8 +144,8 @@ class Denoiser(BaseEnhancer):
         return output
 
     def enhance_batch(
-        self, frames: List[np.ndarray], batch_size: Optional[int] = None
-    ) -> List[np.ndarray]:
+        self, frames: list[np.ndarray], batch_size: int | None = None
+    ) -> list[np.ndarray]:
         """
         批量去噪
 

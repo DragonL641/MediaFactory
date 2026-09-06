@@ -1,8 +1,9 @@
 """SRT 引擎测试（使用 Mock）。"""
 
-import pytest
 from pathlib import Path
-from unittest.mock import Mock, patch
+from unittest.mock import patch
+
+import pytest
 
 
 class TestSRTEngine:

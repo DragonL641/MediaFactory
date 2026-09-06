@@ -11,7 +11,7 @@ import asyncio
 import functools
 import logging
 import time
-from typing import Callable, Optional
+from collections.abc import Callable
 
 from mediafactory.api.schemas import TaskConfig, TaskResult, TaskStatus, TaskType
 from mediafactory.api.task_manager import get_task_manager
@@ -34,8 +34,8 @@ def active_downloads() -> set[str]:
 
 async def start_download(
     model_id: str,
-    endpoint: Optional[str],
-    on_complete: Optional[Callable[[], None]] = None,
+    endpoint: str | None,
+    on_complete: Callable[[], None] | None = None,
 ) -> str:
     """创建并立即启动模型下载任务。
 
@@ -62,8 +62,8 @@ async def start_download(
 async def _execute_download_task(
     task_id: str,
     model_id: str,
-    endpoint: Optional[str],
-    on_complete: Optional[Callable[[], None]],
+    endpoint: str | None,
+    on_complete: Callable[[], None] | None,
 ):
     """执行模型下载任务。"""
     # 重量级 HF 依赖，保留局部导入以延迟加载

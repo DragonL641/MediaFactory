@@ -20,10 +20,10 @@ class TestLoggingBasic:
     def test_logging_functions_exist(self):
         """测试日志函数存在。"""
         from mediafactory.logging import (
-            log_info,
-            log_error,
-            log_warning,
             log_debug,
+            log_error,
+            log_info,
+            log_warning,
         )
 
         assert callable(log_info)

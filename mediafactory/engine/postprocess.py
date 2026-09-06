@@ -4,12 +4,11 @@
 当执行失败时，抛出异常以通知上层终止任务。
 """
 
-from typing import Any, Dict, List, Optional
+from typing import Any
 
-from ..logging import log_info, log_warning, log_debug, log_error
-from ..core.exception_wrapper import convert_exception
-from ..exceptions import ProcessingError
 from ..constants import CJK_LANG_CODES
+from ..exceptions import ProcessingError
+from ..logging import log_debug, log_error, log_info, log_warning
 
 
 class PostProcessEngine:
@@ -17,14 +16,14 @@ class PostProcessEngine:
 
     def resegment(
         self,
-        segments: List[Dict[str, Any]],
+        segments: list[dict[str, Any]],
         max_chars_cjk: int = 42,
         max_chars_latin: int = 80,
         min_duration: float = 1.0,
         max_duration: float = 7.0,
         merge_gap_threshold: float = 0.3,
-        language: Optional[str] = None,
-    ) -> List[Dict[str, Any]]:
+        language: str | None = None,
+    ) -> list[dict[str, Any]]:
         """智能断句：使用 stable-ts regroup 重新组织分段
 
         Args:
@@ -67,13 +66,11 @@ class PostProcessEngine:
 
             # 构建 regroup 算法字符串
             # 语法: sg=分割间隔, sl=长度分割, cm=最大时长
-            regroup_algo = (
-                f"sg={merge_gap_threshold}"
-                f"_sl={max_chars}"
-                f"_cm={max_duration}"
-            )
+            regroup_algo = f"sg={merge_gap_threshold}_sl={max_chars}_cm={max_duration}"
 
-            log_info(f"Running resegmentation with algo: {regroup_algo} (lang={language}, cjk={is_cjk})")
+            log_info(
+                f"Running resegmentation with algo: {regroup_algo} (lang={language}, cjk={is_cjk})"
+            )
             whisper_result.regroup(regroup_algo=regroup_algo)
 
             # 合并相邻短间隔分段
@@ -109,10 +106,10 @@ class PostProcessEngine:
 
     def _merge_short_segments(
         self,
-        segments: List[Dict[str, Any]],
+        segments: list[dict[str, Any]],
         min_duration: float,
         max_gap: float,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """将过短的分段与相邻分段合并
 
         优先向后合并（与下一段拼接），间隔超过 max_gap 的不合并。
@@ -147,7 +144,7 @@ class PostProcessEngine:
 
         return merged
 
-    def _whisper_result_to_segments(self, whisper_result: Any) -> List[Dict[str, Any]]:
+    def _whisper_result_to_segments(self, whisper_result: Any) -> list[dict[str, Any]]:
         """将 stable-ts WhisperResult 转换为 MediaFactory segments 格式
 
         Args:
@@ -158,7 +155,7 @@ class PostProcessEngine:
         """
         result = []
         for i, seg in enumerate(whisper_result.segments):
-            segment_dict: Dict[str, Any] = {
+            segment_dict: dict[str, Any] = {
                 "start": seg.start,
                 "end": seg.end,
                 "text": seg.text.strip(),

@@ -13,7 +13,8 @@ Key features:
 import time
 from datetime import datetime
 from pathlib import Path
-from typing import Optional, Any
+from typing import Any
+
 from loguru import logger as _loguru_logger
 
 # 日志清理配置（默认值，优先从 config.toml 读取）
@@ -42,7 +43,7 @@ class LoguruAppLogger:
 
     def __init__(self):
         """Initialize the logger manager."""
-        self.log_file: Optional[Path] = None
+        self.log_file: Path | None = None
         self._initialized = False
 
     def _get_writable_log_dir(self) -> Path:
@@ -89,7 +90,7 @@ class LoguruAppLogger:
     def setup(
         self,
         name: str = "mediafactory",
-        log_file: Optional[Path] = None,
+        log_file: Path | None = None,
     ) -> None:
         """Setup the application logging system using loguru.
 
@@ -224,7 +225,7 @@ _loguru_app_logger = LoguruAppLogger()
 
 def setup_app_logging(
     name: str = "mediafactory",
-    log_file: Optional[Path] = None,
+    log_file: Path | None = None,
 ) -> None:
     """Setup application logging.
 
@@ -260,7 +261,7 @@ def _ensure_logger():
 # ===== Standard logging 桥接 =====
 
 
-import logging
+import logging  # noqa: E402  # 需在 loguru 初始化后导入
 
 
 class InterceptHandler(logging.Handler):
@@ -320,7 +321,7 @@ def log_warning(msg: str, **kwargs) -> None:
     _ensure_logger().warning(msg, **kwargs)
 
 
-def log_error(msg: str, extra: Optional[dict] = None, **kwargs) -> None:
+def log_error(msg: str, extra: dict | None = None, **kwargs) -> None:
     """Log ERROR level message with optional extra context.
 
     Args:
@@ -347,7 +348,7 @@ def log_exception(msg: str = "") -> None:
 def log_error_with_context(
     message: str,
     error: Exception,
-    context: Optional[dict] = None,
+    context: dict | None = None,
 ) -> None:
     """Log error with full context using loguru's structured logging.
 
@@ -405,8 +406,8 @@ def log_llm_request(
     backend: str,
     model: str,
     text_length: int,
-    src_lang: Optional[str] = None,
-    tgt_lang: Optional[str] = None,
+    src_lang: str | None = None,
+    tgt_lang: str | None = None,
     batch_size: int = 1,
 ) -> None:
     """Log LLM API request details."""
@@ -420,7 +421,7 @@ def log_llm_response(
     backend: str,
     success: bool,
     output_length: int = 0,
-    error: Optional[str] = None,
+    error: str | None = None,
     retry_count: int = 0,
 ) -> None:
     """Log LLM API response details."""
@@ -452,7 +453,7 @@ def log_language_detection(result: Any, context: str = "") -> None:
     _log.info(f"  Mixed Language: {'Yes' if result.is_mixed else 'No'}")
 
     if result.language_distribution:
-        _log.info(f"  Language Distribution:")
+        _log.info("  Language Distribution:")
         for lang_code, percentage in sorted(
             result.language_distribution.items(), key=lambda x: x[1], reverse=True
         ):

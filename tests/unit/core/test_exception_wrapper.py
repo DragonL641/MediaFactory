@@ -5,13 +5,13 @@
 
 import pytest
 
+from mediafactory.core.exception_wrapper import convert_exception, wrap_exceptions
 from mediafactory.exceptions import (
     ConfigurationError,
     MediaFactoryError,
     OperationCancelledError,
     ProcessingError,
 )
-from mediafactory.core.exception_wrapper import convert_exception, wrap_exceptions
 
 pytestmark = [pytest.mark.unit]
 

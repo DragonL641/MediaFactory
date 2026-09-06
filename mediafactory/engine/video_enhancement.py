@@ -6,25 +6,22 @@ import os
 import subprocess
 import tempfile
 import time
-from dataclasses import dataclass, field
-from pathlib import Path
-from typing import List, Optional, Callable, Tuple
+from dataclasses import dataclass
 
 import cv2
 import numpy as np
 
-from mediafactory.core.progress_protocol import ProgressCallback, NO_OP_PROGRESS
 from mediafactory.core.exception_wrapper import wrap_exceptions
-from mediafactory.exceptions import ProcessingError
-from mediafactory.logging import log_info, log_error, log_step
+from mediafactory.core.progress_protocol import NO_OP_PROGRESS, ProgressCallback
 from mediafactory.engine.enhancement import (
-    RealESRGANEnhancer,
     Denoiser,
+    RealESRGANEnhancer,
     TemporalSmoother,
     TemporalSmootherConfig,
 )
+from mediafactory.exceptions import ProcessingError
 from mediafactory.i18n import t
-
+from mediafactory.logging import log_error, log_info, log_step
 
 # 批处理默认大小
 DEFAULT_BATCH_SIZE = 4
@@ -47,7 +44,7 @@ class EnhancementConfig:
     temporal_strength: float = 0.5
 
     # 设备配置
-    device: Optional[str] = None  # cuda, mps, cpu, None=auto
+    device: str | None = None  # cuda, mps, cpu, None=auto
     half_precision: bool = True  # 默认启用半精度以提升性能
 
     # 处理参数
@@ -60,7 +57,7 @@ class EnhancementConfig:
 class VideoEnhancementEngine:
     """视频增强引擎"""
 
-    def __init__(self, config: Optional[EnhancementConfig] = None):
+    def __init__(self, config: EnhancementConfig | None = None):
         """
         初始化视频增强引擎
 
@@ -70,9 +67,9 @@ class VideoEnhancementEngine:
         self.config = config or EnhancementConfig()
 
         # 增强器实例（懒加载）
-        self._sr_enhancer: Optional[RealESRGANEnhancer] = None
-        self._denoiser: Optional[Denoiser] = None
-        self._temporal_smoother: Optional[TemporalSmoother] = None
+        self._sr_enhancer: RealESRGANEnhancer | None = None
+        self._denoiser: Denoiser | None = None
+        self._temporal_smoother: TemporalSmoother | None = None
 
     def _get_sr_enhancer(self) -> RealESRGANEnhancer:
         """获取超分辨率增强器（懒加载）"""
@@ -86,7 +83,7 @@ class VideoEnhancementEngine:
             )
         return self._sr_enhancer
 
-    def _get_denoiser(self) -> Optional[Denoiser]:
+    def _get_denoiser(self) -> Denoiser | None:
         """获取去噪器（懒加载）"""
         if not self.config.denoise:
             return None
@@ -98,7 +95,7 @@ class VideoEnhancementEngine:
             )
         return self._denoiser
 
-    def _get_temporal_smoother(self) -> Optional[TemporalSmoother]:
+    def _get_temporal_smoother(self) -> TemporalSmoother | None:
         """获取时序平滑器（懒加载）"""
         if not self.config.temporal:
             return None
@@ -113,8 +110,8 @@ class VideoEnhancementEngine:
     def enhance(
         self,
         video_path: str,
-        output_path: Optional[str] = None,
-        progress: Optional[ProgressCallback] = None,
+        output_path: str | None = None,
+        progress: ProgressCallback | None = None,
     ) -> str:
         """
         增强视频
@@ -212,10 +209,10 @@ class VideoEnhancementEngine:
                 frame_idx = 0
                 batch_size = self.config.batch_size
                 # 帧缓冲区：存储 (原始帧, 增强后的帧)
-                frame_buffer: List[Tuple[np.ndarray, np.ndarray]] = []
+                frame_buffer: list[tuple[np.ndarray, np.ndarray]] = []
 
                 # 性能统计
-                frame_times: List[float] = []
+                frame_times: list[float] = []
                 process_start_time = time.time()
 
                 while True:
@@ -384,11 +381,11 @@ class VideoEnhancementEngine:
             from imageio_ffmpeg import get_ffmpeg_exe
 
             ffmpeg_exe = get_ffmpeg_exe()
-        except ImportError:
+        except ImportError as e:
             raise ProcessingError(
                 message="imageio-ffmpeg 未安装",
                 context={"suggestion": "pip install imageio-ffmpeg"},
-            )
+            ) from e
 
         # 使用 FFmpeg 合并音频
         cmd = [
@@ -425,11 +422,11 @@ class VideoEnhancementEngine:
 
                 shutil.copy(temp_video, output_path)
                 log_info("已保存无音频的视频")
-        except subprocess.TimeoutExpired:
+        except subprocess.TimeoutExpired as e:
             raise ProcessingError(
                 message="FFmpeg 音频合并超时",
                 context={"temp_video": temp_video, "output_path": output_path},
-            )
+            ) from e
         except Exception as e:
             log_error(f"音频合并失败: {e}")
             # 如果音频合并失败，直接复制视频

@@ -12,12 +12,12 @@ __email__ = "fldx123456@163.com"
 
 # Configuration system (new - Pydantic v2 + TOML)
 from .config import (
-    get_config_manager,
+    AppConfig,
+    AppConfigManager,
     get_config,
+    get_config_manager,
     save_config,
     update_config,
-    AppConfigManager,
-    AppConfig,
 )
 
 # Model management - lazy import to avoid requiring ML dependencies at startup
@@ -46,24 +46,26 @@ def __getattr__(name):
 
 
 # Core framework
-from .core import (
+from .core import (  # noqa: E402  # 前面是 lazy-import getattr 定义，顺序刻意如此
     CancellationToken,
+)
+from .engine import (  # noqa: E402
+    AudioEngine,
+    RecognitionEngine,
+    SRTEngine,
+    TranslationEngine,
 )
 
 # Pipeline and Engine (new simplified architecture)
-from .pipeline import (
+from .pipeline import (  # noqa: E402
     Pipeline,
     ProcessingContext,
     ProcessingResult,
 )
-from .engine import (
-    AudioEngine,
-    RecognitionEngine,
-    TranslationEngine,
-    SRTEngine,
-)
 
 __all__ = [
+    # Version
+    "__version__",
     # Configuration system
     "get_config_manager",
     "get_config",

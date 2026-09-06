@@ -1,11 +1,11 @@
 """MediaFactory engine package."""
 
-from .audio import AudioEngine
-from .recognition import RecognitionEngine
-from .translation import TranslationEngine
-from .srt import SRTEngine
 from .ass_engine import ASSEngine
+from .audio import AudioEngine
 from .postprocess import PostProcessEngine
+from .recognition import RecognitionEngine
+from .srt import SRTEngine
+from .translation import TranslationEngine
 
 # Lazy imports for video enhancement (requires torch)
 VideoEnhancementEngine = None
@@ -21,8 +21,10 @@ def __getattr__(name):
         "EnhancementConfig",
     ):
         from .video_enhancement import (
-            VideoEnhancementEngine as _VideoEnhancementEngine,
             EnhancementConfig as _EnhancementConfig,
+        )
+        from .video_enhancement import (
+            VideoEnhancementEngine as _VideoEnhancementEngine,
         )
 
         VideoEnhancementEngine = _VideoEnhancementEngine

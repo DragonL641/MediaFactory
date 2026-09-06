@@ -1,10 +1,9 @@
 """流水线编排模块"""
 
-from typing import List
-from .context import ProcessingContext, ProcessingResult
-from .stage import ProcessingStage
 from ..exceptions import MediaFactoryError, OperationCancelledError, ProcessingError
 from ..logging import log_error, log_warning
+from .context import ProcessingContext, ProcessingResult
+from .stage import ProcessingStage
 
 # 各 stage 的相对权重（在包含它的 Pipeline 内归一化为 0-100 连续区间）
 # 各 stage 的相对耗时权重：转录+翻译占大头；模型加载热缓存下近瞬时故仅 5。
@@ -41,7 +40,7 @@ class _StageProgress:
 class Pipeline:
     """处理阶段编排器，按顺序执行各阶段"""
 
-    def __init__(self, stages: List[ProcessingStage]):
+    def __init__(self, stages: list[ProcessingStage]):
         self.stages = stages
 
     def _compute_ranges(self) -> dict:
@@ -145,12 +144,12 @@ class Pipeline:
     ) -> "Pipeline":
         """创建默认流水线（包含所有阶段）"""
         from .stages import (
-            ModelLoadingStage,
             AudioExtractionStage,
-            TranscriptionStage,
+            ModelLoadingStage,
             PostProcessStage,
-            TranslationStage,
             SRTGenerationStage,
+            TranscriptionStage,
+            TranslationStage,
         )
 
         return cls(
@@ -171,7 +170,7 @@ class Pipeline:
         srt_engine,
     ) -> "Pipeline":
         """创建仅翻译的流水线"""
-        from .stages import TranslationStage, SRTGenerationStage
+        from .stages import SRTGenerationStage, TranslationStage
 
         return cls(
             [
@@ -189,9 +188,9 @@ class Pipeline:
         """创建独立转录流水线（音频已存在，仅转录+生成字幕）"""
         from .stages import (
             ModelLoadingStage,
-            TranscriptionStage,
             PostProcessStage,
             SRTGenerationStage,
+            TranscriptionStage,
         )
 
         return cls(

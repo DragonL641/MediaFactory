@@ -8,16 +8,16 @@
 import json
 from pathlib import Path
 from threading import Lock
-from typing import Any, Dict, Optional
+from typing import Any
 
 _LOCALES_DIR = Path(__file__).parent / "locales"
 _CURRENT_LANG = "en"
 _LANG_LOCK = Lock()
-_TRANSLATIONS: Dict[str, Dict[str, Any]] = {}
+_TRANSLATIONS: dict[str, dict[str, Any]] = {}
 _TRANSLATIONS_LOADED = False
 
 
-def _load_translations(lang: str) -> Dict[str, Any]:
+def _load_translations(lang: str) -> dict[str, Any]:
     """加载指定语言的翻译文件"""
     if lang in _TRANSLATIONS:
         return _TRANSLATIONS[lang]
@@ -27,7 +27,7 @@ def _load_translations(lang: str) -> Dict[str, Any]:
         file_path = _LOCALES_DIR / "en.json"
 
     if file_path.exists():
-        with open(file_path, "r", encoding="utf-8") as f:
+        with open(file_path, encoding="utf-8") as f:
             _TRANSLATIONS[lang] = json.load(f)
     else:
         _TRANSLATIONS[lang] = {}
@@ -44,7 +44,7 @@ def _load_all_translations() -> None:
     for locale_file in _LOCALES_DIR.glob("*.json"):
         lang = locale_file.stem
         if lang not in _TRANSLATIONS:
-            with open(locale_file, "r", encoding="utf-8") as f:
+            with open(locale_file, encoding="utf-8") as f:
                 _TRANSLATIONS[lang] = json.load(f)
 
     _TRANSLATIONS_LOADED = True

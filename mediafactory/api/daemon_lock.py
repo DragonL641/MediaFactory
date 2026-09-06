@@ -41,7 +41,7 @@ class DaemonLock:
                 raise DaemonAlreadyRunning(
                     f"另一个 MediaFactory daemon 正在运行（PID {holder}）。"
                     f"请先停止它，或删除锁文件 {self._path} 后重试。"
-                )
+                ) from None
             # 持锁进程已死：接管陈锁
             logger.warning(f"接管陈旧锁文件（原 PID {holder}）: {self._path}")
             fd = os.open(self._path, os.O_WRONLY | os.O_TRUNC)

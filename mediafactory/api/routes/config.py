@@ -5,7 +5,7 @@
 """
 
 import logging
-from typing import Any, Dict, Optional
+from typing import Any
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
@@ -24,17 +24,17 @@ router = APIRouter()
 class ConfigUpdateRequest(BaseModel):
     """配置更新请求"""
 
-    config: Dict[str, Any]
+    config: dict[str, Any]
 
 
 class PartialConfigUpdate(BaseModel):
     """部分配置更新"""
 
-    whisper: Optional[Dict[str, Any]] = None
-    model: Optional[Dict[str, Any]] = None
-    openai_compatible: Optional[Dict[str, Any]] = None
-    llm_api: Optional[Dict[str, Any]] = None
-    app: Optional[Dict[str, Any]] = None
+    whisper: dict[str, Any] | None = None
+    model: dict[str, Any] | None = None
+    openai_compatible: dict[str, Any] | None = None
+    llm_api: dict[str, Any] | None = None
+    app: dict[str, Any] | None = None
 
 
 @router.get("/")
@@ -113,10 +113,14 @@ async def update_full_config(request: PartialConfigUpdate):
         return config.to_toml_dict()
 
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=t("error.configUpdateFailed"))
+        raise HTTPException(
+            status_code=400, detail=t("error.configUpdateFailed")
+        ) from e
     except Exception as e:
         logger.exception(f"更新配置失败: {e}")
-        raise HTTPException(status_code=500, detail=t("error.configUpdateFailed"))
+        raise HTTPException(
+            status_code=500, detail=t("error.configUpdateFailed")
+        ) from e
 
 
 @router.post("/save")
@@ -131,7 +135,7 @@ async def save_config_to_disk():
         return {"success": True, "message": t("task.configSaved")}
     except Exception as e:
         logger.exception(f"保存配置失败: {e}")
-        raise HTTPException(status_code=500, detail=t("error.configSaveFailed"))
+        raise HTTPException(status_code=500, detail=t("error.configSaveFailed")) from e
 
 
 @router.post("/reload")
@@ -147,7 +151,9 @@ async def reload_config_from_disk():
         return {"success": True, "config": config.to_toml_dict()}
     except Exception as e:
         logger.exception(f"重新加载配置失败: {e}")
-        raise HTTPException(status_code=500, detail=t("error.configReloadFailed"))
+        raise HTTPException(
+            status_code=500, detail=t("error.configReloadFailed")
+        ) from e
 
 
 @router.get("/llm/presets")
@@ -189,9 +195,9 @@ async def get_llm_presets():
 class LLMPresetUpdateRequest(BaseModel):
     """LLM 预设更新请求（JSON body）"""
 
-    api_key: Optional[str] = ""
-    base_url: Optional[str] = None
-    model: Optional[str] = None
+    api_key: str | None = ""
+    base_url: str | None = None
+    model: str | None = None
 
 
 class SetCurrentPresetRequest(BaseModel):
@@ -253,7 +259,7 @@ async def update_llm_preset(preset_id: str, request: LLMPresetUpdateRequest):
         raise HTTPException(
             status_code=500,
             detail=t("error.presetUpdateFailed", error=sanitize_error(e)),
-        )
+        ) from e
 
 
 @router.delete("/llm/preset/{preset_id}")
@@ -284,7 +290,7 @@ async def delete_llm_preset(preset_id: str):
         raise HTTPException(
             status_code=500,
             detail=t("error.presetDeleteFailed", error=sanitize_error(e)),
-        )
+        ) from e
 
 
 @router.put("/llm/current-preset")
@@ -307,4 +313,4 @@ async def set_current_llm_preset(request: SetCurrentPresetRequest):
         raise HTTPException(
             status_code=500,
             detail=t("error.setCurrentPresetFailed", error=sanitize_error(e)),
-        )
+        ) from e

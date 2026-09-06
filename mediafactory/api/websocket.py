@@ -5,9 +5,8 @@ WebSocket 连接管理器
 """
 
 import asyncio
-import json
 import logging
-from typing import Any, Dict, Optional, Set
+from typing import Any
 
 from fastapi import WebSocket
 
@@ -20,8 +19,8 @@ class ConnectionManager:
     """WebSocket 连接管理器"""
 
     def __init__(self):
-        self._active_connections: Set[WebSocket] = set()
-        self._task_subscriptions: Dict[str, Set[WebSocket]] = {}
+        self._active_connections: set[WebSocket] = set()
+        self._task_subscriptions: dict[str, set[WebSocket]] = {}
         self._lock = asyncio.Lock()
 
     async def connect(self, websocket: WebSocket):
@@ -57,7 +56,7 @@ class ConnectionManager:
                 if not self._task_subscriptions[task_id]:
                     del self._task_subscriptions[task_id]
 
-    async def handle_message(self, websocket: WebSocket, data: Dict[str, Any]):
+    async def handle_message(self, websocket: WebSocket, data: dict[str, Any]):
         """处理客户端消息"""
         msg_type = data.get("type")
 
@@ -79,7 +78,7 @@ class ConnectionManager:
         status: str,
         progress: float,
         message: str = "",
-        stage: Optional[str] = None,
+        stage: str | None = None,
         **extra: Any,
     ):
         """广播任务进度（优先发送给订阅了该任务的连接）"""
@@ -100,8 +99,8 @@ class ConnectionManager:
         self,
         task_id: str,
         success: bool,
-        output_path: Optional[str] = None,
-        error: Optional[str] = None,
+        output_path: str | None = None,
+        error: str | None = None,
     ):
         """广播任务完成（优先发送给订阅了该任务的连接）"""
         data = {
@@ -115,7 +114,7 @@ class ConnectionManager:
         }
         await self._send_to_task(task_id, data)
 
-    async def _send_to_task(self, task_id: str, message: Dict[str, Any]):
+    async def _send_to_task(self, task_id: str, message: dict[str, Any]):
         """发送消息给订阅了指定任务的连接，无订阅时退回全量广播"""
         async with self._lock:
             subscribers = self._task_subscriptions.get(task_id)
@@ -132,7 +131,7 @@ class ConnectionManager:
         for conn in dead_connections:
             self.disconnect(conn)
 
-    async def broadcast(self, message: Dict[str, Any]):
+    async def broadcast(self, message: dict[str, Any]):
         """广播消息给所有连接"""
         dead_connections = set()
         for connection in self._active_connections:

@@ -12,13 +12,13 @@ import json
 import logging
 import time
 import uuid
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any
 
 from mediafactory.api.schemas import (
     TaskConfig,
-    TaskProgress,
     TaskResult,
     TaskStatus,
     TaskType,
@@ -26,9 +26,9 @@ from mediafactory.api.schemas import (
 from mediafactory.api.task_store import TaskStore
 from mediafactory.api.websocket import manager as ws_manager
 from mediafactory.api.worker import InlineExecutor, TaskExecutor
+from mediafactory.core.error_utils import sanitize_error
 from mediafactory.core.progress_protocol import ProgressCallback
 from mediafactory.core.tool import CancellationToken
-from mediafactory.core.error_utils import sanitize_error
 from mediafactory.i18n import t
 
 logger = logging.getLogger(__name__)
@@ -46,12 +46,12 @@ class Task:
     progress: float = 0.0
     name: str = ""  # 任务名称（创建时设定，不变）
     message: str = ""  # 实时状态消息（运行时更新）
-    stage: Optional[str] = None
-    result: Optional[TaskResult] = None
+    stage: str | None = None
+    result: TaskResult | None = None
     cancel_token: CancellationToken = field(default_factory=CancellationToken)
     created_at: float = field(default_factory=time.time)
-    started_at: Optional[float] = None
-    completed_at: Optional[float] = None
+    started_at: float | None = None
+    completed_at: float | None = None
 
 
 class SimpleProgressAdapter(ProgressCallback):
@@ -86,19 +86,19 @@ class TaskManager:
 
     def __init__(
         self,
-        db_path: Optional[Path] = None,
-        executor: Optional[TaskExecutor] = None,
+        db_path: Path | None = None,
+        executor: TaskExecutor | None = None,
     ):
         """db_path 为 None 时用内存库（测试隔离）；executor 默认进程内执行。"""
         self._store = TaskStore(db_path)
         self._executor: TaskExecutor = executor or InlineExecutor()
-        self._tasks: Dict[str, Task] = {}
-        self._running_task_id: Optional[str] = None
-        self._queue: List[str] = []  # 待执行任务队列
+        self._tasks: dict[str, Task] = {}
+        self._running_task_id: str | None = None
+        self._queue: list[str] = []  # 待执行任务队列
         self._is_processing_queue: bool = False
         self._lock = asyncio.Lock()
 
-    async def create_task(self, config: TaskConfig, name: Optional[str] = None) -> str:
+    async def create_task(self, config: TaskConfig, name: str | None = None) -> str:
         """创建新任务（不自动启动，保持 PENDING 状态）"""
         task_id = str(uuid.uuid4())[:8]
         task = Task(
@@ -192,7 +192,7 @@ class TaskManager:
     async def _execute_task(
         self,
         task_id: str,
-        executor: Optional[Callable] = None,
+        executor: Callable | None = None,
     ) -> None:
         """内部方法：执行单个任务，完成后自动触发队列下一个。
 
@@ -373,9 +373,9 @@ class TaskManager:
         self,
         task_id: str,
         status: TaskStatus,
-        progress: Optional[float] = None,
-        stage: Optional[str] = None,
-        result: Optional[TaskResult] = None,
+        progress: float | None = None,
+        stage: str | None = None,
+        result: TaskResult | None = None,
     ) -> bool:
         """更新任务状态（供 API 路由使用，替代直接访问 _tasks）。
 
@@ -408,7 +408,7 @@ class TaskManager:
         return True
 
     async def update_task_config(
-        self, task_id: str, update_data: Dict[str, Any]
+        self, task_id: str, update_data: dict[str, Any]
     ) -> bool:
         """更新 PENDING 任务的配置（仅允许修改可变参数）"""
         task = self._tasks.get(task_id)
@@ -450,7 +450,7 @@ class TaskManager:
         self._store.update(task_id, config_json=task.config.model_dump_json())
         return True
 
-    async def get_task_config(self, task_id: str) -> Optional[Dict[str, Any]]:
+    async def get_task_config(self, task_id: str) -> dict[str, Any] | None:
         """获取任务配置（用于编辑回显）"""
         task = self._tasks.get(task_id)
         if not task:
@@ -532,7 +532,7 @@ class TaskManager:
         ]
 
     @staticmethod
-    def _task_to_dict(task: Task) -> Dict[str, Any]:
+    def _task_to_dict(task: Task) -> dict[str, Any]:
         """将 Task 转换为前端需要的字典格式（camelCase key）"""
         return {
             "id": task.id,
@@ -547,7 +547,7 @@ class TaskManager:
             "stage": task.stage,
         }
 
-    async def get_task_status(self, task_id: str) -> Optional[Dict[str, Any]]:
+    async def get_task_status(self, task_id: str) -> dict[str, Any] | None:
         """获取任务状态（包含前端需要的完整字段）"""
         task = self._tasks.get(task_id)
         if not task:
@@ -555,8 +555,8 @@ class TaskManager:
         return self._task_to_dict(task)
 
     async def get_all_tasks(
-        self, exclude_types: Optional[list[TaskType]] = None
-    ) -> list[Dict[str, Any]]:
+        self, exclude_types: list[TaskType] | None = None
+    ) -> list[dict[str, Any]]:
         """获取所有任务状态
 
         Args:
@@ -617,7 +617,7 @@ class TaskManager:
 
 # ==================== 单例访问 ====================
 
-_task_manager: Optional[TaskManager] = None
+_task_manager: TaskManager | None = None
 
 
 def get_task_manager() -> TaskManager:
@@ -629,7 +629,6 @@ def get_task_manager() -> TaskManager:
     global _task_manager
     if _task_manager is None:
         from mediafactory.api.worker import WorkerProcessExecutor
-
         from mediafactory.config import get_data_root_dir
 
         _task_manager = TaskManager(

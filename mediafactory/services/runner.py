@@ -14,8 +14,8 @@
 
 import asyncio
 import functools
+from collections.abc import Callable
 from pathlib import Path
-from typing import Callable, Optional
 
 from mediafactory.api.schemas import (
     AudioConfig,
@@ -38,10 +38,10 @@ from mediafactory.pipeline.context import ProcessingContext, ProcessingResult
 
 # ==================== 引擎缓存（懒加载，进程内复用） ====================
 
-_audio_engine: Optional[AudioEngine] = None
-_recognition_engine: Optional[RecognitionEngine] = None
-_srt_engine: Optional[SRTEngine] = None
-_local_translation_engine: Optional[TranslationEngine] = None
+_audio_engine: AudioEngine | None = None
+_recognition_engine: RecognitionEngine | None = None
+_srt_engine: SRTEngine | None = None
+_local_translation_engine: TranslationEngine | None = None
 
 
 def _get_audio_engine() -> AudioEngine:
@@ -276,7 +276,7 @@ async def _translate_text(
 
 
 async def _translate_text_locally(
-    text: str, target_lang: str, llm_error: Optional[Exception]
+    text: str, target_lang: str, llm_error: Exception | None
 ) -> str:
     """本地引擎翻译单条文本（segments 包装协议）；LLM 失败时记录回退原因。"""
     from mediafactory.logging import log_info
@@ -301,6 +301,8 @@ async def run_enhance(
     # 延迟导入以避免启动时加载 ML 依赖
     from mediafactory.engine.video_enhancement import (
         EnhancementConfig as EngineEnhancementConfig,
+    )
+    from mediafactory.engine.video_enhancement import (
         VideoEnhancementEngine,
     )
 

@@ -1,7 +1,6 @@
 """配置测试的共享 fixture"""
 
 import pytest
-from pathlib import Path
 
 
 @pytest.fixture

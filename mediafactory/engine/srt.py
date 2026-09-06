@@ -3,11 +3,10 @@
 import os
 import re
 from pathlib import Path
-from typing import Dict, Any, List, Optional
+from typing import Any
 
-from ..exceptions import ProcessingError
 from ..core.exception_wrapper import convert_exception
-
+from ..exceptions import ProcessingError
 
 # =============================================================================
 # 字幕格式常量（从 constants.py 移入）
@@ -47,7 +46,7 @@ class SRTEngine:
         r"(\d{2}):(\d{2}):(\d{2})[.,](\d{3})\s*-->\s*(\d{2}):(\d{2}):(\d{2})[.,](\d{3})"
     )
 
-    def parse(self, filepath: str) -> List[Dict[str, Any]]:
+    def parse(self, filepath: str) -> list[dict[str, Any]]:
         """解析字幕文件（SRT/VTT）"""
         ext = Path(filepath).suffix.lower()
 
@@ -61,7 +60,7 @@ class SRTEngine:
                 context={"filepath": filepath, "extension": ext},
             )
 
-    def _parse_srt(self, filepath: str) -> List[Dict[str, Any]]:
+    def _parse_srt(self, filepath: str) -> list[dict[str, Any]]:
         """解析 SRT 文件"""
         segments = []
 
@@ -72,7 +71,7 @@ class SRTEngine:
                     context={"filepath": filepath},
                 )
 
-            with open(filepath, "r", encoding="utf-8") as f:
+            with open(filepath, encoding="utf-8") as f:
                 content = f.read()
         except ProcessingError:
             raise
@@ -102,7 +101,7 @@ class SRTEngine:
 
         return segments
 
-    def _parse_vtt(self, filepath: str) -> List[Dict[str, Any]]:
+    def _parse_vtt(self, filepath: str) -> list[dict[str, Any]]:
         """解析 VTT 文件"""
         segments = []
 
@@ -113,7 +112,7 @@ class SRTEngine:
                     context={"filepath": filepath},
                 )
 
-            with open(filepath, "r", encoding="utf-8") as f:
+            with open(filepath, encoding="utf-8") as f:
                 content = f.read()
         except ProcessingError:
             raise
@@ -169,14 +168,14 @@ class SRTEngine:
             + int(millis) / SubtitleFormatConstants.MILLISECONDS_PER_SECOND
         )
 
-    def generate(self, result: Dict[str, Any], output_path: str) -> None:
+    def generate(self, result: dict[str, Any], output_path: str) -> None:
         """生成字幕文件（兼容旧接口）"""
         self.generate_to_path(output_path, result.get("segments", []))
 
     def generate_to_path(
         self,
         output_path: str,
-        segments: List[Dict[str, Any]],
+        segments: list[dict[str, Any]],
         bilingual: bool = False,
         layout: str = BilingualLayout.TRANSLATE_ON_TOP,
     ) -> None:
@@ -256,7 +255,7 @@ class SRTEngine:
         return f"{hours:02d}:{minutes:02d}:{secs:02d}.{millis:03d}"
 
     def detect_bilingual(
-        self, segments: List[Dict[str, Any]], threshold: float = 0.8
+        self, segments: list[dict[str, Any]], threshold: float = 0.8
     ) -> bool:
         """检测字幕是否为双语字幕
 
@@ -278,7 +277,7 @@ class SRTEngine:
     def generate_text_to_path(
         self,
         output_path: str,
-        segments: List[Dict[str, Any]],
+        segments: list[dict[str, Any]],
     ) -> None:
         """生成纯文本文件（每句一行，无时间戳）
 

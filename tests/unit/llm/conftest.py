@@ -4,10 +4,12 @@
 对于真实 API 调测，请使用 scripts/debug/ 目录下的脚本。
 """
 
+from unittest.mock import Mock
+
 import pytest
-from unittest.mock import Mock, patch, MagicMock
-from mediafactory.llm.base import TranslationRequest, TranslationResult
+
 from mediafactory.llm import OpenAICompatibleBackend
+from mediafactory.llm.base import TranslationRequest, TranslationResult
 
 
 class LLMBackendTestMixin:

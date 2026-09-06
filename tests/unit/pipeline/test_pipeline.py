@@ -6,8 +6,8 @@ from mediafactory import Pipeline
 from mediafactory.engine import (
     AudioEngine,
     RecognitionEngine,
-    TranslationEngine,
     SRTEngine,
+    TranslationEngine,
 )
 
 pytestmark = [pytest.mark.unit]

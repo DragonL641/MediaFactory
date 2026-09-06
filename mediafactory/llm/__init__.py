@@ -15,16 +15,14 @@
 LLM API 批量翻译 → 纠正重试 → 二分（仅一次）→ 记录失败位置 → 末尾本地翻译 (M2M100-1.2B)
 """
 
-from typing import Optional
-
 # 导入基础类
 from .base import TranslationBackend, TranslationRequest, TranslationResult
 
-# 导入后端实现
-from .openai_compatible_backend import OpenAICompatibleBackend
-
 # 导入本地回退
 from .local_fallback import LocalModelFallback
+
+# 导入后端实现
+from .openai_compatible_backend import OpenAICompatibleBackend
 
 __all__ = [
     # 基础类
@@ -42,7 +40,7 @@ __all__ = [
 
 def initialize_llm_backend(
     config, preset: str = None, skip_availability_check: bool = False
-) -> Optional[OpenAICompatibleBackend]:
+) -> OpenAICompatibleBackend | None:
     """Initialize LLM backend with configuration.
 
     This is a centralized utility for creating LLM backend instances,

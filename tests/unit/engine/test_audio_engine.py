@@ -1,8 +1,9 @@
 """音频引擎测试（Mock FFmpeg 子进程）。"""
 
-import pytest
 from pathlib import Path
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import MagicMock, Mock, patch
+
+import pytest
 
 pytestmark = [pytest.mark.unit]
 
@@ -31,9 +32,11 @@ class TestAudioEngine:
         mock_process.returncode = 0
         mock_process.communicate.return_value = ("", "")
 
-        with patch.object(engine, "_get_ffmpeg_executable", return_value="ffmpeg"), \
-             patch("subprocess.Popen", return_value=mock_process), \
-             patch.object(engine, "_monitor_subprocess"):
+        with (
+            patch.object(engine, "_get_ffmpeg_executable", return_value="ffmpeg"),
+            patch("subprocess.Popen", return_value=mock_process),
+            patch.object(engine, "_monitor_subprocess"),
+        ):
             result = engine.extract(str(video_path), output_path=str(audio_path))
             assert result is not None
 
@@ -51,9 +54,11 @@ class TestAudioEngine:
         mock_process.returncode = 1
         mock_process.communicate.return_value = ("", "Error: Invalid data found")
 
-        with patch.object(engine, "_get_ffmpeg_executable", return_value="ffmpeg"), \
-             patch("subprocess.Popen", return_value=mock_process), \
-             patch.object(engine, "_monitor_subprocess"):
+        with (
+            patch.object(engine, "_get_ffmpeg_executable", return_value="ffmpeg"),
+            patch("subprocess.Popen", return_value=mock_process),
+            patch.object(engine, "_monitor_subprocess"),
+        ):
             with pytest.raises(Exception):
                 engine.extract(str(video_path), output_path=str(audio_path))
 
@@ -72,9 +77,11 @@ class TestAudioEngine:
         mock_process.returncode = 0
         mock_process.communicate.return_value = ("", "")
 
-        with patch.object(engine, "_get_ffmpeg_executable", return_value="ffmpeg"), \
-             patch("subprocess.Popen", return_value=mock_process), \
-             patch.object(engine, "_monitor_subprocess"):
+        with (
+            patch.object(engine, "_get_ffmpeg_executable", return_value="ffmpeg"),
+            patch("subprocess.Popen", return_value=mock_process),
+            patch.object(engine, "_monitor_subprocess"),
+        ):
             try:
                 engine.extract(
                     str(video_path),

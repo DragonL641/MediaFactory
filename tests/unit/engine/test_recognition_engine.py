@@ -1,8 +1,9 @@
 """识别引擎测试（使用 Mock Whisper 模型）。"""
 
-import pytest
 from pathlib import Path
 from unittest.mock import patch
+
+import pytest
 
 
 class TestRecognitionEngine:

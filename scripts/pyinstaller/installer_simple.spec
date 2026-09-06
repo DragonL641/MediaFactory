@@ -197,7 +197,7 @@ hiddenimports = [
 ]
 
 EXCLUDES = [
-    'pytest', 'black', 'mypy', 'pylint', 'flake8', 'pre_commit',
+    'pytest', 'ruff', 'mypy', 'pylint', 'pre_commit',
     'pip', 'setuptools', 'wheel', 'build', 'twine',
 ]
 

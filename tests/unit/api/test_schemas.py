@@ -7,12 +7,12 @@ import pytest
 from pydantic import ValidationError
 
 from mediafactory.api.schemas import (
+    ProcessingStage,
     TaskConfig,
     TaskProgress,
     TaskResult,
     TaskStatus,
     TaskType,
-    ProcessingStage,
 )
 
 pytestmark = [pytest.mark.unit]
@@ -210,7 +210,9 @@ class TestTaskProgress:
         assert progress.progress == 0.0
 
     def test_progress_boundary_hundred(self):
-        progress = TaskProgress(task_id="t", status=TaskStatus.COMPLETED, progress=100.0)
+        progress = TaskProgress(
+            task_id="t", status=TaskStatus.COMPLETED, progress=100.0
+        )
         assert progress.progress == 100.0
 
     def test_progress_out_of_range_raises(self):

@@ -8,11 +8,11 @@
 """
 
 import os
-import pytest
 from pathlib import Path
-from unittest.mock import Mock
 
-from mediafactory.engine.srt import SRTEngine, BilingualLayout
+import pytest
+
+from mediafactory.engine.srt import BilingualLayout, SRTEngine
 from mediafactory.pipeline.context import ProcessingContext
 from mediafactory.pipeline.stages import SRTGenerationStage
 
@@ -247,11 +247,7 @@ class TestVTTParsing:
     def test_parse_vtt_with_multiline_text(self, engine: SRTEngine, tmp_path: Path):
         """解析包含多行文本的 VTT 块（双语字幕场景）。"""
         vtt_content = (
-            "WEBVTT\n\n"
-            "1\n"
-            "00:00:01.000 --> 00:00:03.500\n"
-            "你好世界！\n"
-            "Hello, world!\n\n"
+            "WEBVTT\n\n1\n00:00:01.000 --> 00:00:03.500\n你好世界！\nHello, world!\n\n"
         )
         vtt_file = tmp_path / "bilingual.vtt"
         vtt_file.write_text(vtt_content, encoding="utf-8")

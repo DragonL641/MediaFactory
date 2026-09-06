@@ -6,7 +6,6 @@
 
 from collections import deque
 from dataclasses import dataclass
-from typing import Deque, List, Optional, Tuple
 
 import cv2
 import numpy as np
@@ -43,7 +42,7 @@ class TemporalSmoother:
     支持延迟处理以获取前后帧信息。
     """
 
-    def __init__(self, config: Optional[TemporalSmootherConfig] = None):
+    def __init__(self, config: TemporalSmootherConfig | None = None):
         """
         初始化时序平滑器
 
@@ -54,7 +53,7 @@ class TemporalSmoother:
         self._validate_config()
 
         # 帧缓冲区：存储 (原始帧, 增强帧, 低分辨率灰度帧)
-        self._buffer: Deque[Tuple[np.ndarray, np.ndarray, np.ndarray]] = deque(
+        self._buffer: deque[tuple[np.ndarray, np.ndarray, np.ndarray]] = deque(
             maxlen=self.config.window_size
         )
 
@@ -180,7 +179,7 @@ class TemporalSmoother:
 
     def _blend_frames(
         self,
-        frames: List[np.ndarray],
+        frames: list[np.ndarray],
     ) -> np.ndarray:
         """
         使用高斯权重混合多帧
@@ -229,7 +228,7 @@ class TemporalSmoother:
         self,
         original_frame: np.ndarray,
         enhanced_frame: np.ndarray,
-    ) -> Optional[np.ndarray]:
+    ) -> np.ndarray | None:
         """
         添加一帧并尝试输出平滑后的帧
 
@@ -271,7 +270,6 @@ class TemporalSmoother:
         )
 
         # 缓冲区未满，延迟输出
-        half_window = self.config.window_size // 2
         if len(self._buffer) < self.config.window_size:
             return None
 
@@ -294,7 +292,7 @@ class TemporalSmoother:
             return center_enhanced
 
         # 对齐所有帧到中心帧
-        aligned_frames: List[np.ndarray] = []
+        aligned_frames: list[np.ndarray] = []
 
         for i, (_, enhanced, gray) in enumerate(frames):
             if i == center_idx:
@@ -321,7 +319,7 @@ class TemporalSmoother:
 
         return result
 
-    def flush(self) -> List[np.ndarray]:
+    def flush(self) -> list[np.ndarray]:
         """
         刷新缓冲区，返回所有剩余的帧
 
@@ -330,7 +328,7 @@ class TemporalSmoother:
         Returns:
             剩余帧的平滑结果列表
         """
-        results: List[np.ndarray] = []
+        results: list[np.ndarray] = []
 
         while len(self._buffer) > 0:
             if len(self._buffer) == 1:
@@ -372,11 +370,11 @@ class TemporalSmoother:
 
 
 def smooth_video_frames(
-    frames: List[np.ndarray],
-    original_frames: Optional[List[np.ndarray]] = None,
+    frames: list[np.ndarray],
+    original_frames: list[np.ndarray] | None = None,
     strength: float = 0.5,
     window_size: int = 3,
-) -> List[np.ndarray]:
+) -> list[np.ndarray]:
     """
     对视频帧序列进行时序平滑的便捷函数
 
@@ -401,7 +399,7 @@ def smooth_video_frames(
     )
     smoother = TemporalSmoother(config)
 
-    results: List[np.ndarray] = []
+    results: list[np.ndarray] = []
 
     for original, enhanced in zip(original_frames, frames):
         result = smoother.add_frame(original, enhanced)

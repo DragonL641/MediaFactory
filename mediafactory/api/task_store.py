@@ -8,7 +8,7 @@ import sqlite3
 import threading
 import time
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 # 任务表 schema（config_json = TaskConfig.model_dump_json()）
 _SCHEMA = """
@@ -47,7 +47,7 @@ class TaskStore:
     db_path 为 None 时使用内存库（测试隔离，不落盘）。
     """
 
-    def __init__(self, db_path: Optional[Path] = None):
+    def __init__(self, db_path: Path | None = None):
         if db_path is None:
             self._conn = sqlite3.connect(":memory:", check_same_thread=False)
         else:
@@ -71,7 +71,7 @@ class TaskStore:
             )
             self._conn.commit()
 
-    def get(self, task_id: str) -> Optional[Dict[str, Any]]:
+    def get(self, task_id: str) -> dict[str, Any] | None:
         """按 id 取单行，不存在返回 None。"""
         with self._lock:
             row = self._conn.execute(
@@ -79,7 +79,7 @@ class TaskStore:
             ).fetchone()
         return dict(row) if row else None
 
-    def get_all(self) -> List[Dict[str, Any]]:
+    def get_all(self) -> list[dict[str, Any]]:
         """取全部任务行。"""
         with self._lock:
             rows = self._conn.execute(f"SELECT {_COLUMNS} FROM tasks").fetchall()
@@ -129,7 +129,7 @@ class TaskStore:
         """标记任务入队/出队（queued_at 时间戳即 FIFO 顺序）。"""
         self.update(task_id, queued_at=time.time() if queued else None)
 
-    def get_queued_ids(self) -> List[str]:
+    def get_queued_ids(self) -> list[str]:
         """待执行队列：pending 且已入队，按入队时间升序。"""
         with self._lock:
             rows = self._conn.execute(

@@ -67,13 +67,13 @@ jobs:
     - name: Check version consistency
       run: uv run python scripts/utils/sync_version.py --check
 
-    # 使用Black检查代码格式是否符合规范 (仅警告，不中断)
-    - name: Check code formatting with Black
-      run: uv run black --check mediafactory/ || true
+    # Ruff lint（阻断）
+    - name: Lint with Ruff
+      run: uv run ruff check mediafactory/ tests/
 
-    # 使用Flake8检查严重的代码风格问题
-    - name: Check code style with Flake8
-      run: uv run flake8 mediafactory/ --select=E9,F63,F7,F82 --ignore=F821
+    # Ruff 格式检查（阻断）
+    - name: Check formatting with Ruff
+      run: uv run ruff format --check mediafactory/ tests/
 
   # 前端构建验证 + 类型检查
   frontend:

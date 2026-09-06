@@ -12,9 +12,9 @@
     prompt = get_prompt("translate/batch", target_language="中文")
 """
 
+import functools
 from pathlib import Path
 from string import Template
-import functools
 
 
 def _get_prompts_dir() -> Path:
@@ -42,8 +42,7 @@ def _load_prompt_file(prompt_path: str) -> str:
 
     if not file_path.exists():
         raise FileNotFoundError(
-            f"Prompt file not found: {prompt_path}.md\n"
-            f"Expected location: {file_path}"
+            f"Prompt file not found: {prompt_path}.md\nExpected location: {file_path}"
         )
 
     return file_path.read_text(encoding="utf-8")

@@ -1,8 +1,8 @@
 """流水线上下文模块"""
 
 from dataclasses import dataclass, field
-from typing import Dict, Any, Optional, TYPE_CHECKING
 from pathlib import Path
+from typing import TYPE_CHECKING, Any, Optional
 
 if TYPE_CHECKING:
     from ..core.progress_protocol import ProgressCallback
@@ -13,19 +13,19 @@ class ProcessingContext:
     """流水线处理上下文，承载所有输入、中间结果和配置"""
 
     # 输入
-    video_path: Optional[str] = None
+    video_path: str | None = None
 
     # 中间结果（由各阶段填充）
-    audio_path: Optional[str] = None
-    transcription_result: Optional[Dict[str, Any]] = None
-    translation_result: Optional[Dict[str, Any]] = None
-    output_path: Optional[str] = None
-    source_subtitle_path: Optional[str] = None
+    audio_path: str | None = None
+    transcription_result: dict[str, Any] | None = None
+    translation_result: dict[str, Any] | None = None
+    output_path: str | None = None
+    source_subtitle_path: str | None = None
 
     # 语言设置
-    src_lang: Optional[str] = None
+    src_lang: str | None = None
     tgt_lang: str = "zh"
-    detected_lang: Optional[str] = None
+    detected_lang: str | None = None
 
     # 模型配置
     whisper_model: str = "auto"  # 固定使用 Large V3，"auto" 触发自动设置
@@ -33,7 +33,7 @@ class ProcessingContext:
     whisper_model_instance: Any = None
     _model_context: Any = None  # whisper_model() 上下文（ModelLoadingStage 填充）
 
-    translation_model: Optional[str] = None
+    translation_model: str | None = None
     use_local_models_only: bool = False
     llm_backend: Any = None
 
@@ -43,7 +43,7 @@ class ProcessingContext:
     # 配置（按任务类型携带 pydantic 子配置，如 AudioConfig；None 表示无子配置）
     config: Any = None
     # 请求的输出路径（TaskConfig.output_path；None 表示由引擎/stage 推导）
-    requested_output_path: Optional[str] = None
+    requested_output_path: str | None = None
     # 字幕输出格式（srt/ass/vtt/txt）
     output_format: str = "srt"
 
@@ -121,18 +121,18 @@ class ProcessingResult:
     """流水线执行结果"""
 
     success: bool
-    output_path: Optional[str] = None
+    output_path: str | None = None
     error_message: str = ""
-    error_type: Optional[str] = None
-    error_context: Optional[dict[str, Any]] = None
-    context: Optional[ProcessingContext] = None
+    error_type: str | None = None
+    error_context: dict[str, Any] | None = None
+    context: ProcessingContext | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
 
     @classmethod
     def from_exception(
         cls,
         exc: Exception,
-        context: Optional[ProcessingContext] = None,
+        context: ProcessingContext | None = None,
     ) -> "ProcessingResult":
         """从异常创建失败结果"""
         from ..exceptions import MediaFactoryError

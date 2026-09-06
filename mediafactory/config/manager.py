@@ -12,12 +12,12 @@
 import copy
 import shutil
 from pathlib import Path
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Optional
 
 import tomli
 import tomli_w
 
-from .defaults import get_config_path, CONFIG_FILE_BACKUP_SUFFIX
+from .defaults import CONFIG_FILE_BACKUP_SUFFIX, get_config_path
 from .models import AppConfig
 
 
@@ -42,9 +42,9 @@ class AppConfigManager:
 
     _default_instance: Optional["AppConfigManager"] = None
 
-    def __init__(self, config_path: Optional[Path] = None):
+    def __init__(self, config_path: Path | None = None):
         self._config_path = config_path or get_config_path()
-        self._config: Optional[AppConfig] = None
+        self._config: AppConfig | None = None
         self._config = self._load_or_create()
 
     # ==================== 属性 ====================
@@ -63,7 +63,7 @@ class AppConfigManager:
 
     def reload(self) -> None:
         """从磁盘重新加载配置"""
-        from ..logging import log_info, log_error
+        from ..logging import log_error, log_info
 
         log_info(f"配置重新加载: {self._config_path}")
         try:
@@ -75,7 +75,7 @@ class AppConfigManager:
 
     def save(self) -> None:
         """保存当前配置到磁盘"""
-        from ..logging import log_info, log_error
+        from ..logging import log_error, log_info
 
         log_info(f"配置保存: {self._config_path}")
         try:
@@ -145,8 +145,7 @@ class AppConfigManager:
             - 模型删除后
             - 手动刷新时
         """
-        from ..models.model_registry import is_model_complete
-        from ..models.model_registry import MODEL_REGISTRY, ModelType
+        from ..models.model_registry import MODEL_REGISTRY, ModelType, is_model_complete
         from .defaults import get_data_root_dir
 
         models_dir = get_data_root_dir() / "models"
@@ -232,10 +231,10 @@ class AppConfigManager:
             tomli_w.dump(toml_data, f)
 
     def _apply_updates(
-        self, config: AppConfig, changes: Dict[str, Any]
-    ) -> Dict[str, Tuple[Any, Any]]:
+        self, config: AppConfig, changes: dict[str, Any]
+    ) -> dict[str, tuple[Any, Any]]:
         """应用更新并跟踪变更"""
-        field_changes: Dict[str, Tuple[Any, Any]] = {}
+        field_changes: dict[str, tuple[Any, Any]] = {}
 
         for key, value in changes.items():
             keys = key.split("__")
@@ -253,9 +252,9 @@ class AppConfigManager:
 
         return field_changes
 
-    def _toml_to_config(self, toml_data: Dict[str, Any]) -> AppConfig:
+    def _toml_to_config(self, toml_data: dict[str, Any]) -> AppConfig:
         """将 TOML 数据转换为 AppConfig"""
-        config_data: Dict[str, Any] = {}
+        config_data: dict[str, Any] = {}
 
         for section_name, section_data in toml_data.items():
             if not isinstance(section_data, dict):
@@ -272,7 +271,7 @@ class AppConfigManager:
 
         return AppConfig(**config_data)
 
-    def _parse_model_section(self, section_data: Dict[str, Any]) -> Dict[str, Any]:
+    def _parse_model_section(self, section_data: dict[str, Any]) -> dict[str, Any]:
         """解析 model 配置节"""
         result = copy.deepcopy(section_data)
 
@@ -288,7 +287,7 @@ class AppConfigManager:
         return result
 
     def _merge_local_models_section(
-        self, model_section: Dict[str, Any], local_models_data: Dict[str, Any]
+        self, model_section: dict[str, Any], local_models_data: dict[str, Any]
     ) -> None:
         """合并 local_models 配置节到 model"""
         field_mapping = {
@@ -312,7 +311,7 @@ class AppConfigManager:
 # ==================== 单例管理 ====================
 
 
-def get_config_manager(config_path: Optional[Path] = None) -> AppConfigManager:
+def get_config_manager(config_path: Path | None = None) -> AppConfigManager:
     """获取全局配置管理器实例"""
     if AppConfigManager._default_instance is None:
         AppConfigManager._default_instance = AppConfigManager(config_path)
@@ -349,7 +348,7 @@ def _mask_value(value: Any, field_path: str) -> str:
     return str(value)
 
 
-def _log_config_changes(field_changes: Dict[str, Tuple[Any, Any]]) -> None:
+def _log_config_changes(field_changes: dict[str, tuple[Any, Any]]) -> None:
     """记录配置变更审计日志
 
     Args:

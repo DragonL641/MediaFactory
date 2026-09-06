@@ -35,13 +35,13 @@ update_config(whisper__beam_size=7)
 """
 
 # 核心模型
-from .models import (
-    AppConfig,
-    OpenAICompatibleConfig,
-    LLMApiConfig,
-    ModelConfig,
-    WhisperConfig,
-    PresetServiceConfig,
+# 默认值
+from . import defaults
+from .defaults import (
+    get_app_root_dir,
+    get_config_path,
+    get_data_root_dir,
+    get_models_path,
 )
 
 # 管理器
@@ -50,14 +50,13 @@ from .manager import (
     get_config_manager,
     reset_config_manager,
 )
-
-# 默认值
-from . import defaults
-from .defaults import (
-    get_app_root_dir,
-    get_config_path,
-    get_data_root_dir,
-    get_models_path,
+from .models import (
+    AppConfig,
+    LLMApiConfig,
+    ModelConfig,
+    OpenAICompatibleConfig,
+    PresetServiceConfig,
+    WhisperConfig,
 )
 
 __all__ = [

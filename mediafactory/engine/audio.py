@@ -4,19 +4,18 @@
 """
 
 import os
-import sys
-import time
-import threading
 import subprocess
-from typing import Optional
+import threading
+import time
 from pathlib import Path
+
 from ..constants import THREAD_JOIN_TIMEOUT
-from ..utils.time_estimator import TimeEstimator
-from ..core.progress_protocol import ProgressCallback, NO_OP_PROGRESS
-from ..logging import log_debug, log_error, log_step
+from ..core.exception_wrapper import convert_exception, wrap_exceptions
+from ..core.progress_protocol import NO_OP_PROGRESS, ProgressCallback
 from ..exceptions import ProcessingError
-from ..core.exception_wrapper import wrap_exceptions, convert_exception
 from ..i18n import t
+from ..logging import log_debug, log_error, log_step
+from ..utils.time_estimator import TimeEstimator
 
 # 音频参数
 DEFAULT_HIGHPASS_FREQ = 200
@@ -58,7 +57,7 @@ def validate_video_path(video_path: str) -> None:
         raise ProcessingError(
             message=f"Invalid video path: {video_path}",
             context={"video_path": video_path, "error": str(e)},
-        )
+        ) from e
 
     if not resolved.exists():
         raise ProcessingError(
@@ -86,12 +85,12 @@ def _find_ffmpeg_executable() -> str:
         raise ProcessingError(
             message="imageio-ffmpeg package is not installed",
             context={"import_error": str(e)},
-        )
+        ) from e
     except Exception as e:
         raise ProcessingError(
             message=f"Failed to locate FFmpeg executable: {e}",
             context={"exception": str(e)},
-        )
+        ) from e
 
     raise ProcessingError(message="FFmpeg executable not found", context={})
 
@@ -100,8 +99,8 @@ class AudioEngine:
     """音频提取引擎"""
 
     def __init__(self):
-        self._temp_audio_path: Optional[str] = None
-        self._ffmpeg_executable: Optional[str] = None
+        self._temp_audio_path: str | None = None
+        self._ffmpeg_executable: str | None = None
 
     def _get_ffmpeg_executable(self) -> str:
         """获取 FFmpeg 路径（缓存）"""
@@ -112,8 +111,8 @@ class AudioEngine:
     def extract(
         self,
         video_path: str,
-        progress: Optional[ProgressCallback] = None,
-        output_path: Optional[str] = None,
+        progress: ProgressCallback | None = None,
+        output_path: str | None = None,
         sample_rate: int = DEFAULT_AUDIO_SAMPLE_RATE,
         channels: int = DEFAULT_AUDIO_CHANNELS,
         filter_enabled: bool = True,

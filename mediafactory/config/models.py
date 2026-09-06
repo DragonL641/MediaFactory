@@ -5,12 +5,11 @@
 """
 
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any
 
 from pydantic import BaseModel, Field
 
 from mediafactory.constants import PRESET_NAMES
-
 
 # ============================================================================
 # Whisper 配置
@@ -138,11 +137,11 @@ class ModelConfig(BaseModel):
         le=600,
         description="模型下载 HTTP 请求超时（秒）",
     )
-    available_translation_models: List[str] = Field(
+    available_translation_models: list[str] = Field(
         default_factory=list,
         description="已下载的翻译模型列表",
     )
-    whisper_models: List[str] = Field(
+    whisper_models: list[str] = Field(
         default_factory=list,
         description="已下载的 Whisper 模型列表",
     )
@@ -359,7 +358,7 @@ class AppConfig(BaseModel):
         """检查是否有可用的翻译模型"""
         return len(self.model.available_translation_models) > 0
 
-    def to_toml_dict(self) -> Dict[str, Any]:
+    def to_toml_dict(self) -> dict[str, Any]:
         """转换为 TOML 兼容的字典"""
         result = {}
         for section_name in self.model_fields:

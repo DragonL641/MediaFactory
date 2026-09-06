@@ -10,20 +10,19 @@ import asyncio
 import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import Optional
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from starlette.staticfiles import StaticFiles
 
+from mediafactory._version import get_version
 from mediafactory.api.daemon_lock import DaemonAlreadyRunning, DaemonLock
 from mediafactory.api.routes import config, models, processing, system
 
 # re-export：保持 mediafactory.api.main.get_task_manager 旧导入路径兼容
 from mediafactory.api.task_manager import get_task_manager
 from mediafactory.api.websocket import manager as ws_manager
-from mediafactory._version import get_version
 from mediafactory.config import get_app_root_dir, get_data_root_dir
 
 logger = logging.getLogger(__name__)
@@ -42,7 +41,6 @@ async def lifespan(app: FastAPI):
     init_i18n()
 
     # 启动时：后台异步同步本地模型列表到配置文件（避免阻塞启动）
-    import asyncio
     from mediafactory.config import get_config_manager
 
     config_manager = get_config_manager()
@@ -100,6 +98,7 @@ def create_app() -> FastAPI:
 
     # 全局异常处理器（避免内部异常信息泄漏到前端）
     from fastapi.exceptions import RequestValidationError
+
     from mediafactory.api.error_handler import (
         global_exception_handler,
         validation_exception_handler,
@@ -166,7 +165,7 @@ def create_app() -> FastAPI:
 
 
 # 全局应用实例（用于 uvicorn）
-_app: Optional[FastAPI] = None
+_app: FastAPI | None = None
 
 
 def get_app() -> FastAPI:
@@ -189,6 +188,7 @@ def start_server(port: int = 8765):
         port: 服务端口，默认 8765
     """
     import multiprocessing
+
     import uvicorn
 
     # PyInstaller 冻结支持
@@ -200,7 +200,7 @@ def start_server(port: int = 8765):
     except DaemonAlreadyRunning as e:
         logger.error(str(e))
         # 42 = 实例锁让位特征码，桌面壳据此区分双启动让位与真崩溃
-        raise SystemExit(42)
+        raise SystemExit(42) from e
 
     # 初始化 loguru 统一日志（确保日志文件已创建）
     from mediafactory.logging import setup_app_logging, setup_logging_intercept

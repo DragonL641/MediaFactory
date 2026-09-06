@@ -13,7 +13,7 @@ Please read and follow our [Code of Conduct](CODE_OF_CONDUCT.md) to ensure a wel
 3. Make your changes
 4. Add tests if applicable
 5. Ensure all tests pass: `uv run pytest`
-6. Run code quality checks: `uv run black src/ tests/ && uv run flake8 src/ tests/ --select=E9,F63,F7,F82 --ignore=F821`
+6. Run code quality checks: `uv run ruff check mediafactory/ tests/ && uv run ruff format --check mediafactory/ tests/`
 7. Commit your changes: `git commit -m 'Add some feature'`
 8. Push to your fork: `git push origin feature/your-feature-name`
 9. Create a Pull Request
@@ -39,16 +39,16 @@ uv run pre-commit install
 uv run pytest
 
 # Run code quality checks
-uv run black src/ tests/
-uv run flake8 src/ tests/ --select=E9,F63,F7,F82 --ignore=F821
+uv run ruff check mediafactory/ tests/
+uv run ruff format --check mediafactory/ tests/
 ```
 
 ## Code Style
 
 We follow these coding standards:
 
-- **Formatting**: Black (line length 88)
-- **Linting**: Flake8
+- **Formatting**: Ruff (line length 88)
+- **Linting**: Ruff
 - **Type hints**: MyPy (relaxed mode)
 - **Docstrings**: Google style
 

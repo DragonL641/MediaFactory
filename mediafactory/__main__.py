@@ -36,7 +36,7 @@ def main():
     except DaemonAlreadyRunning as e:
         print(f"ERROR: {e}", file=sys.stderr)
         # 42 = 实例锁让位特征码，桌面壳据此区分双启动让位与真崩溃
-        raise SystemExit(42)
+        raise SystemExit(42) from e
 
     # 初始化 loguru 统一日志（与 api.main.start_server 一致——本入口是
     # `python -m mediafactory` 与 PyInstaller frozen 的实际路径，缺此日志不落盘）

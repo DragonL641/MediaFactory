@@ -1,12 +1,10 @@
 """增强器基础接口 - 定义所有增强器的统一接口"""
 
 from abc import ABC, abstractmethod
-from typing import List, Optional, Dict, Any
+from typing import Any
+
 import numpy as np
 import torch
-
-from mediafactory.logging import log_info
-
 
 # 像素归一化常量（供所有增强器使用）
 PIXEL_NORMALIZATION_FACTOR = 255.0
@@ -24,10 +22,10 @@ class BaseEnhancer(ABC):
     enhancer_type: str = "base"
 
     # 默认配置
-    DEFAULT_CONFIG: Dict[str, Any] = {}
+    DEFAULT_CONFIG: dict[str, Any] = {}
 
     def __init__(
-        self, device: Optional[str] = None, half_precision: bool = False, **kwargs
+        self, device: str | None = None, half_precision: bool = False, **kwargs
     ):
         """
         初始化增强器
@@ -43,7 +41,7 @@ class BaseEnhancer(ABC):
         self._model = None
         self._is_loaded = False
 
-    def _detect_device(self, device: Optional[str]) -> str:
+    def _detect_device(self, device: str | None) -> str:
         """检测并返回最佳计算设备"""
         if device:
             if device == "cuda" and torch.cuda.is_available():
@@ -88,8 +86,8 @@ class BaseEnhancer(ABC):
         pass
 
     def enhance_batch(
-        self, frames: List[np.ndarray], batch_size: Optional[int] = None
-    ) -> List[np.ndarray]:
+        self, frames: list[np.ndarray], batch_size: int | None = None
+    ) -> list[np.ndarray]:
         """
         批量增强帧
 
@@ -133,7 +131,7 @@ class BaseEnhancer(ABC):
 
         return info
 
-    def get_memory_usage(self) -> Optional[Dict[str, float]]:
+    def get_memory_usage(self) -> dict[str, float] | None:
         """
         获取显存使用情况 (仅 CUDA)
 

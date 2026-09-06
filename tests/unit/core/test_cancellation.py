@@ -4,9 +4,11 @@ This module tests the CancellationToken implementation which provides
 thread-safe cancellation across the application.
 """
 
-import pytest
 import threading
 import time
+
+import pytest
+
 from mediafactory.core.tool import CancellationToken
 
 pytestmark = [pytest.mark.unit]
@@ -170,7 +172,8 @@ class TestCancellationToken:
         token = CancellationToken()
 
         # Common pattern in GUI observers
-        is_cancelled_func = lambda: token.is_set()
+        def is_cancelled_func() -> bool:
+            return token.is_set()
 
         assert not is_cancelled_func()
         token.set()
@@ -195,11 +198,12 @@ class TestCancellationTokenIntegration:
 
         observers = {
             "cancelled": lambda: token.is_set(),
-            "progress_func": lambda p, m: progress_updates.append(f"Progress: {p}")
+            "progress_func": lambda p, m: progress_updates.append(f"Progress: {p}"),
         }
 
         # Run in thread
         result = []
+
         def worker():
             result.append(process_with_progress(observers))
 

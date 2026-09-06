@@ -15,7 +15,8 @@ import logging
 import multiprocessing as mp
 import threading
 import time
-from typing import Any, Callable, Dict, Optional, Protocol
+from collections.abc import Callable
+from typing import Any, Protocol
 
 from mediafactory.api.schemas import TaskConfig
 from mediafactory.core.tool import CancellationToken
@@ -64,10 +65,10 @@ class _WorkerProgress:
 
 def _run_task_in_worker(
     task_id: str,
-    config_dict: Dict[str, Any],
+    config_dict: dict[str, Any],
     res_q: Any,
     cancel_event: Any,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """在子进程中执行单个任务，返回可跨进程传输的结果投影。
 
     ProcessingResult.context 持有 live 引用不可传输，此处只投影
@@ -203,15 +204,15 @@ class WorkerProcessExecutor:
 
     def __init__(self) -> None:
         self._ctx = mp.get_context("spawn")  # macOS/Windows 一致行为
-        self._process: Optional[Any] = None
-        self._cmd_q: Optional[Any] = None
-        self._res_q: Optional[Any] = None
-        self._cancel_event: Optional[Any] = None
-        self._reader: Optional[threading.Thread] = None
-        self._loop: Optional[asyncio.AbstractEventLoop] = None
-        self._pending: Dict[str, asyncio.Future] = {}
-        self._progress_cb: Optional[Callable[[float, str, str], None]] = None
-        self._running_task_id: Optional[str] = None
+        self._process: Any | None = None
+        self._cmd_q: Any | None = None
+        self._res_q: Any | None = None
+        self._cancel_event: Any | None = None
+        self._reader: threading.Thread | None = None
+        self._loop: asyncio.AbstractEventLoop | None = None
+        self._pending: dict[str, asyncio.Future] = {}
+        self._progress_cb: Callable[[float, str, str], None] | None = None
+        self._running_task_id: str | None = None
         self._shutting_down = False
 
     # ---- 生命周期 ----

@@ -18,8 +18,8 @@ from mediafactory.api.schemas import TaskConfig, TaskType
 from mediafactory.api.worker import (
     InlineExecutor,
     WorkerProcessExecutor,
-    _WorkerProgress,
     _run_task_in_worker,
+    _WorkerProgress,
 )
 from mediafactory.core.tool import CancellationToken
 from mediafactory.pipeline.context import ProcessingResult

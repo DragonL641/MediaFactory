@@ -1,8 +1,9 @@
 """处理阶段基类模块"""
 
 from abc import ABC, abstractmethod
-from .context import ProcessingContext
+
 from ..core.progress_protocol import NO_OP_PROGRESS
+from .context import ProcessingContext
 
 
 class ProcessingStage(ABC):
@@ -27,7 +28,7 @@ class ProcessingStage(ABC):
 
     def _log(self, message: str, level: str = "info"):
         """记录日志"""
-        from ..logging import log_info, log_warning, log_error, log_success
+        from ..logging import log_error, log_info, log_success, log_warning
 
         loggers = {
             "info": log_info,

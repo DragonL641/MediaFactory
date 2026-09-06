@@ -1,7 +1,8 @@
 """Unit tests for ProcessingContext and ProcessingResult."""
 
-import pytest
 from pathlib import Path
+
+import pytest
 
 from mediafactory import ProcessingContext, ProcessingResult
 from mediafactory.exceptions import (

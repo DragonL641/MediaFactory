@@ -1,16 +1,17 @@
 """语音识别引擎（Faster Whisper）"""
 
-from typing import Dict, Any, Optional
-from ..logging import log_step, log_info, log_warning, log_error
-from ..config import get_config_manager
-from ..utils.time_estimator import TimeEstimator
-from ..core.progress_protocol import ProgressCallback, NO_OP_PROGRESS
-from ..exceptions import ProcessingError, OperationCancelledError
-from ..core.exception_wrapper import wrap_exceptions, convert_exception
-from ..i18n import t
 import time
+from typing import Any
+
 import tqdm
 
+from ..config import get_config_manager
+from ..core.exception_wrapper import convert_exception, wrap_exceptions
+from ..core.progress_protocol import NO_OP_PROGRESS, ProgressCallback
+from ..exceptions import OperationCancelledError, ProcessingError
+from ..i18n import t
+from ..logging import log_error, log_info, log_step, log_warning
+from ..utils.time_estimator import TimeEstimator
 
 # =============================================================================
 # 识别引擎常量（从 constants.py 移入）
@@ -39,9 +40,9 @@ class RecognitionEngine:
         self,
         model: Any,
         audio_path: str,
-        src_lang: Optional[str] = None,
-        progress: Optional[ProgressCallback] = None,
-    ) -> Dict[str, Any]:
+        src_lang: str | None = None,
+        progress: ProgressCallback | None = None,
+    ) -> dict[str, Any]:
         """执行音频转录"""
         if progress is None:
             progress = NO_OP_PROGRESS
@@ -51,9 +52,9 @@ class RecognitionEngine:
         self,
         model: Any,
         audio_path: str,
-        src_lang: Optional[str] = None,
+        src_lang: str | None = None,
         progress: ProgressCallback = NO_OP_PROGRESS,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Faster Whisper 转录"""
         log_step("Starting high-quality transcription...")
 
@@ -103,11 +104,6 @@ class RecognitionEngine:
 
         # 进度跟踪
         duration = TimeEstimator.get_video_duration(audio_path) or 0
-        estimated_time = TimeEstimator.estimate_whisper_transcription_time(
-            duration,
-            beam_size=config.whisper.beam_size,
-            has_word_timestamps=config.whisper.word_timestamps,
-        )
 
         original_tqdm = tqdm.tqdm
         tqdm.tqdm = CancelableTqdm

@@ -1,12 +1,13 @@
 """处理阶段实现模块"""
 
 import os
-from .stage import ProcessingStage
-from .context import ProcessingContext
-from ..utils.resources import get_language_name
-from ..logging import log_step, log_info, log_warning, log_success
+
 from ..exceptions import ProcessingError
 from ..i18n import t
+from ..logging import log_info, log_step, log_success, log_warning
+from ..utils.resources import get_language_name
+from .context import ProcessingContext
+from .stage import ProcessingStage
 
 
 class AudioExtractionStage(ProcessingStage):
@@ -121,8 +122,8 @@ class PostProcessStage(ProcessingStage):
         progress.update(0.0, "Post-processing...")
 
         # 延迟导入：避免启动时加载 ML 依赖（stable-ts、torch 等）
-        from ..engine.postprocess import PostProcessEngine
         from ..config import get_config_manager
+        from ..engine.postprocess import PostProcessEngine
 
         engine = PostProcessEngine()
 
@@ -422,8 +423,8 @@ class ModelLoadingStage(ProcessingStage):
         """加载 Whisper 模型"""
         progress = self._begin(ctx, "Initialization")
 
-        from ..models.whisper_runtime import select_device
         from ..models.model_registry import WHISPER_MODEL_ID
+        from ..models.whisper_runtime import select_device
 
         try:
             # 固定使用 Large V3 模型
@@ -454,7 +455,7 @@ class ModelLoadingStage(ProcessingStage):
             progress.update(100.0, t("progress.modelLoaded", model=ctx.whisper_model))
             return ctx
 
-        except Exception as e:
+        except Exception:
             if hasattr(ctx, "_model_context") and ctx._model_context is not None:
                 try:
                     ctx._model_context.__exit__(None, None, None)

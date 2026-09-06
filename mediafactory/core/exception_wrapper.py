@@ -5,19 +5,19 @@
 
 import traceback
 from contextlib import contextmanager
-from typing import Any, Optional
+from typing import Any
 
 from ..exceptions import (
-    MediaFactoryError,
-    ProcessingError,
     ConfigurationError,
+    MediaFactoryError,
     OperationCancelledError,
+    ProcessingError,
 )
 
 
 def convert_exception(
     exc: Exception,
-    context: Optional[dict[str, Any]] = None,
+    context: dict[str, Any] | None = None,
 ) -> MediaFactoryError:
     """将 Python 异常转换为 MediaFactory 异常
 
@@ -108,9 +108,9 @@ def convert_exception(
 
 @contextmanager
 def wrap_exceptions(
-    context: Optional[dict[str, Any]] = None,
-    operation: Optional[str] = None,
-    reraise_types: Optional[tuple[type[Exception], ...]] = None,
+    context: dict[str, Any] | None = None,
+    operation: str | None = None,
+    reraise_types: tuple[type[Exception], ...] | None = None,
 ):
     """自动包装异常的上下文管理器
 
@@ -134,7 +134,7 @@ def wrap_exceptions(
         raise OperationCancelledError(
             message="Operation cancelled by user",
             context=ctx,
-        )
+        ) from None
     except MediaFactoryError:
         raise
     except Exception as e:

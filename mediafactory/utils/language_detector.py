@@ -9,9 +9,9 @@ Supports:
 """
 
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Any
+from typing import Any
 
-from langdetect import detect, detect_langs, DetectorFactory
+from langdetect import DetectorFactory, detect, detect_langs
 from langdetect.lang_detect_exception import LangDetectException
 
 # Ensure langdetect results are reproducible
@@ -36,13 +36,13 @@ class LanguageDetectionResult:
     primary_language_name: str  # Primary language name (e.g., "Chinese", "English")
     confidence: float  # Confidence (0.0-1.0)
     is_mixed: bool  # Whether mixed languages are detected
-    language_distribution: Dict[str, float] = field(
+    language_distribution: dict[str, float] = field(
         default_factory=dict
     )  # Language distribution {code: percentage}
     detection_method: str = (
         "unknown"  # Detection method: whisper/langdetect/hybrid/user_specified/default
     )
-    all_languages: List[str] = field(default_factory=list)  # All detected languages
+    all_languages: list[str] = field(default_factory=list)  # All detected languages
 
 
 class LanguageDetector:
@@ -55,7 +55,7 @@ class LanguageDetector:
     4. Default (English)
     """
 
-    def __init__(self, language_map: Dict[str, str]):
+    def __init__(self, language_map: dict[str, str]):
         """Initialize the language detector.
 
         Args:
@@ -65,10 +65,10 @@ class LanguageDetector:
 
     def detect(
         self,
-        result: Optional[Dict[str, Any]] = None,
-        text: Optional[str] = None,
-        specified_lang: Optional[str] = None,
-        segments: Optional[List[Dict[str, Any]]] = None,
+        result: dict[str, Any] | None = None,
+        text: str | None = None,
+        specified_lang: str | None = None,
+        segments: list[dict[str, Any]] | None = None,
     ) -> LanguageDetectionResult:
         """Detect language using the best available method.
 
@@ -121,7 +121,7 @@ class LanguageDetector:
             all_languages=[lang_code],
         )
 
-    def _create_whisper_result(self, result: Dict[str, Any]) -> LanguageDetectionResult:
+    def _create_whisper_result(self, result: dict[str, Any]) -> LanguageDetectionResult:
         """Create a result from Whisper detection.
 
         Args:
@@ -190,7 +190,7 @@ class LanguageDetector:
             return self._create_default_result()
 
     def _detect_mixed_from_whisper(
-        self, result: Dict[str, Any], segments: List[Dict[str, Any]]
+        self, result: dict[str, Any], segments: list[dict[str, Any]]
     ) -> LanguageDetectionResult:
         """Detect mixed language from Whisper result + segment-level detection.
 
@@ -208,10 +208,9 @@ class LanguageDetector:
         """
         whisper_lang = result.get("language", "unknown")
         whisper_prob = result.get("language_probability", 0.0)
-        lang_name = self.language_map.get(whisper_lang, whisper_lang)
 
         # Count language for each segment
-        lang_counts: Dict[str, int] = {}
+        lang_counts: dict[str, int] = {}
         total_segments = 0
 
         for seg in segments:

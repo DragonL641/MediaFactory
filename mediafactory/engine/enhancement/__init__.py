@@ -8,8 +8,8 @@
 """
 
 from .base_enhancer import BaseEnhancer
-from .realesrgan_enhancer import RealESRGANEnhancer
 from .denoiser import Denoiser
+from .realesrgan_enhancer import RealESRGANEnhancer
 from .temporal_smoother import TemporalSmoother, TemporalSmootherConfig
 
 __all__ = [

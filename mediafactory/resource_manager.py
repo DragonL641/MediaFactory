@@ -20,8 +20,8 @@ def whisper_model(model_id: str, device: str):
     Yields:
         WhisperModel: Faster Whisper Large V3 模型实例
     """
-    from .models.whisper_runtime import load_model
     from .logging import log_info
+    from .models.whisper_runtime import load_model
 
     model = load_model(device=device)
     log_info(f"Whisper model {model_id} loaded on {device}")

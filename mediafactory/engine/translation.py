@@ -4,21 +4,21 @@
 """
 
 import threading
-from typing import Dict, List, Any, Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Optional
 
-from ..logging import (
-    log_warning,
-    log_debug,
-    log_info,
-    log_error,
-    log_step,
-    log_language_detection,
-)
-from ..exceptions import ProcessingError, OperationCancelledError
-from ..core.progress_protocol import ProgressCallback, NO_OP_PROGRESS
-from ..core.exception_wrapper import wrap_exceptions, convert_exception
-from ..utils.resources import get_language_name
+from ..core.exception_wrapper import convert_exception, wrap_exceptions
+from ..core.progress_protocol import NO_OP_PROGRESS, ProgressCallback
+from ..exceptions import OperationCancelledError, ProcessingError
 from ..i18n import t
+from ..logging import (
+    log_debug,
+    log_error,
+    log_info,
+    log_language_detection,
+    log_step,
+    log_warning,
+)
+from ..utils.resources import get_language_name
 
 if TYPE_CHECKING:
     from ..llm.base import TranslationBackend
@@ -36,7 +36,7 @@ class TranslationEngine:
     def __init__(
         self,
         use_local_models_only: bool = False,
-        model_type: Optional[str] = None,
+        model_type: str | None = None,
         device: str = "auto",
         llm_backend: Optional["TranslationBackend"] = None,
         use_llm_backend: bool = False,
@@ -65,12 +65,12 @@ class TranslationEngine:
 
     def translate(
         self,
-        result: Dict[str, Any],
-        src_lang: Optional[str],
+        result: dict[str, Any],
+        src_lang: str | None,
         tgt_lang: str,
-        progress: Optional[ProgressCallback] = None,
+        progress: ProgressCallback | None = None,
         detection_context: str = "Translation",
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """翻译转录片段"""
         if progress is None:
             progress = NO_OP_PROGRESS
@@ -116,8 +116,7 @@ class TranslationEngine:
                         )
                     except Exception as e:
                         log_warning(
-                            f"LLM translation failed ({e}), "
-                            f"falling back to local model"
+                            f"LLM translation failed ({e}), falling back to local model"
                         )
 
                 return self._translate_with_local(
@@ -161,7 +160,7 @@ class TranslationEngine:
     # ==================== 语言检测 ====================
 
     def _detect_source_language(
-        self, result: Dict[str, Any], src_lang: Optional[str], context: str
+        self, result: dict[str, Any], src_lang: str | None, context: str
     ):
         """检测源语言"""
         if self._language_detector is None:
@@ -194,13 +193,12 @@ class TranslationEngine:
 
     def _translate_with_local(
         self,
-        result: Dict[str, Any],
+        result: dict[str, Any],
         src_lang: str,
         tgt_lang: str,
         progress: ProgressCallback,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """使用本地模型翻译"""
-        from ..models.local_models import local_model_manager
         from ..models.translation_runtime import get_translation_model
 
         log_step(
@@ -214,7 +212,7 @@ class TranslationEngine:
             f"[TranslationEngine] Loading translation model for {src_lang} -> {tgt_lang}..."
         )
         log_info(
-            f"[TranslationEngine] This may take a while for large models (e.g., M2M100-1.2B)"
+            "[TranslationEngine] This may take a while for large models (e.g., M2M100-1.2B)"
         )
         progress.update(5, t("progress.loadingTranslationModel"))
 
@@ -250,12 +248,12 @@ class TranslationEngine:
 
     def _local_context_aware_translation(
         self,
-        segments: List[Dict[str, Any]],
+        segments: list[dict[str, Any]],
         src_lang: str,
         tgt_lang: str,
         model_callable: Any,
         progress: ProgressCallback,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """本地模型批量翻译"""
         from ..models.local_models import local_model_manager
 
@@ -333,11 +331,11 @@ class TranslationEngine:
 
     def _perform_batch_translation(
         self,
-        texts: List[str],
+        texts: list[str],
         src_code: str,
         tgt_code: str,
         model_callable: Any,
-    ) -> List[str]:
+    ) -> list[str]:
         """批量翻译，失败时回退逐句翻译"""
         try:
             translations = model_callable(
@@ -367,8 +365,7 @@ class TranslationEngine:
         except Exception as batch_err:
             # 批量失败，逐句重试
             log_warning(
-                f"Batch translation failed ({batch_err}), "
-                f"falling back to per-sentence"
+                f"Batch translation failed ({batch_err}), falling back to per-sentence"
             )
             return self._fallback_per_sentence(
                 texts, src_code, tgt_code, model_callable
@@ -376,11 +373,11 @@ class TranslationEngine:
 
     def _fallback_per_sentence(
         self,
-        texts: List[str],
+        texts: list[str],
         src_code: str,
         tgt_code: str,
         model_callable: Any,
-    ) -> List[str]:
+    ) -> list[str]:
         """逐句翻译回退"""
         results = []
         for text in texts:
@@ -434,8 +431,8 @@ class TranslationEngine:
 
     def _validate_translation_result(
         self,
-        original_segments: List[Dict[str, Any]],
-        translated_segments: List[Dict[str, Any]],
+        original_segments: list[dict[str, Any]],
+        translated_segments: list[dict[str, Any]],
     ) -> None:
         """验证翻译结果"""
         if len(original_segments) > 0:
@@ -451,11 +448,11 @@ class TranslationEngine:
 
     def _translate_with_llm(
         self,
-        result: Dict[str, Any],
+        result: dict[str, Any],
         src_lang: str,
         tgt_lang: str,
         progress: ProgressCallback,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """使用 LLM API 翻译（简化版）
 
         降级逻辑在 OpenAICompatibleBackend 内部处理：
@@ -474,7 +471,8 @@ class TranslationEngine:
         segments = result.get("segments", [])
         texts = [seg.get("text", "") for seg in segments]
 
-        cancelled_callback = lambda: progress.is_cancelled() if progress else False
+        def cancelled_callback() -> bool:
+            return progress.is_cancelled() if progress else False
 
         request = TranslationRequest(
             text=texts,
@@ -524,9 +522,9 @@ class TranslationEngine:
 
     def _merge_translation_result(
         self,
-        segments: List[Dict[str, Any]],
+        segments: list[dict[str, Any]],
         translated_text,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """将翻译结果合并到 segments。
 
         Args:

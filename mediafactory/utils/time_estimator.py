@@ -4,8 +4,6 @@ This module provides time estimation for FFmpeg audio extraction
 and Whisper transcription operations.
 """
 
-from typing import Optional
-
 
 # =============================================================================
 # 时间估算常量（从 constants.py 移入）
@@ -73,11 +71,12 @@ class TimeEstimator:
         return audio_duration * factor * beam_factor * word_timestamp_factor
 
     @staticmethod
-    def get_video_duration(video_path: str) -> Optional[float]:
+    def get_video_duration(video_path: str) -> float | None:
         """使用 imageio-ffmpeg 获取实际视频时长。"""
         try:
-            import subprocess
             import json
+            import subprocess
+
             import imageio_ffmpeg
 
             # Get ffprobe path (bundled with imageio-ffmpeg)
@@ -106,7 +105,7 @@ class TimeEstimator:
             # Fallback to format duration
             if "format" in probe and "duration" in probe["format"]:
                 return float(probe["format"]["duration"])
-        except Exception as e:
+        except Exception:
             # 静默忽略获取视频时长失败的情况
             pass
         return None
