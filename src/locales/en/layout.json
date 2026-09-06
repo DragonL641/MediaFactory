@@ -1,6 +1,7 @@
 {
   "tabs": {
     "tasks": "Tasks",
-    "settings": "Settings"
+    "settings": "Settings",
+    "history": "History"
   }
 }

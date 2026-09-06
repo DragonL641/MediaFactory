@@ -59,8 +59,9 @@ const WebSocketBridge: React.FC<{ children: React.ReactNode }> = ({
           break;
 
         case "task_complete":
-          // 任务完成 → 失效任务列表
+          // 任务完成 → 失效任务列表 + 历史
           qc.invalidateQueries({ queryKey: queryKeys.tasks });
+          qc.invalidateQueries({ queryKey: ["history"] });
           if (data?.task_id) {
             qc.invalidateQueries({
               queryKey: queryKeys.taskStatus(data.task_id),

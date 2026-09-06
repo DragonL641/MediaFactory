@@ -15,6 +15,7 @@ import enModels from "../locales/en/models.json";
 import enLLMConfig from "../locales/en/llmConfig.json";
 import enSettings from "../locales/en/settings.json";
 import enForms from "../locales/en/forms.json";
+import enHistory from "../locales/en/history.json";
 
 // 中文翻译
 import zhCNCommon from "../locales/zh-CN/common.json";
@@ -24,6 +25,7 @@ import zhCNModels from "../locales/zh-CN/models.json";
 import zhCNLLMConfig from "../locales/zh-CN/llmConfig.json";
 import zhCNSettings from "../locales/zh-CN/settings.json";
 import zhCNForms from "../locales/zh-CN/forms.json";
+import zhCNHistory from "../locales/zh-CN/history.json";
 
 const resources = {
   en: {
@@ -34,6 +36,7 @@ const resources = {
     llmConfig: enLLMConfig,
     settings: enSettings,
     forms: enForms,
+    history: enHistory,
   },
   "zh-CN": {
     common: zhCNCommon,
@@ -43,6 +46,7 @@ const resources = {
     llmConfig: zhCNLLMConfig,
     settings: zhCNSettings,
     forms: zhCNForms,
+    history: zhCNHistory,
   },
 };
 

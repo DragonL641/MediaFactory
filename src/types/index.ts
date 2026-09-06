@@ -262,3 +262,36 @@ export interface TestConnectionResponse {
   error?: string;
   latency_ms?: number;
 }
+
+// ==================== 任务历史 ====================
+
+export interface TaskHistoryRecord {
+  id: number;
+  taskId: string;
+  name: string;
+  type: string;
+  status: string;
+  inputPath: string | null;
+  outputPath: string | null;
+  error: string | null;
+  errorType: string | null;
+  metadata: Record<string, unknown>;
+  /** ISO 8601 UTC */
+  createdAt: string;
+  completedAt: string;
+  startedAt: string | null;
+  /** 毫秒；缺失为 null */
+  durationMs: number | null;
+}
+
+export interface HistoryListResponse {
+  total: number;
+  items: TaskHistoryRecord[];
+}
+
+export interface HistoryQueryParams {
+  limit?: number;
+  offset?: number;
+  status?: string;
+  type?: string;
+}

@@ -7,7 +7,12 @@
 
 import React from "react";
 import { Layout } from "antd";
-import { FileTextOutlined, SettingOutlined, GlobalOutlined } from "@ant-design/icons";
+import {
+  FileTextOutlined,
+  SettingOutlined,
+  GlobalOutlined,
+  HistoryOutlined,
+} from "@ant-design/icons";
 import { useLocation, Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useLanguage } from "../../hooks/useLanguage";
@@ -20,8 +25,9 @@ interface MainLayoutProps {
 }
 
 const TAB_ITEMS = [
-  { key: "/tasks", icon: <FileTextOutlined /> },
-  { key: "/settings", icon: <SettingOutlined /> },
+  { key: "/tasks", icon: <FileTextOutlined />, label: "tasks" },
+  { key: "/history", icon: <HistoryOutlined />, label: "history" },
+  { key: "/settings", icon: <SettingOutlined />, label: "settings" },
 ];
 
 const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
@@ -29,8 +35,9 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
   const { t } = useTranslation("layout");
   const { language, changeLanguage } = useLanguage();
 
-  // 确定 active tab
-  const activeTab = location.pathname === "/settings" ? "/settings" : "/tasks";
+  // 确定 active tab（按 pathname 精确匹配，未命中回落 /tasks）
+  const activeTab =
+    TAB_ITEMS.find((tab) => tab.key === location.pathname)?.key ?? "/tasks";
 
   return (
     <Layout style={{ minHeight: "100vh", background: designTokens.colorBgLayout, display: "flex", flexDirection: "column" }}>
@@ -44,7 +51,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
               className={`tab-bar-tab ${activeTab === tab.key ? "tab-bar-tab-active" : ""}`}
             >
               {tab.icon}
-              <span>{t(`tabs.${tab.key === "/tasks" ? "tasks" : "settings"}`)}</span>
+              <span>{t(`tabs.${tab.label}`)}</span>
             </Link>
           ))}
         </div>
