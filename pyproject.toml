@@ -30,29 +30,29 @@ keywords = ["media", "video", "audio", "subtitle", "whisper", "speech-recognitio
 # ==============================================================================
 dependencies = [
     # 配置和日志
-    "loguru>=0.7.2",
-    "pydantic>=2.9.0,<3.0.0",
-    "tomli>=2.0.1",
-    "tomli-w>=1.0.0",
+    "loguru>=0.7.3",
+    "pydantic>=2.13.0,<3.0.0",
+    "tomli>=2.4.0",
+    "tomli-w>=1.2.0",
     # 系统资源监控
-    "psutil>=6.0.0",
+    "psutil>=7.2.0",
     # 音视频处理（FFmpeg 二进制）
-    "imageio-ffmpeg>=0.5.1",  # FFmpeg 二进制（~70MB）
+    "imageio-ffmpeg>=0.6.0",  # FFmpeg 二进制（~70MB）
     # 视频处理核心依赖
-    "numpy>=1.24.0",
-    "opencv-python>=4.8.0",
+    "numpy>=2.4.0",
+    "opencv-python>=4.13.0,<5.0.0",  # 5.x 迁移另立任务
     # 进度显示
-    "tqdm>=4.66.0",
+    "tqdm>=4.70.0",
     # 语言检测
     "langdetect>=1.0.9",
     # Hugging Face 模型下载 (与 transformers 4.52+ 兼容)
-    "huggingface-hub>=0.30.0,<1.0.0",
+    "huggingface-hub>=0.36.0,<1.0.0",
     # LLM API SDKs (远程翻译，无需本地模型)
-    "openai>=1.50.0",     # OpenAI SDK 支持 (统一后端)
+    "openai>=2.28.0,<3.0.0",  # OpenAI SDK 支持 (统一后端)；3.x 迁移另立任务
     # API Server（daemon，同源伺服 Web UI）
-    "fastapi>=0.109.0",
-    "uvicorn[standard]>=0.27.0",
-    "websockets>=12.0",
+    "fastapi>=0.141.0",
+    "uvicorn[standard]>=0.52.0",
+    "websockets>=16.0",
 ]
 requires-python = ">=3.11,<3.14"
 
@@ -88,29 +88,29 @@ mediafactory = "mediafactory.api.main:start_server"
 # 所有其他组通过 include-group 引用此组，避免重复维护
 runtime = [
     # 配置和日志
-    "loguru>=0.7.2",
-    "pydantic>=2.9.0,<3.0.0",
-    "tomli>=2.0.1",
-    "tomli-w>=1.0.0",
+    "loguru>=0.7.3",
+    "pydantic>=2.13.0,<3.0.0",
+    "tomli>=2.4.0",
+    "tomli-w>=1.2.0",
     # 系统资源监控
-    "psutil>=6.0.0",
+    "psutil>=7.2.0",
     # 音视频处理（FFmpeg 二进制）
-    "imageio-ffmpeg>=0.5.1",
+    "imageio-ffmpeg>=0.6.0",
     # 视频处理核心依赖
-    "numpy>=1.24.0",
-    "opencv-python>=4.8.0",
+    "numpy>=2.4.0",
+    "opencv-python>=4.13.0,<5.0.0",  # 5.x 迁移另立任务
     # 进度显示
-    "tqdm>=4.66.0",
+    "tqdm>=4.70.0",
     # 语言检测
     "langdetect>=1.0.9",
     # Hugging Face 模型下载
-    "huggingface-hub>=0.30.0,<1.0.0",
+    "huggingface-hub>=0.36.0,<1.0.0",
     # LLM API SDKs
-    "openai>=1.50.0",
+    "openai>=2.28.0,<3.0.0",  # 3.x 迁移另立任务
     # API Server（daemon，同源伺服 Web UI）
-    "fastapi>=0.109.0",
-    "uvicorn[standard]>=0.27.0",
-    "websockets>=12.0",
+    "fastapi>=0.141.0",
+    "uvicorn[standard]>=0.52.0",
+    "websockets>=16.0",
 ]
 
 # 打包依赖（PyInstaller 要打包的依赖，不含 ML）
