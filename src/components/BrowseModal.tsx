@@ -90,7 +90,7 @@ const BrowseModal: React.FC<BrowseModalProps> = ({
       footer={null}
       width={640}
     >
-      <Space direction="vertical" style={{ width: "100%" }}>
+      <Space orientation="vertical" style={{ width: "100%" }}>
         <Space>
           <Button
             icon={<ArrowUpOutlined />}
@@ -103,7 +103,7 @@ const BrowseModal: React.FC<BrowseModalProps> = ({
             {current}
           </Typography.Text>
         </Space>
-        {error && <Alert type="error" showIcon message={error} />}
+        {error && <Alert type="error" showIcon title={error} />}
         {loading ? (
           <Spin style={{ display: "block", margin: "24px auto" }} />
         ) : (

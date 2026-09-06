@@ -229,7 +229,7 @@ const TasksPage: React.FC = () => {
           type="warning"
           showIcon
           style={{ marginTop: 12, padding: "8px 12px" }}
-          message={<span style={{ fontSize: 12 }}>{t("tasks:readiness.title")}</span>}
+          title={<span style={{ fontSize: 12 }}>{t("tasks:readiness.title")}</span>}
           description={
             <div style={{ fontSize: 12 }}>
               {readinessWarnings.map((w) => (

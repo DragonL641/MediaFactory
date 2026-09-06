@@ -183,3 +183,6 @@ node_modules
 /src-tauri/python-backend/
 /src-tauri/target/
 /src-tauri/gen/
+
+# Playwright CLI 冒烟产物
+.playwright-cli/
