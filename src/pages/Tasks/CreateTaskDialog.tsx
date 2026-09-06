@@ -132,7 +132,7 @@ const CreateTaskDialog: React.FC<CreateTaskDialogProps> = ({ open, onClose }) =>
   const [currentStep, setCurrentStep] = useState(0);
   const [selectedType, setSelectedType] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const handleSubmitRef = React.useRef<(() => Promise<void>) | undefined>();
+  const handleSubmitRef = React.useRef<(() => Promise<void>) | undefined>(undefined);
   const { t } = useTranslation("tasks");
   const { data: readiness } = useModelReadinessQuery();
 
