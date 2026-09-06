@@ -7,7 +7,8 @@ Pydantic 数据模型
 from enum import StrEnum
 from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
+from pydantic.alias_generators import to_camel
 
 # ==================== 枚举类型 ====================
 
@@ -324,3 +325,36 @@ class WSTaskComplete(WSMessage):
     type: str = "task_complete"
     task_id: str
     data: TaskResult
+
+
+# ==================== 任务历史 ====================
+
+
+class TaskHistoryItem(BaseModel):
+    """任务历史条目（camelCase 输出，与前端 Task 契约一致）"""
+
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
+
+    id: int
+    task_id: str
+    name: str
+    type: str
+    status: str
+    input_path: str | None = None
+    output_path: str | None = None
+    error: str | None = None
+    error_type: str | None = None
+    metadata: dict[str, Any] = Field(default_factory=dict)
+    # ISO 8601 UTC 字符串
+    created_at: str
+    completed_at: str
+    started_at: str | None = None
+    # 毫秒；started_at 缺失时为 None
+    duration_ms: int | None = None
+
+
+class HistoryListResponse(BaseModel):
+    """历史列表（completed_at 降序）"""
+
+    total: int
+    items: list[TaskHistoryItem]

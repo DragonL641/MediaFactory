@@ -30,6 +30,11 @@ from mediafactory.core.error_utils import sanitize_error
 from mediafactory.core.progress_protocol import ProgressCallback
 from mediafactory.core.tool import CancellationToken
 from mediafactory.i18n import t
+from mediafactory.persistence import (
+    TERMINAL_STATUSES,
+    HistoryRepository,
+    history_entry_from_task,
+)
 
 logger = logging.getLogger(__name__)
 # API 层使用标准 logging，通过 InterceptHandler 自动重定向到 loguru
@@ -88,15 +93,34 @@ class TaskManager:
         self,
         db_path: Path | None = None,
         executor: TaskExecutor | None = None,
+        history_repo: HistoryRepository | None = None,
     ):
-        """db_path 为 None 时用内存库（测试隔离）；executor 默认进程内执行。"""
+        """db_path 为 None 时用内存库（测试隔离）；executor 默认进程内执行。
+
+        history_repo 为 None 时不写历史（测试可注入内存库仓储）。
+        """
         self._store = TaskStore(db_path)
         self._executor: TaskExecutor = executor or InlineExecutor()
+        self._history = history_repo
         self._tasks: dict[str, Task] = {}
         self._running_task_id: str | None = None
         self._queue: list[str] = []  # 待执行任务队列
         self._is_processing_queue: bool = False
         self._lock = asyncio.Lock()
+
+    async def _record_history(self, task: Task) -> None:
+        """任务终态写入历史库（故障隔离：历史失败绝不影响任务主流程）。
+
+        历史库独立于任务持久队列（task_store），用户清除任务不影响历史。
+        """
+        if self._history is None:
+            return
+        if task.status.value not in TERMINAL_STATUSES:
+            return
+        try:
+            await self._history.upsert(history_entry_from_task(task))
+        except Exception as e:
+            logger.warning(f"Failed to record history for task {task.id}: {e!r}")
 
     async def create_task(self, config: TaskConfig, name: str | None = None) -> str:
         """创建新任务（不自动启动，保持 PENDING 状态）"""
@@ -284,6 +308,7 @@ class TaskManager:
         finally:
             task.completed_at = time.time()
             self._persist(task)
+            await self._record_history(task)
             async with self._lock:
                 if self._running_task_id == task_id:
                     self._running_task_id = None
@@ -322,6 +347,7 @@ class TaskManager:
         self._executor.cancel(task_id)  # 子进程路径经 IPC 通知 worker
         task.status = TaskStatus.CANCELLED
         self._persist(task)
+        await self._record_history(task)
         logger.info(f"Task {task_id} cancellation requested")
 
         # 通知前端取消状态
@@ -405,6 +431,7 @@ class TaskManager:
         if status in (TaskStatus.COMPLETED, TaskStatus.FAILED, TaskStatus.CANCELLED):
             task.completed_at = time.time()
         self._persist(task)
+        await self._record_history(task)  # 覆盖下载任务等不进队列的终态
         return True
 
     async def update_task_config(
@@ -625,14 +652,17 @@ def get_task_manager() -> TaskManager:
 
     - SQLite 落在 data/tasks.db（daemon 重启后队列不丢）
     - 执行器为 WorkerProcessExecutor（ML 崩溃不连坐 daemon）
+    - 历史仓储落 data/history.db（终态追加，清除任务不影响历史）
     """
     global _task_manager
     if _task_manager is None:
         from mediafactory.api.worker import WorkerProcessExecutor
         from mediafactory.config import get_data_root_dir
+        from mediafactory.persistence import get_history_repository
 
         _task_manager = TaskManager(
             db_path=get_data_root_dir() / "data" / "tasks.db",
             executor=WorkerProcessExecutor(),
+            history_repo=get_history_repository(),
         )
     return _task_manager

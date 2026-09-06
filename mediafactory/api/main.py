@@ -18,7 +18,7 @@ from starlette.staticfiles import StaticFiles
 
 from mediafactory._version import get_version
 from mediafactory.api.daemon_lock import DaemonAlreadyRunning, DaemonLock
-from mediafactory.api.routes import config, models, processing, system
+from mediafactory.api.routes import config, history, models, processing, system
 
 # re-export：保持 mediafactory.api.main.get_task_manager 旧导入路径兼容
 from mediafactory.api.task_manager import get_task_manager
@@ -64,13 +64,17 @@ async def lifespan(app: FastAPI):
     # 关闭时：清理所有任务
     logger.info("FastAPI application shutting down...")
     await task_manager.shutdown()
+    # 释放历史库连接（persistence）
+    from mediafactory.persistence import get_history_repository
+
+    await get_history_repository().close()
     await ws_manager.broadcast(
         {"type": "server_shutdown", "message": "Server is shutting down"}
     )
 
 
 # SPA 客户端路由（BrowserRouter history 模式）——新页面在此追加
-_SPA_PATHS = ("/tasks", "/settings")
+_SPA_PATHS = ("/tasks", "/settings", "/history")
 
 
 def _webui_dir() -> Path:
@@ -112,6 +116,7 @@ def create_app() -> FastAPI:
     app.include_router(models.router, prefix="/api/models", tags=["models"])
     app.include_router(config.router, prefix="/api/config", tags=["config"])
     app.include_router(system.router, prefix="/api/system", tags=["system"])
+    app.include_router(history.router, prefix="/api/history", tags=["history"])
 
     # WebSocket 端点
 

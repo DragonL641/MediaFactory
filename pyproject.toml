@@ -53,6 +53,9 @@ dependencies = [
     "fastapi>=0.141.0",
     "uvicorn[standard]>=0.52.0",
     "websockets>=16.0",
+    # 任务历史持久层（SQLAlchemy 2.0 async）
+    "sqlalchemy[asyncio]>=2.0.52,<3.0.0",
+    "aiosqlite>=0.22.1",
 ]
 requires-python = ">=3.11,<3.14"
 
@@ -111,6 +114,9 @@ runtime = [
     "fastapi>=0.141.0",
     "uvicorn[standard]>=0.52.0",
     "websockets>=16.0",
+    # 任务历史持久层（SQLAlchemy 2.0 async）
+    "sqlalchemy[asyncio]>=2.0.52,<3.0.0",
+    "aiosqlite>=0.22.1",
 ]
 
 # 打包依赖（PyInstaller 要打包的依赖，不含 ML）
