@@ -50,5 +50,24 @@
     "logRetention": "Log Retention",
     "logRetentionTooltip": "Automatically delete logs older than this many days",
     "days": "days"
+  },
+  "localModels": {
+    "title": "Local Models (Ollama)",
+    "description": "Pull models from the Ollama library, or remove ones you no longer need.",
+    "running": "Ollama running",
+    "notDetected": "Ollama not detected",
+    "pullPlaceholder": "Model name, e.g. qwen2.5:7b",
+    "pull": "Pull",
+    "pullStarted": "Pull started. Track progress in the task list.",
+    "pullFailed": "Failed to start pull",
+    "deleted": "Model deleted",
+    "deleteFailed": "Failed to delete model",
+    "deleteConfirm": "Delete {{name}}?",
+    "delete": "Delete",
+    "columnName": "Model",
+    "columnSize": "Size",
+    "columnParams": "Params",
+    "columnQuant": "Quantization",
+    "empty": "No local models installed"
   }
 }

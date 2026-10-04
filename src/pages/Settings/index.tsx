@@ -53,6 +53,7 @@ import { wsClient, getErrorDetail } from "../../api/client";
 import PageHeader from "../../components/Layout/PageHeader";
 import { PageSkeleton, ErrorPage, StatusTag } from "../../components/common";
 import SettingsModelCard from "./ModelCard";
+import LocalModelsCard from "./LocalModelsCard";
 import ProviderDialog from "./ProviderDialog";
 import type { AppConfig, LLMPresetInfo, TestConnectionResponse } from "../../types";
 
@@ -366,6 +367,9 @@ const SettingsPage: React.FC = () => {
             </Form.Item>
           </div>
         </div>
+
+        {/* 区块 3.5: Local Models (Ollama) */}
+        <LocalModelsCard />
 
         {/* 区块 4: Video Enhancement */}
         <div className="settings-section-card" style={{ marginBottom: 24 }}>

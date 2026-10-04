@@ -50,5 +50,24 @@
     "logRetention": "日志保留",
     "logRetentionTooltip": "自动删除超过此天数的日志文件",
     "days": "天"
+  },
+  "localModels": {
+    "title": "本地模型（Ollama）",
+    "description": "从 Ollama 库拉取模型，或删除不再需要的模型。",
+    "running": "Ollama 运行中",
+    "notDetected": "未检测到 Ollama",
+    "pullPlaceholder": "模型名，如 qwen2.5:7b",
+    "pull": "拉取",
+    "pullStarted": "拉取已开始，请在任务列表查看进度。",
+    "pullFailed": "拉取启动失败",
+    "deleted": "模型已删除",
+    "deleteFailed": "删除模型失败",
+    "deleteConfirm": "确定删除 {{name}}？",
+    "delete": "删除",
+    "columnName": "模型",
+    "columnSize": "大小",
+    "columnParams": "参数量",
+    "columnQuant": "量化",
+    "empty": "尚未安装本地模型"
   }
 }
