@@ -63,6 +63,15 @@ class TermDict:
             return "conflict"
         return None
 
+    def source_of(self, key: str) -> str | None:
+        """返回词条来源（"user"/"auto"），未收录返回 None。
+
+        用于冲突日志分级：user 冲突 = 注入失效信号（warning），
+        auto 冲突 = 常态波动（debug）。
+        """
+        entry = self._terms.get((key or "").strip().lower())
+        return entry.source if entry else None
+
     def hits(self, texts: list[str]) -> dict[str, str]:
         """返回命中当前批源文本的词条（key → 译法）。"""
         if not self._terms or not texts:

@@ -27,7 +27,10 @@ class FakeClient:
 
     def _create(self, **kwargs):
         self.calls.append(kwargs)
-        return FakeResponse(self._contents.pop(0) if self._contents else "{}")
+        item = self._contents.pop(0) if self._contents else "{}"
+        if isinstance(item, Exception):
+            raise item
+        return FakeResponse(item)
 
 
 def make_backend(contents: list[str]) -> tuple[OpenAICompatibleBackend, FakeClient]:
@@ -131,3 +134,32 @@ class TestExtractionAndConflict:
         request = TranslationRequest(text=["Hello"], src_lang="en", tgt_lang="zh")
         backend.translate(request)
         assert len(backend._cap_candidates(many)) == 5
+
+
+class TestContentFilterRecursiveInjection:
+    def test_term_dict_survives_content_filter_bisect(self):
+        """评审 Important：content-filter 二分递归的子批必须带术语注入。"""
+        err = Exception("Error code: 1301 - content filter triggered")
+        contents = [
+            err,  # 批1翻译触发 content filter
+            err,  # content-filter split 首层重试再次触发 → 进入递归二分
+            '{"0": "子批1"}',  # 递归子批1翻译（此处必须带术语注入）
+            '{"terms": {}}',  # 子批1提取
+            '{"0": "子批2"}',  # 子批2翻译
+            '{"terms": {}}',  # 子批2提取
+        ]
+        backend, client = make_backend(contents)
+        backend._batch_size = 4
+        backend._split_threshold = 2
+        request = TranslationRequest(
+            text=["Kubernetes a", "Kubernetes b", "Kubernetes c", "Kubernetes d"],
+            src_lang="en",
+            tgt_lang="zh",
+            user_terms={"Kubernetes": "K8s"},
+        )
+        result = backend.translate(request)
+        assert result.success
+        # calls[0]=主批（抛错），calls[1]=split 首层重试（抛错），
+        # calls[2]/calls[3]=递归子批的翻译与提取——必须带术语注入
+        assert "# Terminology (must follow)" in _msg_content(client.calls[2])
+        assert "# Terminology (must follow)" in _msg_content(client.calls[3])

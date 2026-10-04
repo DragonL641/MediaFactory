@@ -1,10 +1,14 @@
 /**
  * 术语表文件上传字段（可选）：读取 JSON 内容并校验后写入表单。
  * 提交时 terminology 作为普通表单值随任务一起发送。
+ *
+ * 注意：值承载在 hidden 的 Form.Item（name="terminology"）上；
+ * Upload 的 Form.Item 不带 name——否则 rc-upload 的 onChange 会把
+ * {file, fileList} 事件对象覆盖进表单值（评审 Critical 2）。
  */
 
 import React from "react";
-import { App, Button, Form, Upload } from "antd";
+import { App, Button, Form, Input, Upload } from "antd";
 import { UploadOutlined } from "@ant-design/icons";
 import type { FormInstance } from "antd";
 import { useTranslation } from "react-i18next";
@@ -51,22 +55,27 @@ const TerminologyFileField: React.FC<TerminologyFileFieldProps> = ({ form }) => 
   };
 
   return (
-    <Form.Item
-      name="terminology"
-      label={t("forms:label.terminologyFile")}
-      tooltip={t("forms:label.terminologyTooltip")}
-    >
-      <Upload
-        maxCount={1}
-        accept=".json"
-        showUploadList={false}
-        beforeUpload={parseFile}
+    <>
+      {/* 值承载字段：hidden，避免 Upload onChange 覆盖 */}
+      <Form.Item name="terminology" hidden>
+        <Input type="hidden" />
+      </Form.Item>
+      <Form.Item
+        label={t("forms:label.terminologyFile")}
+        tooltip={t("forms:label.terminologyTooltip")}
       >
-        <Button icon={<UploadOutlined />}>
-          {t("forms:label.chooseTerminologyFile")}
-        </Button>
-      </Upload>
-    </Form.Item>
+        <Upload
+          maxCount={1}
+          accept=".json"
+          showUploadList={false}
+          beforeUpload={parseFile}
+        >
+          <Button icon={<UploadOutlined />}>
+            {t("forms:label.chooseTerminologyFile")}
+          </Button>
+        </Upload>
+      </Form.Item>
+    </>
   );
 };
 

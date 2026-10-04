@@ -49,6 +49,7 @@ async def create_subtitle_task(request: SubtitleRequest):
         target_lang=request.target_lang,
         use_llm=request.use_llm,
         llm_preset=request.llm_preset,
+        terminology=request.terminology,
         subtitle_config=SubtitleConfig(
             output_format=request.output_format,
             bilingual=request.bilingual,
@@ -146,6 +147,7 @@ async def create_translate_task(request: TranslateRequest):
         use_llm=request.use_llm,
         llm_preset=request.llm_preset,
         output_format=request.output_format,
+        terminology=request.terminology,
     )
 
     task_manager = _get_task_manager()

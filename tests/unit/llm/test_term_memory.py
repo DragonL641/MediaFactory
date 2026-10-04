@@ -109,3 +109,16 @@ class TestDump:
             "kubernetes": {"translation": "K8s", "source": "user"},
             "jon snow": {"translation": "琼恩·雪诺", "source": "auto"},
         }
+
+
+class TestSourceOf:
+    def test_source_of_returns_registered_source(self):
+        d = TermDict()
+        d.register_user({"Kubernetes": "K8s"})
+        d.learn("Jon Snow", "琼恩·雪诺")
+        assert d.source_of("kubernetes") == "user"
+        assert d.source_of("jon snow") == "auto"
+
+    def test_source_of_unknown_key_returns_none(self):
+        d = TermDict()
+        assert d.source_of("ghost") is None

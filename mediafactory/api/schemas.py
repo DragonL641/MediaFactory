@@ -230,6 +230,21 @@ class SubtitleRequest(BaseModel):
     bilingual: bool = False
     bilingual_layout: str = "translate_on_top"
     style_preset: str = "default"
+    terminology: dict[str, str] | None = None
+
+    @field_validator("terminology")
+    @classmethod
+    def _validate_request_terminology(
+        cls, v: dict[str, str] | None
+    ) -> dict[str, str] | None:
+        if v is None:
+            return v
+        if len(v) > 200:
+            raise ValueError("terminology exceeds 200 entries")
+        for key, value in v.items():
+            if len(key) > 200 or len(value) > 200:
+                raise ValueError("terminology entry exceeds 200 characters")
+        return v
 
 
 class AudioRequest(BaseModel):
@@ -266,6 +281,21 @@ class TranslateRequest(BaseModel):
     output_format: str = "srt"  # srt, ass, vtt, txt
     use_llm: bool = False
     llm_preset: str = "openai"
+    terminology: dict[str, str] | None = None
+
+    @field_validator("terminology")
+    @classmethod
+    def _validate_request_terminology(
+        cls, v: dict[str, str] | None
+    ) -> dict[str, str] | None:
+        if v is None:
+            return v
+        if len(v) > 200:
+            raise ValueError("terminology exceeds 200 entries")
+        for key, value in v.items():
+            if len(key) > 200 or len(value) > 200:
+                raise ValueError("terminology entry exceeds 200 characters")
+        return v
 
 
 class EnhanceRequest(BaseModel):

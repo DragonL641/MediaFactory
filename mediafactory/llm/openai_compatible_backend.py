@@ -615,12 +615,17 @@ class OpenAICompatibleBackend(TranslationBackend):
             return translations
         wrong_map: dict[str, str] = {}
         for word, translation in candidates.items():
+            key = word.strip().lower()
             if term_dict.learn(word, translation) == "conflict":
-                wrong_map[word.strip().lower()] = translation
+                wrong_map[key] = translation
+                if term_dict.source_of(key) == "user":
+                    log_warning(
+                        f"[TermDict] 模型未遵守用户术语表，已替换: {key!r}"
+                        f" → {term_dict.dump().get(key, {}).get('translation')!r}"
+                    )
+                else:
+                    log_debug(f"[TermDict] auto 词条译法冲突，已按首译统一: {key!r}")
         if wrong_map:
-            log_warning(
-                f"[TermDict] 检出 {len(wrong_map)} 处术语译法冲突，已按术语表替换"
-            )
             translations = term_dict.apply_conflict_fixes(translations, wrong_map)
         return translations
 
@@ -689,12 +694,14 @@ class OpenAICompatibleBackend(TranslationBackend):
                 tgt_lang,
                 cancelled_callback,
                 src_lang=src_lang,
+                term_dict=term_dict,
             )
             second = self._translate_batch_with_content_filter_split(
                 batch[half:],
                 tgt_lang,
                 cancelled_callback,
                 src_lang=src_lang,
+                term_dict=term_dict,
             )
             return BatchResult(
                 translations=first.translations + second.translations,
