@@ -25,7 +25,6 @@ interface SubtitleFormFieldsProps {
 
 const SubtitleFormFields: React.FC<SubtitleFormFieldsProps> = ({ form, llmAvailable = true }) => {
   const { t } = useTranslation("forms");
-  const useLlm = Form.useWatch("use_llm", form);
   const bilingual = Form.useWatch("bilingual", form);
   const outputFormat = Form.useWatch("output_format", form);
 
@@ -72,18 +71,15 @@ const SubtitleFormFields: React.FC<SubtitleFormFieldsProps> = ({ form, llmAvaila
         </>
       )}
 
-      <Form.Item name="use_llm" label={t("forms:label.useRemoteLlm")} valuePropName="checked">
-        <Switch disabled={!llmAvailable} />
-      </Form.Item>
-
+      {/* 翻译已强制 LLM-only（R1），不再提供关闭开关 */}
       {!llmAvailable && (
         <div style={{ marginTop: -8, marginBottom: 12, fontSize: 12, color: "var(--mf-text-muted, #999)" }}>
           {t("forms:llm.configureInSettings")}
         </div>
       )}
 
-      {useLlm && llmAvailable && <LLMProviderSelect form={form} />}
-      {useLlm && llmAvailable && <LocalFallbackField form={form} />}
+      {llmAvailable && <LLMProviderSelect form={form} />}
+      {llmAvailable && <LocalFallbackField form={form} />}
       <TerminologyFileField form={form} />
     </>
   );

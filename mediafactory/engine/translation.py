@@ -6,6 +6,7 @@
 import threading
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Optional
+from urllib.parse import urlparse
 
 from ..constants import OLLAMA_BASE_URL
 from ..core.exception_wrapper import convert_exception, wrap_exceptions
@@ -56,8 +57,21 @@ class TranslationEngine:
     # ==================== 本地兜底 ====================
 
     def _primary_is_ollama(self) -> bool:
+        """主渠道是否为本地 Ollama。
+
+        按 host+port 归一化判定（127.0.0.1/localhost/大小写同判），
+        端口以 OLLAMA_BASE_URL 为单一真相源。
+        """
         base_url = getattr(self.llm_backend, "_base_url", "") or ""
-        return base_url.startswith(OLLAMA_BASE_URL)
+        try:
+            primary = urlparse(base_url)
+            ollama = urlparse(OLLAMA_BASE_URL)
+            if not primary.hostname:
+                return False
+            same_port = (primary.port or 80) == (ollama.port or 80)
+        except ValueError:
+            return False
+        return primary.hostname in ("localhost", "127.0.0.1", "::1") and same_port
 
     def _build_fallback_backend(self, fallback_model: str | None):
         """探测 Ollama 并构建兜底 backend；条件不满足返回 None。

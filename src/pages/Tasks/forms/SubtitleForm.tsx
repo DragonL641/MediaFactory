@@ -28,7 +28,7 @@ const SubtitleForm: React.FC<SubtitleFormProps> = ({ form, llmAvailable = true }
         style_preset: "default",
         bilingual: false,
         bilingual_layout: "translate_on_top",
-        use_llm: false,
+        use_llm: true,
       }}
       fileInput={{
         name: "video_path",

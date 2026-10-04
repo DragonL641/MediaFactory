@@ -257,3 +257,26 @@ def test_primary_failure_message_carries_details(patch_ollama):
     with pytest.raises(ProcessingError) as exc_info:
         engine.translate_texts(["t1"], "en", "zh")
     assert "OpenAI 兼容 API 未配置或不可用" in str(exc_info.value.message)
+
+
+def test_single_direction_catches_127_equivalent(monkeypatch):
+    """单向门地址归一化：127.0.0.1:11434 与 localhost:11434 同判，不得绕过。"""
+    from mediafactory.engine.translation import TranslationEngine
+
+    for url in (
+        "http://127.0.0.1:11434/v1",
+        "http://localhost:11434/v1",
+        "http://LOCALHOST:11434/v1",
+    ):
+        engine = TranslationEngine(llm_backend=_backend_with_base_url(url))
+        assert engine._primary_is_ollama() is True, url
+    engine = TranslationEngine(
+        llm_backend=_backend_with_base_url("http://api.example.com/v1")
+    )
+    assert engine._primary_is_ollama() is False
+
+
+def _backend_with_base_url(url: str):
+    from mediafactory.llm.openai_compatible_backend import OpenAICompatibleBackend
+
+    return OpenAICompatibleBackend(base_url=url, api_key="k", model="m")

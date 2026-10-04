@@ -50,8 +50,6 @@
     "stylePreset": "样式预设",
     "bilingualSubtitles": "双语字幕",
     "layout": "布局",
-    "useRemoteLlm": "使用远程 LLM 翻译",
-    "useRemoteLlmShort": "使用远程 LLM",
     "llmProvider": "LLM 供应商",
     "terminologyFile": "术语表文件（可选）",
     "terminologyTooltip": "JSON 格式的源词→译法对照，翻译时强制生效",

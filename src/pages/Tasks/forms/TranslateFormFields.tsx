@@ -3,10 +3,10 @@
  */
 
 import React from "react";
-import { Form, Select, Switch } from "antd";
-import type { FormInstance } from "antd";
-import { useTranslation } from "react-i18next";
-import { useLanguageOptions, useTargetLanguageOptions } from "./shared";
+import {Form, Select} from "antd";
+import type {FormInstance} from "antd";
+import {useTranslation} from "react-i18next";
+import {useLanguageOptions, useTargetLanguageOptions} from "./shared";
 import LLMProviderSelect from "../../../components/Form/LLMProviderSelect";
 import LocalFallbackField from "./LocalFallbackField";
 import TerminologyFileField from "./TerminologyFileField";
@@ -16,9 +16,8 @@ interface TranslateFormFieldsProps {
   llmAvailable?: boolean;
 }
 
-const TranslateFormFields: React.FC<TranslateFormFieldsProps> = ({ form, llmAvailable = true }) => {
-  const { t } = useTranslation("forms");
-  const useLlm = Form.useWatch("use_llm", form);
+const TranslateFormFields: React.FC<TranslateFormFieldsProps> = ({form, llmAvailable = true}) => {
+  const {t} = useTranslation("forms");
 
   const languageOptions = useLanguageOptions();
   const targetLanguageOptions = useTargetLanguageOptions();
@@ -33,18 +32,15 @@ const TranslateFormFields: React.FC<TranslateFormFieldsProps> = ({ form, llmAvai
         <Select options={targetLanguageOptions} />
       </Form.Item>
 
-      <Form.Item name="use_llm" label={t("forms:label.useRemoteLlmShort")} valuePropName="checked">
-        <Switch disabled={!llmAvailable} />
-      </Form.Item>
-
+      {/* 翻译已强制 LLM-only（R1），不再提供关闭开关 */}
       {!llmAvailable && (
-        <div style={{ marginTop: -8, marginBottom: 12, fontSize: 12, color: "var(--mf-text-muted, #999)" }}>
+        <div style={{marginTop: -8, marginBottom: 12, fontSize: 12, color: "var(--mf-text-muted, #999)"}}>
           {t("forms:llm.configureInSettings")}
         </div>
       )}
 
-      {useLlm && llmAvailable && <LLMProviderSelect form={form} />}
-      {useLlm && llmAvailable && <LocalFallbackField form={form} />}
+      {llmAvailable && <LLMProviderSelect form={form} />}
+      {llmAvailable && <LocalFallbackField form={form} />}
 
       <TerminologyFileField form={form} />
     </>

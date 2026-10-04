@@ -50,8 +50,6 @@
     "stylePreset": "Style Preset",
     "bilingualSubtitles": "Bilingual Subtitles",
     "layout": "Layout",
-    "useRemoteLlm": "Use Remote LLM for Translation",
-    "useRemoteLlmShort": "Use Remote LLM",
     "llmProvider": "LLM Provider",
     "terminologyFile": "Terminology file (optional)",
     "terminologyTooltip": "JSON mapping of source terms to translations, enforced during translation",

@@ -24,7 +24,7 @@ const TranslateForm: React.FC<TranslateFormProps> = ({ form, llmAvailable = true
       initialValues={{
         source_lang: "auto",
         target_lang: "zh",
-        use_llm: false,
+        use_llm: true,
       }}
       fileInput={{
         name: "srt_path",
