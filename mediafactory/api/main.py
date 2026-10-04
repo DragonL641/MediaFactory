@@ -18,7 +18,7 @@ from starlette.staticfiles import StaticFiles
 
 from mediafactory._version import get_version
 from mediafactory.api.daemon_lock import DaemonAlreadyRunning, DaemonLock
-from mediafactory.api.routes import config, history, models, processing, system
+from mediafactory.api.routes import config, history, local_models, models, processing, system
 
 # re-export：保持 mediafactory.api.main.get_task_manager 旧导入路径兼容
 from mediafactory.api.task_manager import get_task_manager
@@ -113,6 +113,9 @@ def create_app() -> FastAPI:
 
     # 注册路由
     app.include_router(processing.router, prefix="/api/processing", tags=["processing"])
+    # 必须在 models.router 之前注册：models 的 DELETE /{model_id:path}
+    # 是全捕获路由，后注册会被吞掉
+    app.include_router(local_models.router, prefix="/api/models", tags=["models"])
     app.include_router(models.router, prefix="/api/models", tags=["models"])
     app.include_router(config.router, prefix="/api/config", tags=["config"])
     app.include_router(system.router, prefix="/api/system", tags=["system"])
