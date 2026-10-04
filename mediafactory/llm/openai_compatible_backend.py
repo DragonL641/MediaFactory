@@ -397,6 +397,10 @@ class OpenAICompatibleBackend(TranslationBackend):
                     src_lang=src_lang,
                     term_dict=term_dict,
                 )
+                # 术语滚动记忆：学习本批候选并执行冲突替换
+                result.translations = self._learn_and_fix(
+                    term_dict, batch, result.translations, cancelled_callback
+                )
                 # 填入翻译结果
                 for i, text in enumerate(result.translations):
                     all_translated[global_start + i] = text
@@ -463,6 +467,11 @@ class OpenAICompatibleBackend(TranslationBackend):
                 else ""
             )
         )
+        if term_dict.dump():
+            log_info(
+                f"[TermDict] 术语记忆 {len(term_dict.dump())} 条: {term_dict.dump()}"
+            )
+
         log_llm_response(
             "openai_compatible",
             success=True,
@@ -551,6 +560,67 @@ class OpenAICompatibleBackend(TranslationBackend):
             translations=list(batch),
             failed_indices=list(range(len(batch))),
         )
+
+    # ==================== 术语滚动记忆 ====================
+
+    _EXTRACT_MAX_TERMS = 5
+
+    def _cap_candidates(self, candidates: dict[str, str]) -> dict[str, str]:
+        """裁剪提取候选至硬上限。"""
+        return dict(list(candidates.items())[: self._EXTRACT_MAX_TERMS])
+
+    def _extract_terms(
+        self,
+        batch: list[str],
+        translations: list[str],
+        cancelled_callback: Callable | None = None,
+    ) -> dict[str, str]:
+        """从本批源文-译文对照提取候选词条。任何失败静默返回空 dict。"""
+        try:
+            from ..utils.prompt_loader import get_prompt
+
+            prompt = get_prompt(
+                "translate/extract_terms", max_terms=str(self._EXTRACT_MAX_TERMS)
+            )
+            user_content = json.dumps(
+                {"source": batch, "translation": translations},
+                ensure_ascii=False,
+            )
+            response = self._call_llm(prompt, user_content, cancelled_callback)
+            parsed = self._parse_json_response(response)
+            if not parsed or not isinstance(parsed.get("terms"), dict):
+                return {}
+            terms = {
+                str(k): str(v).strip()
+                for k, v in parsed["terms"].items()
+                if str(k).strip() and str(v).strip()
+            }
+            return self._cap_candidates(terms)
+        except Exception as e:
+            log_debug(f"[TermDict] 词条提取失败（忽略）: {e}")
+            return {}
+
+    def _learn_and_fix(
+        self,
+        term_dict: TermDict,
+        batch: list[str],
+        translations: list[str],
+        cancelled_callback: Callable | None = None,
+    ) -> list[str]:
+        """学习本批候选并执行冲突替换。"""
+        candidates = self._extract_terms(batch, translations, cancelled_callback)
+        if not candidates:
+            return translations
+        wrong_map: dict[str, str] = {}
+        for word, translation in candidates.items():
+            if term_dict.learn(word, translation) == "conflict":
+                wrong_map[word.strip().lower()] = translation
+        if wrong_map:
+            log_warning(
+                f"[TermDict] 检出 {len(wrong_map)} 处术语译法冲突，已按术语表替换"
+            )
+            translations = term_dict.apply_conflict_fixes(translations, wrong_map)
+        return translations
 
     # ==================== contentFilter 二分递归 ====================
 

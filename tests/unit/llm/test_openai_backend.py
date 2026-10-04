@@ -45,7 +45,7 @@ def _msg_content(call: dict) -> str:
 
 class TestInjection:
     def test_user_terms_injected_into_translation_prompt(self):
-        backend, client = make_backend(['{"1": "你好 K8s 世界"}'])
+        backend, client = make_backend(['{"0": "你好 K8s 世界"}'])
         request = TranslationRequest(
             text=["Hello Kubernetes world"],
             src_lang="en",
@@ -57,7 +57,77 @@ class TestInjection:
         assert "- kubernetes → K8s" in _msg_content(client.calls[0])
 
     def test_no_terms_no_injection(self):
-        backend, client = make_backend(['{"1": "你好"}'])
+        backend, client = make_backend(['{"0": "你好"}'])
         request = TranslationRequest(text=["Hello"], src_lang="en", tgt_lang="zh")
         backend.translate(request)
         assert "# Terminology" not in _msg_content(client.calls[0])
+
+
+class TestExtractionAndConflict:
+    def _two_batch_setup(self, contents: list[str]):
+        backend, client = make_backend(contents)
+        backend._batch_size = 1  # 强制两批
+        request = TranslationRequest(
+            text=["Hello Kubernetes world", "Kubernetes is great"],
+            src_lang="en",
+            tgt_lang="zh",
+        )
+        return backend, client, request
+
+    def test_cross_batch_consistency(self):
+        # 序列：批1翻译 → 批1提取 → 批2翻译 → 批2提取
+        contents = [
+            '{"0": "你好 K8s 世界"}',  # 批1翻译
+            '{"terms": {"Kubernetes": "K8s"}}',  # 批1提取
+            '{"0": "K8s 很棒"}',  # 批2翻译（带注入）
+            '{"terms": {}}',  # 批2提取
+        ]
+        backend, client, request = self._two_batch_setup(contents)
+        result = backend.translate(request)
+        assert result.success
+        # 第二次翻译请求必须包含批1学到的术语注入
+        assert "# Terminology (must follow)" in _msg_content(client.calls[2])
+        assert "- kubernetes → K8s" in _msg_content(client.calls[2])
+
+    def test_conflict_replaced_with_dict_translation(self):
+        # user 种子 K8s；批1模型无视注入翻成"库伯内提斯"，提取暴露冲突 → 替换
+        contents = [
+            '{"0": "这是 库伯内提斯"}',  # 批1翻译
+            '{"terms": {"Kubernetes": "库伯内提斯"}}',  # 批1提取暴露冲突
+        ]
+        backend, client = make_backend(contents)
+        request = TranslationRequest(
+            text=["This is Kubernetes"],
+            src_lang="en",
+            tgt_lang="zh",
+            user_terms={"Kubernetes": "K8s"},
+        )
+        result = backend.translate(request)
+        assert result.success
+        assert (
+            result.translated_text == "这是 K8s"
+        )  # 已被替换回 dict 译法（单句返回 str）
+
+    def test_extraction_failure_is_silent(self):
+        contents = [
+            '{"0": "你好"}',  # 翻译成功
+            "not valid json at all",  # 提取返回垃圾
+        ]
+        backend, client = make_backend(contents)
+        request = TranslationRequest(text=["Hello"], src_lang="en", tgt_lang="zh")
+        result = backend.translate(request)
+        assert result.success
+        assert result.translated_text == "你好"
+
+    def test_extraction_candidates_capped_at_five(self):
+        import json as _json
+
+        many = {f"term{i}": f"词{i}" for i in range(10)}
+        contents = [
+            '{"0": "你好"}',
+            _json.dumps({"terms": many}),
+        ]
+        backend, client = make_backend(contents)
+        request = TranslationRequest(text=["Hello"], src_lang="en", tgt_lang="zh")
+        backend.translate(request)
+        assert len(backend._cap_candidates(many)) == 5
