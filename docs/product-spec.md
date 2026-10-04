@@ -2,7 +2,7 @@
 
 > **本文件是产品现状的 source of truth**——描述"现在是什么"。要做什么在 `docs/roadmap.md`，怎么做的设计在 `docs/superpowers/specs/`，本文件只管现状。
 >
-> 锚点：`23cf627`（最近一次回填/校对时的 commit）· 最近校对：2026-10-04
+> 锚点：`e627720`（最近一次回填/校对时的 commit）· 最近校对：2026-10-04
 > 校对方式：diff 引导（`git log <锚点>..HEAD` + 下方可机检断言对账）
 
 ## 稳定层 — 为什么（产品级决策才动）
@@ -44,7 +44,10 @@
 | `scripts/` | 构建/调试工具，业务代码不得调用 | `scripts/build/` |
 
 ### 功能
-（ship 时按 ADDED/MODIFIED/REMOVED 增量生长；init 铺底不展开。五种任务类型：音频提取、转录、字幕生成、字幕翻译、视频增强——audio/enhance 单动作直调引擎不走 Pipeline）
+#### 术语表（2026-10-04，R2）
+翻译任务可选 JSON 术语表（`TaskConfig.terminology`，≤200 条、单条 ≤200 字符，超限 422）。`TermDict`（`mediafactory/llm/term_memory.py`）first-wins 语义：key 小写归一化、最小 2 字符；用户种子先于翻译加载（时序保证优先，文件永不写回）；每批翻译后 LLM 自判提取「值得记」候选（≤5 条/批，提取调用不带历史 dict）滚动入典（source=auto）；命中词条经 `batch.md` 的 `${custom_instructions}` 槽位注入；译法冲突按术语表替换译文，日志按来源分级（user=warning 注入失效信号 / auto=debug 常态波动）。链路：`SubtitleRequest`/`TranslateRequest.terminology` → 路由透传 → `TranslationEngine(user_terms=)` → `TranslationRequest.user_terms` → `OpenAICompatibleBackend`。前端：字幕与翻译表单共享 `TerminologyFileField` 上传控件（hidden Form.Item 承载值）。
+
+（ship 时按 ADDED/MODIFIED/REMOVED 增量生长；五种任务类型：音频提取、转录、字幕生成、字幕翻译、视频增强——audio/enhance 单动作直调引擎不走 Pipeline）
 
 ## 派生层 — 指针（永不手写）
 
