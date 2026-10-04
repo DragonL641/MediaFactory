@@ -136,32 +136,31 @@ const ProviderDialog: React.FC<ProviderDialogProps> = ({
           />
         </Form.Item>
 
-        <Form.Item
-          name="api_key"
-          label={t("dialog.apiKey")}
-          rules={[
-            {
-              required:
-                selectedProvider !== "custom" && selectedProvider !== "ollama",
-              message: t("dialog.apiKeyRequired"),
-            },
-          ]}
-        >
-          <>
-            <Input.Password
-              placeholder={
-                selectedProvider === "custom" || selectedProvider === "ollama"
-                  ? t("dialog.apiKeyOptional")
-                  : "sk-..."
-              }
-            />
-            {(selectedProvider === "custom" || selectedProvider === "ollama") && (
-              <span style={{ fontSize: 12, color: token.colorTextSecondary }}>
-                {t("dialog.localLlmNoApiKey")}
-              </span>
-            )}
-          </>
-        </Form.Item>
+        {/* ollama 是本地服务，永远不需要 API Key——整个字段不渲染 */}
+        {selectedProvider !== "ollama" && (
+          <Form.Item
+            name="api_key"
+            label={t("dialog.apiKey")}
+            preserve={false}
+            rules={[
+              {
+                required: selectedProvider !== "custom",
+                message: t("dialog.apiKeyRequired"),
+              },
+            ]}
+          >
+            <>
+              <Input.Password
+                placeholder={selectedProvider === "custom" ? t("dialog.apiKeyOptional") : "sk-..."}
+              />
+              {selectedProvider === "custom" && (
+                <span style={{ fontSize: 12, color: token.colorTextSecondary }}>
+                  {t("dialog.localLlmNoApiKey")}
+                </span>
+              )}
+            </>
+          </Form.Item>
+        )}
 
         <Form.Item
           name="model"
