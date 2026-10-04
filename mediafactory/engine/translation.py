@@ -155,8 +155,10 @@ class TranslationEngine:
                 primary_error = legacy.error_message
                 learned_dict = None
             if not primary_ok:
+                # sanitize_error 只取 message，context 会被丢弃——
+                # 底层原因必须进 message 本体才能到达任务错误与 History
                 raise ProcessingError(
-                    message="LLM translation failed",
+                    message=f"LLM translation failed: {primary_error}",
                     context={"details": primary_error},
                 )
 

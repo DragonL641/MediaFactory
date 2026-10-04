@@ -1,11 +1,13 @@
 """本地模型路由 + pull 任务测试（Ollama client 全 mock）。"""
 
-from unittest.mock import AsyncMock, MagicMock, patch
+import asyncio
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from fastapi.testclient import TestClient
 
 from mediafactory.api.main import get_app
+from mediafactory.api.schemas import TaskStatus
 
 
 @pytest.fixture
@@ -100,3 +102,99 @@ def test_delete_success(client, monkeypatch):
     resp = client.delete("/api/models/local/qwen2.5:0.5b")
     assert resp.status_code == 200
     fake.delete_model.assert_awaited_once_with("qwen2.5:0.5b")
+
+
+# ============================================================================
+# 评审修复：pull 任务终态保护（取消后协程不得覆写 CANCELLED）
+# ============================================================================
+
+
+def _run_cancel_overwrite_scenario(monkeypatch, stream_error: Exception):
+    """构造：任务已被 cancel_task 置 CANCELLED，随后流异常/正常结束。"""
+    import mediafactory.api.local_pull_task as pull_task
+
+    captured: dict = {}
+
+    class _FakeTaskManager:
+        async def create_task(self, config, name=None):
+            return "t-1"
+
+        async def update_task_status(self, task_id, status, **kw):
+            # 只捕获终态写入（RUNNING 是协程正常起点）
+            if status in (TaskStatus.COMPLETED, TaskStatus.FAILED):
+                captured["final"] = status
+
+        async def get_task_status(self, task_id):
+            return {"status": "cancelled"}
+
+    class _FakeWS:
+        async def broadcast_progress(self, **kw):
+            pass
+
+        async def broadcast_task_complete(self, **kw):
+            pass
+
+    monkeypatch.setattr(pull_task, "get_task_manager", lambda: _FakeTaskManager())
+    monkeypatch.setattr(pull_task, "ws_manager", _FakeWS())
+
+    fake = MagicMock()
+
+    async def _stream(name):
+        yield {"status": "pulling x", "total": 100, "completed": 1}
+        raise stream_error
+
+    fake.pull_stream = _stream
+    monkeypatch.setattr(pull_task, "get_ollama_client", lambda: fake)
+
+    asyncio.run(pull_task._execute_pull_task("t-1", "m:1", None))
+    return captured
+
+
+def test_pull_cancelled_then_stream_error_stays_cancelled(monkeypatch):
+    """取消后流异常：终态必须保持 CANCELLED，不得覆写为 FAILED。"""
+
+    captured = _run_cancel_overwrite_scenario(
+        monkeypatch, RuntimeError("connection reset")
+    )
+    assert "final" not in captured  # 协程不得再写任何终态
+
+
+def test_pull_cancelled_then_success_stays_cancelled(monkeypatch):
+    """取消后流恰好正常结束：不得覆写为 COMPLETED。"""
+    import mediafactory.api.local_pull_task as pull_task
+    from mediafactory.api.schemas import TaskStatus
+
+    captured: dict = {}
+
+    class _FakeTaskManager:
+        async def create_task(self, config, name=None):
+            return "t-1"
+
+        async def update_task_status(self, task_id, status, **kw):
+            # 只捕获终态写入（RUNNING 是协程正常起点）
+            if status in (TaskStatus.COMPLETED, TaskStatus.FAILED):
+                captured["final"] = status
+
+        async def get_task_status(self, task_id):
+            return {"status": "cancelled"}
+
+    class _FakeWS:
+        async def broadcast_progress(self, **kw):
+            pass
+
+        async def broadcast_task_complete(self, **kw):
+            pass
+
+    monkeypatch.setattr(pull_task, "get_task_manager", lambda: _FakeTaskManager())
+    monkeypatch.setattr(pull_task, "ws_manager", _FakeWS())
+
+    fake = MagicMock()
+
+    async def _stream(name):
+        yield {"status": "success"}
+
+    fake.pull_stream = _stream
+    monkeypatch.setattr(pull_task, "get_ollama_client", lambda: fake)
+
+    asyncio.run(pull_task._execute_pull_task("t-1", "m:1", None))
+    assert "final" not in captured

@@ -52,12 +52,20 @@ async def _execute_pull_task(
     logger.info(f"Pulling Ollama model: {name}")
 
     last_progress_time = 0.0
+
+    async def _is_cancelled() -> bool:
+        status_info = await task_manager.get_task_status(task_id)
+        return bool(
+            status_info and status_info.get("status") == TaskStatus.CANCELLED.value
+        )
+
+    # 三处终态写入前都要复查：cancel_task 可能恰好在最后一个事件之后、
+    # 终态写入之前落地（update_task_status 无终态保护）
     try:
         async for event in client.pull_stream(name):
             # 取消检查：cancel_task 已把状态置 CANCELLED，此时直接退出，
             # 不再写状态（避免覆盖取消终态）
-            status_info = await task_manager.get_task_status(task_id)
-            if status_info and status_info.get("status") == TaskStatus.CANCELLED.value:
+            if await _is_cancelled():
                 logger.info(f"Pull of {name} cancelled, closing stream")
                 return
 
@@ -78,6 +86,9 @@ async def _execute_pull_task(
                     stage="download",
                 )
 
+        if await _is_cancelled():
+            logger.info(f"Pull of {name} cancelled just before completion")
+            return
         await task_manager.update_task_status(
             task_id,
             TaskStatus.COMPLETED,
@@ -96,6 +107,10 @@ async def _execute_pull_task(
             on_complete()
 
     except Exception as e:
+        if await _is_cancelled():
+            # 网络劣化常与用户点取消同时发生：异常不得把 CANCELLED 翻转为 FAILED
+            logger.info(f"Pull of {name} errored after cancellation, keeping CANCELLED")
+            return
         logger.exception(f"Pull of {name} failed: {e}")
         await task_manager.update_task_status(
             task_id,

@@ -230,3 +230,30 @@ def test_single_text_scalar_normalized(patch_ollama):
 
     outcome = engine.translate_texts(["t1"], "en", "zh")
     assert outcome.translations == ["译文1"]
+
+
+def test_primary_failure_message_carries_details(patch_ollama):
+    """主链失败时 ProcessingError 的 message 必须带底层原因（sanitize_error
+    只取 message，context 会被丢弃——错误详情必须进 message 本体）。"""
+    patch_ollama(_FakeOllamaClient())
+    primary = _FakeBackend(
+        [
+            DetailedTranslationResult(
+                result=TranslationResult(
+                    translated_text=["原文1"],
+                    backend_used="fake",
+                    success=False,
+                    error_message="OpenAI 兼容 API 未配置或不可用",
+                ),
+                failed_indices=[],
+                term_dict=None,
+            )
+        ]
+    )
+    engine = TranslationEngine(llm_backend=primary, use_llm_backend=True)
+
+    from mediafactory.exceptions import ProcessingError
+
+    with pytest.raises(ProcessingError) as exc_info:
+        engine.translate_texts(["t1"], "en", "zh")
+    assert "OpenAI 兼容 API 未配置或不可用" in str(exc_info.value.message)
