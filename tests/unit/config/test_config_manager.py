@@ -162,6 +162,3 @@ class TestGetSetConvenience:
         # 验证持久化
         manager2 = AppConfigManager(config_path=tmp_config_file)
         assert manager2.config.whisper.beam_size == 3
-
-
-

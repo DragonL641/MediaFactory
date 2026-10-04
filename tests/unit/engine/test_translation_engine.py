@@ -139,3 +139,34 @@ class TestTranslationEngine:
         assert len(translated["segments"]) == 2
         assert translated["segments"][0]["text"].strip() == ""
         assert translated["segments"][1]["text"].strip() == ""
+
+    @pytest.mark.unit
+    def test_user_terms_passthrough_to_request(self):
+        """引擎构造的 user_terms 必须进入 TranslationRequest。"""
+        from mediafactory.engine import TranslationEngine
+        from mediafactory.llm.base import TranslationResult
+
+        captured = {}
+
+        class CaptureBackend:
+            name = "capture"
+            is_available = True
+            get_model_name = "m"
+
+            def translate(self, request):
+                captured["user_terms"] = request.user_terms
+                return TranslationResult(
+                    translated_text=["译文"], backend_used="capture", success=True
+                )
+
+        engine = TranslationEngine(
+            llm_backend=CaptureBackend(),
+            use_llm_backend=True,
+            user_terms={"Kubernetes": "K8s"},
+        )
+        result = {
+            "segments": [{"start": 0.0, "end": 1.0, "text": "Hello"}],
+            "language": "en",
+        }
+        engine.translate(result, "en", "zh")
+        assert captured["user_terms"] == {"Kubernetes": "K8s"}

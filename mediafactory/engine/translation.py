@@ -31,11 +31,13 @@ class TranslationEngine:
         self,
         llm_backend: Optional["TranslationBackend"] = None,
         use_llm_backend: bool = False,
+        user_terms: dict[str, str] | None = None,
     ):
         self.llm_backend = llm_backend
         self._use_llm = (
             use_llm_backend and llm_backend is not None and llm_backend.is_available
         )
+        self.user_terms = user_terms
         self._language_detector = None
         self._detector_lock = threading.Lock()
 
@@ -189,6 +191,7 @@ class TranslationEngine:
             tgt_lang=tgt_lang,
             cancelled_callback=cancelled_callback,
             progress_callback=progress,
+            user_terms=self.user_terms,
         )
 
         log_debug(

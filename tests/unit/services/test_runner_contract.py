@@ -667,3 +667,29 @@ class TestRunnersRegistry:
             if task_type is TaskType.DOWNLOAD:
                 continue  # 下载走 download_task.py 专用通道，不经 runner
             assert task_type in RUNNERS, f"缺少 {task_type} 的 runner 注册"
+
+    def test_terminology_passthrough_to_engine(self, monkeypatch):
+        """契约：TaskConfig.terminology 透传到引擎构造。"""
+        monkeypatch.setattr(runner_module, "Pipeline", FakeDefaultPipeline)
+        monkeypatch.setattr(
+            runner_module, "TranslationEngine", RecordingTranslationEngine
+        )
+        backend = FakeLLMBackend(is_available=True)
+        monkeypatch.setattr(
+            runner_module, "initialize_llm_backend", lambda *a, **k: backend
+        )
+
+        result = run(
+            run_subtitle(
+                make_config(
+                    use_llm=True,
+                    terminology={"Kubernetes": "K8s"},
+                ),
+                NO_OP_PROGRESS,
+            )
+        )
+
+        assert result.success is True
+        assert RecordingTranslationEngine.init_kwargs[0]["user_terms"] == {
+            "Kubernetes": "K8s"
+        }

@@ -103,7 +103,9 @@ def _select_translation_engine(config: TaskConfig) -> TranslationEngine:
             message="LLM backend initialization failed. "
             "Please check LLM settings in Settings page."
         )
-    return TranslationEngine(llm_backend=backend, use_llm_backend=True)
+    return TranslationEngine(
+        llm_backend=backend, use_llm_backend=True, user_terms=config.terminology
+    )
 
 
 # ==================== 任务执行函数 ====================
@@ -253,7 +255,12 @@ async def _translate_text(
 
     from mediafactory.llm import TranslationRequest
 
-    request = TranslationRequest(text=text, src_lang="auto", tgt_lang=target_lang)
+    request = TranslationRequest(
+        text=text,
+        src_lang="auto",
+        tgt_lang=target_lang,
+        user_terms=config.terminology,
+    )
     result = await loop.run_in_executor(None, backend.translate, request)
     if not result.success:
         raise ProcessingError(

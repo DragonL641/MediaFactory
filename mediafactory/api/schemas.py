@@ -7,7 +7,7 @@ Pydantic 数据模型
 from enum import StrEnum
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 from pydantic.alias_generators import to_camel
 
 # ==================== 枚举类型 ====================
@@ -93,6 +93,21 @@ class TaskConfig(BaseModel):
     # LLM 设置
     use_llm: bool = False
     llm_preset: str = "openai"
+
+    # 用户术语表（源词→译法），翻译时强制生效
+    terminology: dict[str, str] | None = Field(default=None)
+
+    @field_validator("terminology")
+    @classmethod
+    def _validate_terminology(cls, v: dict[str, str] | None) -> dict[str, str] | None:
+        if v is None:
+            return v
+        if len(v) > 200:
+            raise ValueError("terminology exceeds 200 entries")
+        for key, value in v.items():
+            if len(key) > 200 or len(value) > 200:
+                raise ValueError("terminology entry exceeds 200 characters")
+        return v
 
     # 输出格式
     output_format: str = "srt"  # srt, ass, vtt, txt
