@@ -4,8 +4,10 @@
 """
 
 import threading
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Optional
 
+from ..constants import OLLAMA_BASE_URL
 from ..core.exception_wrapper import convert_exception, wrap_exceptions
 from ..core.progress_protocol import NO_OP_PROGRESS, ProgressCallback
 from ..exceptions import OperationCancelledError, ProcessingError
@@ -24,6 +26,14 @@ if TYPE_CHECKING:
     from ..llm.base import TranslationBackend
 
 
+@dataclass
+class TranslationOutcome:
+    """translate_texts 的输出：译文与四计数统计。"""
+
+    translations: list[str]
+    stats: dict[str, int]
+
+
 class TranslationEngine:
     """翻译引擎，通过 LLM API 翻译"""
 
@@ -32,6 +42,7 @@ class TranslationEngine:
         llm_backend: Optional["TranslationBackend"] = None,
         use_llm_backend: bool = False,
         user_terms: dict[str, str] | None = None,
+        fallback_model: str | None = None,
     ):
         self.llm_backend = llm_backend
         self._use_llm = (
@@ -40,6 +51,154 @@ class TranslationEngine:
         self.user_terms = user_terms
         self._language_detector = None
         self._detector_lock = threading.Lock()
+        self._fallback_model_name = fallback_model
+        self._fallback_backend = self._build_fallback_backend(fallback_model)
+
+    # ==================== 本地兜底 ====================
+
+    def _primary_is_ollama(self) -> bool:
+        base_url = getattr(self.llm_backend, "_base_url", "") or ""
+        return base_url.startswith(OLLAMA_BASE_URL)
+
+    def _build_fallback_backend(self, fallback_model: str | None):
+        """探测 Ollama 并构建兜底 backend；条件不满足返回 None。
+
+        单向约束：主渠道本身就是 Ollama 时不构建（本地→本地无意义）。
+        探测失败（服务未运行/模型未拉取）静默降级为无兜底，任务照常。
+        """
+        if not fallback_model:
+            return None
+        if self._primary_is_ollama():
+            return None
+        try:
+            from ..llm.ollama_client import get_ollama_client
+            from ..llm.openai_compatible_backend import OpenAICompatibleBackend
+
+            client = get_ollama_client()
+            if not (
+                client.is_available_sync()
+                and client.is_model_installed_sync(fallback_model)
+            ):
+                log_info(
+                    "[TranslationEngine] Local fallback unavailable "
+                    f"(Ollama down or model missing): {fallback_model}"
+                )
+                return None
+            log_info(f"[TranslationEngine] Local fallback ready: {fallback_model}")
+            return OpenAICompatibleBackend(
+                base_url=f"{OLLAMA_BASE_URL}/v1", model=fallback_model
+            )
+        except Exception as e:
+            log_warning(f"[TranslationEngine] Fallback probe failed: {e}")
+            return None
+
+    def _unload_local_model(self, model: str | None) -> None:
+        """翻译步骤结束即卸载用过的本地模型（fire-and-forget，异常吞掉）。"""
+        if not model:
+            return
+        try:
+            from ..llm.ollama_client import get_ollama_client
+
+            get_ollama_client().unload_model_sync(model)
+        except Exception as e:
+            log_debug(f"[TranslationEngine] Unload failed (ignored): {e}")
+
+    def translate_texts(
+        self,
+        texts: list[str],
+        src_lang: str,
+        tgt_lang: str,
+        progress: ProgressCallback | None = None,
+    ) -> TranslationOutcome:
+        """直翻一组文本（无 segments 语义），含兜底编排与统计。
+
+        编排：主链 translate_detailed → 失败句转投兜底 backend（共享
+        TermDict 保持术语一致）→ 合并 → 四计数；finally 里卸载本次
+        用过的本地模型（随用随载由 Ollama 原生保证）。
+        """
+        from ..llm import TranslationRequest
+
+        def cancelled_callback() -> bool:
+            return progress.is_cancelled() if progress else False
+
+        request = TranslationRequest(
+            text=texts,
+            src_lang=src_lang,
+            tgt_lang=tgt_lang,
+            cancelled_callback=cancelled_callback,
+            progress_callback=progress,
+            user_terms=self.user_terms,
+        )
+
+        used_local_model: str | None = (
+            self.llm_backend.get_model_name if self._primary_is_ollama() else None
+        )
+
+        try:
+            if hasattr(self.llm_backend, "translate_detailed"):
+                detailed = self.llm_backend.translate_detailed(request)
+                primary_text = detailed.result.translated_text
+                translations = (
+                    primary_text if isinstance(primary_text, list) else [primary_text]
+                )
+                failed_indices = list(detailed.failed_indices)
+                primary_ok = detailed.result.success
+                primary_error = detailed.result.error_message
+                learned_dict = detailed.term_dict
+            else:  # 兼容仅实现 translate() 的后端（测试 fake 等）
+                legacy = self.llm_backend.translate(request)
+                legacy_text = legacy.translated_text
+                translations = (
+                    legacy_text if isinstance(legacy_text, list) else [legacy_text]
+                )
+                failed_indices = []
+                primary_ok = legacy.success
+                primary_error = legacy.error_message
+                learned_dict = None
+            if not primary_ok:
+                raise ProcessingError(
+                    message="LLM translation failed",
+                    context={"details": primary_error},
+                )
+
+            remote_ok = len(texts) - len(failed_indices)
+            fallback_ok = 0
+
+            if failed_indices and self._fallback_backend is not None:
+                failed_texts = [texts[i] for i in failed_indices]
+                log_info(
+                    "[TranslationEngine] Falling back to local model for "
+                    f"{len(failed_texts)} sentence(s)"
+                )
+                fallback_request = TranslationRequest(
+                    text=failed_texts,
+                    src_lang=src_lang,
+                    tgt_lang=tgt_lang,
+                    cancelled_callback=cancelled_callback,
+                )
+                fallback_result = self._fallback_backend.translate_detailed(
+                    fallback_request, term_dict=learned_dict
+                )
+                used_local_model = self._fallback_model_name
+                if fallback_result.result.success:
+                    fallback_translations = fallback_result.result.translated_text
+                    if isinstance(fallback_translations, str):
+                        fallback_translations = [fallback_translations]
+                    fallback_failed = set(fallback_result.failed_indices)
+                    for j, idx in enumerate(failed_indices):
+                        if j not in fallback_failed:
+                            translations[idx] = fallback_translations[j]
+                            fallback_ok += 1
+
+            stats = {
+                "total": len(texts),
+                "remote": remote_ok,
+                "fallback": fallback_ok,
+                "failed": len(texts) - remote_ok - fallback_ok,
+            }
+            return TranslationOutcome(translations=translations, stats=stats)
+        finally:
+            self._unload_local_model(used_local_model)
 
     def translate(
         self,
@@ -200,36 +359,18 @@ class TranslationEngine:
         )
 
         log_step("Calling LLM API...")
-        translation_result = self.llm_backend.translate(request)
-
-        log_debug(
-            f"[LLM Translation] API response: success={translation_result.success}, "
-            f"backend_used={translation_result.backend_used}"
-        )
-
-        if not translation_result.success:
-            log_error(f"Error message: {translation_result.error_message}")
-            raise ProcessingError(
-                message=f"LLM translation failed: {backend_type}",
-                context={
-                    "backend": backend_type,
-                    "model": model_name,
-                    "src_lang": src_lang,
-                    "tgt_lang": tgt_lang,
-                    "details": translation_result.error_message,
-                    "suggestion": f"Check {backend_type} configuration or try again later",
-                },
-            )
+        outcome = self.translate_texts(texts, src_lang, tgt_lang, progress)
 
         # 合并结果到 segments
         translated_segments = self._merge_translation_result(
-            segments, translation_result.translated_text
+            segments, outcome.translations
         )
 
         log_info(f"Translation completed: {len(translated_segments)} segments")
 
         translated_result = result.copy()
         translated_result["segments"] = translated_segments
+        translated_result["translation_stats"] = outcome.stats
         return translated_result
 
     def _merge_translation_result(
