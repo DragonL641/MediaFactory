@@ -132,6 +132,14 @@ AI video tools often force you to choose between quality and speed, or between c
 
 **Translation**: Requires an LLM provider configured in Settings — cloud LLM APIs (OpenAI, DeepSeek, GLM, etc.) or a local endpoint (Ollama). If some sentences fail to translate, they are kept in the original language and summarized in the logs.
 
+**Local models (Ollama)**: MediaFactory integrates with [Ollama](https://ollama.com) for fully local translation:
+
+1. Install Ollama — it runs as a local service automatically.
+2. Open **Settings → Local Models (Ollama)** to pull a model (e.g. `qwen2.5:7b`) or manage installed ones.
+3. Use it either as the main translation provider (**Ollama (Local)** in the provider list) or as a per-task **Local Fallback**: when enabled on a translation/subtitle task, sentences the remote LLM fails to translate are retried locally, and the task reports how many sentences were translated remotely, locally, or kept as original.
+
+Memory guidance: 16 GB machines handle common 7B models; 8 GB machines are not recommended for local translation.
+
 **Log files**: All logs are written to `logs/LOG-YYYY-MM-DD-HHMM.log` in the application directory.
 
 ---
