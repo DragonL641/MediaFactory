@@ -30,7 +30,7 @@ from mediafactory.engine.audio import AudioEngine
 from mediafactory.engine.recognition import RecognitionEngine
 from mediafactory.engine.srt import SRTEngine
 from mediafactory.engine.translation import TranslationEngine
-from mediafactory.exceptions import ConfigurationError, ProcessingError
+from mediafactory.exceptions import ConfigurationError
 from mediafactory.llm import initialize_llm_backend
 from mediafactory.pipeline import Pipeline
 from mediafactory.pipeline.context import ProcessingContext, ProcessingResult

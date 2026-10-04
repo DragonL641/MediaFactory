@@ -263,9 +263,7 @@ class SubtitleRequest(BaseModel):
 
     @field_validator("fallback_model")
     @classmethod
-    def _validate_subtitle_request_fallback_model(
-        cls, v: str | None
-    ) -> str | None:
+    def _validate_subtitle_request_fallback_model(cls, v: str | None) -> str | None:
         if v is None:
             return v
         v = v.strip()
@@ -328,9 +326,7 @@ class TranslateRequest(BaseModel):
 
     @field_validator("fallback_model")
     @classmethod
-    def _validate_translate_request_fallback_model(
-        cls, v: str | None
-    ) -> str | None:
+    def _validate_translate_request_fallback_model(cls, v: str | None) -> str | None:
         if v is None:
             return v
         v = v.strip()

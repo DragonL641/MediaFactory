@@ -14,7 +14,6 @@ from ..exceptions import OperationCancelledError, ProcessingError
 from ..i18n import t
 from ..logging import (
     log_debug,
-    log_error,
     log_info,
     log_language_detection,
     log_step,
@@ -328,8 +327,6 @@ class TranslationEngine:
         降级逻辑在 OpenAICompatibleBackend 内部处理：
         批量 → 验证失败二分递归 → contentFilter 递归二分 → 失败句保留原文
         """
-        from ..llm import TranslationRequest
-
         backend_type = type(self.llm_backend).__name__
         model_name = self.llm_backend.get_model_name
 
@@ -340,18 +337,6 @@ class TranslationEngine:
 
         segments = result.get("segments", [])
         texts = [seg.get("text", "") for seg in segments]
-
-        def cancelled_callback() -> bool:
-            return progress.is_cancelled() if progress else False
-
-        request = TranslationRequest(
-            text=texts,
-            src_lang=src_lang,
-            tgt_lang=tgt_lang,
-            cancelled_callback=cancelled_callback,
-            progress_callback=progress,
-            user_terms=self.user_terms,
-        )
 
         log_debug(
             f"[LLM Translation] Sending request: {len(texts)} segments, "

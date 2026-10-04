@@ -18,7 +18,14 @@ from starlette.staticfiles import StaticFiles
 
 from mediafactory._version import get_version
 from mediafactory.api.daemon_lock import DaemonAlreadyRunning, DaemonLock
-from mediafactory.api.routes import config, history, local_models, models, processing, system
+from mediafactory.api.routes import (
+    config,
+    history,
+    local_models,
+    models,
+    processing,
+    system,
+)
 
 # re-export：保持 mediafactory.api.main.get_task_manager 旧导入路径兼容
 from mediafactory.api.task_manager import get_task_manager

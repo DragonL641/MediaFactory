@@ -83,5 +83,5 @@ async def delete_local_model(name: str):
     try:
         await client.delete_model(name)
     except OllamaError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
     return {"success": True}
