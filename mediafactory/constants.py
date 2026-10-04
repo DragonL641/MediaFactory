@@ -73,6 +73,9 @@ THREAD_JOIN_TIMEOUT = 1
 # LLM 服务预设名单（单一真相源；新增服务商在此与 BASE_URL_PRESETS 同步添加）
 PRESET_NAMES = ("openai", "deepseek", "glm", "qwen", "moonshot", "custom")
 
+# Ollama 本地服务地址（OpenAI 兼容端点为 {OLLAMA_BASE_URL}/v1）
+OLLAMA_BASE_URL = "http://localhost:11434"
+
 
 class BackendConfigMapping:
     """LLM 后端配置映射 - 单一配置源。
