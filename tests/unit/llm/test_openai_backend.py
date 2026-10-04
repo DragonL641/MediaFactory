@@ -163,3 +163,30 @@ class TestContentFilterRecursiveInjection:
         # calls[2]/calls[3]=递归子批的翻译与提取——必须带术语注入
         assert "# Terminology (must follow)" in _msg_content(client.calls[2])
         assert "# Terminology (must follow)" in _msg_content(client.calls[3])
+
+
+class TestContentFilterLearnAndFix:
+    def test_split_path_runs_learn_and_fix(self):
+        """content-filter 降级批产物必须与正常批同权：过术语提取+冲突替换。"""
+        err = Exception("Error code: 1301 - content filter triggered")
+        contents = [
+            err,  # 主批(2句)触发 content filter
+            '{"0": "K8s 集群"}',  # split 重试整批(2句)：缺 "1" → 校验失败 → 内部二分
+            '{"0": "K8s 集群"}',  # 左(1句)成功（模型未守用户术语）
+            '{"nothing": 1}',  # 右(1句)校验失败 → 保留原文
+            # 降级批的提取调用：走 _learn_and_fix 则学到冲突并替换回 "K8s"
+            '{"terms": {"Kubernetes": "K8s 集群"}}',
+        ]
+        backend, client = make_backend(contents)
+        backend._batch_size = 4
+        backend._split_threshold = 2
+        request = TranslationRequest(
+            text=["Kubernetes a", "Kubernetes b"],
+            src_lang="en",
+            tgt_lang="zh",
+            user_terms={"Kubernetes": "K8s"},
+        )
+        result = backend.translate(request)
+        # 用户术语 K8s 的译法在降级批被模型写成 "K8s 集群"：
+        # 走了 _learn_and_fix 就会冲突替换回 "K8s"
+        assert "K8s 集群" not in result.translated_text

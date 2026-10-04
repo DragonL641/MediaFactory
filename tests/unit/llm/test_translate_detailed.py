@@ -93,3 +93,41 @@ def test_translate_wrapper_unchanged():
     result = backend.translate(_request(["hello"]))
     assert result.success is True
     assert result.translated_text == "你好"
+
+
+def test_llm_response_log_reflects_real_success():
+    """全部批次失败时日志不得打 SUCCESS（冒烟 00:32:45 假 SUCCESS 的教训）。"""
+    from loguru import logger
+
+    records: list = []
+    sink_id = logger.add(lambda m: records.append(m), level="INFO")
+    try:
+        backend = _backend(["not json at all"], batch_size=1, split_threshold=2)
+        backend.translate_detailed(_request(["hello"]))
+    finally:
+        logger.remove(sink_id)
+
+    responses = [
+        r for r in records if "LLM Response" in (r.record["message"] if hasattr(r, "record") else str(r))
+    ]
+    assert responses, "expected an LLM Response log line"
+    assert "FAILED" in str(responses[-1])
+
+
+def test_llm_response_log_success_on_clean_run():
+    from loguru import logger
+
+    ok = json.dumps({"0": "译"}, ensure_ascii=False)
+    records: list = []
+    sink_id = logger.add(lambda m: records.append(m), level="INFO")
+    try:
+        backend = _backend([ok, ok], batch_size=1, split_threshold=2)
+        backend.translate_detailed(_request(["hello"]))
+    finally:
+        logger.remove(sink_id)
+
+    responses = [
+        r for r in records if "LLM Response" in (r.record["message"] if hasattr(r, "record") else str(r))
+    ]
+    assert responses, "expected an LLM Response log line"
+    assert "SUCCESS" in str(responses[-1])

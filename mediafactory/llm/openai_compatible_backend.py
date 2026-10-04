@@ -431,6 +431,10 @@ class OpenAICompatibleBackend(TranslationBackend):
                         src_lang=src_lang,
                         term_dict=term_dict,
                     )
+                    # 术语滚动记忆：降级批产物与正常批同权（提取 + 冲突替换）
+                    result.translations = self._learn_and_fix(
+                        term_dict, batch, result.translations, cancelled_callback
+                    )
                     for i, text in enumerate(result.translations):
                         all_translated[global_start + i] = text
                     failed_global_indices.extend(
@@ -493,8 +497,13 @@ class OpenAICompatibleBackend(TranslationBackend):
 
         log_llm_response(
             "openai_compatible",
-            success=True,
+            success=not failed_global_indices,
             output_length=sum(len(t) for t in result),
+            error=(
+                f"{len(failed_global_indices)} sentence(s) failed, kept original"
+                if failed_global_indices
+                else None
+            ),
         )
 
         return result, failed_final
