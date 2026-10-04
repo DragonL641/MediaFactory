@@ -57,13 +57,16 @@
     "terminologyTooltip": "JSON mapping of source terms to translations, enforced during translation",
     "chooseTerminologyFile": "Choose JSON file",
     "terminologyLoaded": "Terminology loaded ({{count}} entries)",
-    "terminologyInvalid": "Invalid terminology file"
+    "terminologyInvalid": "Invalid terminology file",
+    "localFallback": "Local Fallback",
+    "fallbackModel": "Fallback Model"
   },
   "placeholder": {
     "selectVideo": "Enter or browse for a video file...",
     "selectAudioVideo": "Enter or browse for an audio/video file...",
     "selectSrt": "Enter or browse for a subtitle file...",
-    "selectProvider": "Select provider"
+    "selectProvider": "Select provider",
+    "selectFallbackModel": "Select a local model for fallback"
   },
   "audioOptions": {
     "wav": "WAV (Best Quality)",
@@ -99,7 +102,8 @@
     "enableTemporalSmoothing": "Enable Temporal Smoothing"
   },
   "validation": {
-    "fileRequired": "Please select a file"
+    "fileRequired": "Please select a file",
+    "fallbackModelRequired": "Please select a fallback model"
   },
   "llm": {
     "notConfiguredTooltip": "No LLM provider configured. Please go to Settings to configure one.",

@@ -57,13 +57,16 @@
     "terminologyTooltip": "JSON 格式的源词→译法对照，翻译时强制生效",
     "chooseTerminologyFile": "选择 JSON 文件",
     "terminologyLoaded": "术语表已加载（{{count}} 条）",
-    "terminologyInvalid": "术语表文件无效"
+    "terminologyInvalid": "术语表文件无效",
+    "localFallback": "本地兜底",
+    "fallbackModel": "兜底模型"
   },
   "placeholder": {
     "selectVideo": "输入或浏览选择视频文件...",
     "selectAudioVideo": "输入或浏览选择音频/视频文件...",
     "selectSrt": "输入或浏览选择字幕文件...",
-    "selectProvider": "选择供应商"
+    "selectProvider": "选择供应商",
+    "selectFallbackModel": "选择用于兜底的本地模型"
   },
   "audioOptions": {
     "wav": "WAV（最佳质量）",
@@ -99,7 +102,8 @@
     "enableTemporalSmoothing": "启用时序平滑"
   },
   "validation": {
-    "fileRequired": "请选择文件"
+    "fileRequired": "请选择文件",
+    "fallbackModelRequired": "请选择兜底模型"
   },
   "llm": {
     "notConfiguredTooltip": "未配置 LLM 服务。请前往设置页面配置。",
