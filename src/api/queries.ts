@@ -443,6 +443,9 @@ export function useLocalModelsQuery() {
       return response.data;
     },
     staleTime: 10000,
+    // 有在飞拉取时高频轮询驱动进度行，空闲时维持常规缓存
+    refetchInterval: (query) =>
+      (query.state.data?.pulling?.length ?? 0) > 0 ? 1000 : false,
   });
 }
 

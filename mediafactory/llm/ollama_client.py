@@ -79,6 +79,15 @@ class OllamaClient:
         except Exception:
             return False
 
+    async def is_model_installed(self, name: str) -> bool:
+        try:
+            async with self._async_client() as client:
+                resp = await client.get("/api/tags")
+                resp.raise_for_status()
+        except Exception:
+            return False
+        return any(m.get("name") == name for m in resp.json().get("models", []))
+
     async def list_installed(self) -> list[OllamaModelInfo]:
         async with self._async_client() as client:
             resp = await client.get("/api/tags")

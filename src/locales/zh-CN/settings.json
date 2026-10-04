@@ -58,7 +58,7 @@
     "notDetected": "未检测到 Ollama",
     "pullPlaceholder": "模型名，如 qwen2.5:7b",
     "pull": "拉取",
-    "pullStarted": "拉取已开始，请在任务列表查看进度。",
+    "pullStarted": "拉取已开始，进度见下方模型列表。",
     "pullFailed": "拉取启动失败",
     "deleted": "模型已删除",
     "deleteFailed": "删除模型失败",

@@ -31,7 +31,8 @@ def test_local_models_unavailable(client, monkeypatch):
     _patch_client(available=False, monkeypatch=monkeypatch)
     resp = client.get("/api/models/local")
     assert resp.status_code == 200
-    assert resp.json() == {"available": False, "models": []}
+    assert resp.json()["available"] is False
+    assert "pulling" in resp.json()
 
 
 def test_local_models_lists_camel_case(client, monkeypatch):
@@ -198,3 +199,142 @@ def test_pull_cancelled_then_success_stays_cancelled(monkeypatch):
 
     asyncio.run(pull_task._execute_pull_task("t-1", "m:1", None))
     assert "final" not in captured
+
+
+# ============================================================================
+# pull 可靠性：看门狗 + 完成后校验（2026-10-05 冒烟发现的挂起/假成功）
+# ============================================================================
+
+
+def _make_pull_fakes(monkeypatch, stream, installed: bool, status="running"):
+    """构造 _execute_pull_task 的假环境，捕获终态。"""
+    import mediafactory.api.local_pull_task as pull_task
+    from mediafactory.api.schemas import TaskStatus
+
+    captured: dict = {}
+
+    class _FakeTaskManager:
+        async def create_task(self, config, name=None):
+            return "t-1"
+
+        async def update_task_status(self, task_id, st, **kw):
+            if st in (TaskStatus.COMPLETED, TaskStatus.FAILED):
+                captured["final"] = st
+                result = kw.get("result")
+                captured["error"] = result.error if result else None
+
+        async def get_task_status(self, task_id):
+            return {"status": status}
+
+    class _FakeWS:
+        async def broadcast_progress(self, **kw):
+            pass
+
+        async def broadcast_task_complete(self, **kw):
+            pass
+
+    fake = MagicMock()
+    fake.pull_stream = stream
+
+    async def _installed(name):
+        return installed
+
+    fake.is_model_installed = _installed
+
+    monkeypatch.setattr(pull_task, "get_task_manager", lambda: _FakeTaskManager())
+    monkeypatch.setattr(pull_task, "ws_manager", _FakeWS())
+    monkeypatch.setattr(pull_task, "get_ollama_client", lambda: fake)
+    return captured
+
+
+def test_pull_stalled_stream_times_out_to_failed(monkeypatch):
+    """流挂起（无事件）：看门狗超时后必须标 FAILED，而非永久挂起。"""
+    import asyncio
+
+    async def _stalled_stream(name):
+        yield {"status": "pulling manifest"}
+        await asyncio.sleep(3600)  # 之后永无事件
+
+    captured = _make_pull_fakes(monkeypatch, _stalled_stream, installed=False)
+    import mediafactory.api.local_pull_task as pull_task
+    from mediafactory.api.schemas import TaskStatus
+
+    monkeypatch.setattr(pull_task, "_PULL_NO_EVENT_TIMEOUT_SEC", 0.05)
+    asyncio.run(pull_task._execute_pull_task("t-1", "m:1", None))
+
+    assert captured["final"] == TaskStatus.FAILED
+    assert "stall" in (captured.get("error") or "").lower()
+
+
+def test_pull_stream_success_but_model_absent_fails(monkeypatch):
+    """流正常结束但模型未出现（空流假成功竞态）：必须 FAILED 而非 COMPLETED。"""
+
+    async def _fake_success_stream(name):
+        yield {"status": "success"}
+
+    captured = _make_pull_fakes(monkeypatch, _fake_success_stream, installed=False)
+    import mediafactory.api.local_pull_task as pull_task
+    from mediafactory.api.schemas import TaskStatus
+
+    asyncio.run(pull_task._execute_pull_task("t-1", "m:1", None))
+
+    assert captured["final"] == TaskStatus.FAILED
+    assert "not installed" in (captured.get("error") or "")
+
+
+def test_pull_success_with_model_present_completes(monkeypatch):
+    """流结束且模型在位：正常 COMPLETED（守护校验不误伤）。"""
+
+    async def _success_stream(name):
+        yield {"status": "pulling x", "total": 10, "completed": 5}
+        yield {"status": "success"}
+
+    captured = _make_pull_fakes(monkeypatch, _success_stream, installed=True)
+    import mediafactory.api.local_pull_task as pull_task
+    from mediafactory.api.schemas import TaskStatus
+
+    asyncio.run(pull_task._execute_pull_task("t-1", "m:1", None))
+
+    assert captured["final"] == TaskStatus.COMPLETED
+
+
+# ============================================================================
+# pull 进度可见性：/api/models/local 携带在飞拉取快照
+# ============================================================================
+
+
+def test_active_pull_details_reports_progress(monkeypatch):
+    import mediafactory.api.local_pull_task as pull_task
+
+    class _FakeTM:
+        async def get_task_status(self, task_id):
+            return {"progress": 42.0, "status": "running"}
+
+    monkeypatch.setattr(pull_task, "get_task_manager", lambda: _FakeTM())
+    monkeypatch.setattr(pull_task, "_pull_task_ids", {"m:1": "t-9"})
+
+    details = asyncio.run(pull_task.active_pull_details())
+    assert details == [{"name": "m:1", "progress": 42.0, "taskId": "t-9"}]
+
+
+def test_active_pull_details_skips_missing_task(monkeypatch):
+    import mediafactory.api.local_pull_task as pull_task
+
+    class _FakeTM:
+        async def get_task_status(self, task_id):
+            return None
+
+    monkeypatch.setattr(pull_task, "get_task_manager", lambda: _FakeTM())
+    monkeypatch.setattr(pull_task, "_pull_task_ids", {"m:1": "gone"})
+
+    assert asyncio.run(pull_task.active_pull_details()) == []
+
+
+def test_local_models_response_includes_pulling_key(client, monkeypatch):
+    _patch_client(monkeypatch=monkeypatch)
+    import mediafactory.api.local_pull_task as pull_task
+
+    monkeypatch.setattr(pull_task, "_pull_task_ids", {"m:1": "t-9"})
+    resp = client.get("/api/models/local")
+    assert resp.status_code == 200
+    assert "pulling" in resp.json()

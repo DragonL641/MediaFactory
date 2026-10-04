@@ -4,7 +4,7 @@
  */
 
 import React, { useState } from "react";
-import { App, Button, Input, Popconfirm, Table, Tag, theme } from "antd";
+import { App, Button, Input, Popconfirm, Progress, Table, Tag, theme, Typography } from "antd";
 import { useTranslation } from "react-i18next";
 import {
   useDeleteLocalModelMutation,
@@ -13,6 +13,8 @@ import {
 } from "../../api/queries";
 import { getErrorDetail } from "../../api/client";
 import type { LocalModelInfo } from "../../types";
+
+const { Text } = Typography;
 
 function formatSize(bytes: number): string {
   if (bytes >= 1024 ** 3) return `${(bytes / 1024 ** 3).toFixed(1)} GB`;
@@ -101,6 +103,25 @@ const LocalModelsCard: React.FC = () => {
           <Tag color="default">{t("localModels.notDetected")}</Tag>
         )}
       </div>
+
+      {/* 在飞拉取进度行（快照来自 /api/models/local 的 pulling 字段） */}
+      {(data?.pulling ?? []).length > 0 && (
+        <div style={{ marginBottom: 12, display: "flex", flexDirection: "column", gap: 4 }}>
+          {data!.pulling!.map((p) => (
+            <div key={p.taskId} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <Text type="secondary" style={{ fontSize: 12, flexShrink: 0 }}>
+                {p.name}
+              </Text>
+              <Progress
+                percent={Math.round(p.progress)}
+                size="small"
+                status="active"
+                style={{ flex: 1, marginBottom: 0 }}
+              />
+            </div>
+          ))}
+        </div>
+      )}
 
       <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
         <Input

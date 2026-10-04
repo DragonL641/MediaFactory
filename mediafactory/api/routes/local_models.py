@@ -9,7 +9,11 @@ import re
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, field_validator
 
-from mediafactory.api.local_pull_task import active_pulls, start_pull
+from mediafactory.api.local_pull_task import (
+    active_pull_details,
+    active_pulls,
+    start_pull,
+)
 from mediafactory.i18n import t
 from mediafactory.llm.ollama_client import OllamaError, get_ollama_client
 
@@ -35,13 +39,15 @@ class LocalPullRequest(BaseModel):
 
 @router.get("/local")
 async def get_local_models() -> dict:
-    """Ollama 可用性与已安装模型列表。"""
+    """Ollama 可用性与已安装模型列表（含在飞拉取进度快照）。"""
     client = get_ollama_client()
+    pulling = await active_pull_details()
     if not await client.is_available():
-        return {"available": False, "models": []}
+        return {"available": False, "models": [], "pulling": pulling}
     models = await client.list_installed()
     return {
         "available": True,
+        "pulling": pulling,
         "models": [
             {
                 "name": m.name,

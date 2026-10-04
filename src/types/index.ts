@@ -140,9 +140,17 @@ export interface LocalModelInfo {
   modifiedAt: string;
 }
 
+export interface PullProgress {
+  name: string;
+  progress: number;
+  taskId: string;
+}
+
 export interface LocalModelsStatus {
   available: boolean;
   models: LocalModelInfo[];
+  /** 在飞拉取任务快照（轮询渲染进度行） */
+  pulling?: PullProgress[];
 }
 
 export interface ModelReadiness {
