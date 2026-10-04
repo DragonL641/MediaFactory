@@ -1,6 +1,6 @@
 """翻译引擎模块
 
-统一接口，内部实现本地翻译和 LLM 翻译。
+统一接口，通过 LLM API 后端翻译。
 """
 
 import threading
@@ -24,41 +24,17 @@ if TYPE_CHECKING:
     from ..llm.base import TranslationBackend
 
 
-# 翻译模型最大序列长度
-DEFAULT_MAX_LENGTH = 512
-# 本地翻译批量大小
-DEFAULT_BATCH_SIZE = 8
-
-
 class TranslationEngine:
-    """翻译引擎，支持本地模型和 LLM API"""
+    """翻译引擎，通过 LLM API 翻译"""
 
     def __init__(
         self,
-        use_local_models_only: bool = False,
-        model_type: str | None = None,
-        device: str = "auto",
         llm_backend: Optional["TranslationBackend"] = None,
         use_llm_backend: bool = False,
     ):
-        self.use_local_models_only = use_local_models_only
-        self.model_type = model_type
-        # 自动检测设备
-        if device == "auto":
-            from ..models.whisper_runtime import select_device
-
-            self.device = select_device()
-        else:
-            self.device = device
-        log_info(f"TranslationEngine initialized with device={self.device}")
         self.llm_backend = llm_backend
-        self.use_llm_backend = use_llm_backend and llm_backend is not None
-
         self._use_llm = (
-            self.use_llm_backend
-            and not self.use_local_models_only
-            and self.llm_backend
-            and self.llm_backend.is_available
+            use_llm_backend and llm_backend is not None and llm_backend.is_available
         )
         self._language_detector = None
         self._detector_lock = threading.Lock()
@@ -79,7 +55,6 @@ class TranslationEngine:
             with wrap_exceptions(
                 context={
                     "use_llm": self._use_llm,
-                    "model_type": self.model_type,
                     "src_lang": src_lang,
                     "tgt_lang": tgt_lang,
                 },
@@ -101,25 +76,17 @@ class TranslationEngine:
                     )
                     return result
 
-                # 选择翻译方式
-                if self._use_llm:
-                    try:
-                        return self._translate_with_llm(
-                            result, actual_src_lang, tgt_lang, progress
-                        )
-                    except OperationCancelledError:
-                        raise
-                    except ProcessingError as e:
-                        log_warning(
-                            f"LLM translation failed ({e.message}), "
-                            f"falling back to local model"
-                        )
-                    except Exception as e:
-                        log_warning(
-                            f"LLM translation failed ({e}), falling back to local model"
-                        )
+                if not self._use_llm:
+                    raise ProcessingError(
+                        message="LLM translation backend is not configured. "
+                        "Please configure an LLM preset in Settings.",
+                        context={
+                            "src_lang": actual_src_lang,
+                            "tgt_lang": tgt_lang,
+                        },
+                    )
 
-                return self._translate_with_local(
+                return self._translate_with_llm(
                     result, actual_src_lang, tgt_lang, progress
                 )
 
@@ -129,18 +96,15 @@ class TranslationEngine:
             raise
         except Exception as e:
             error_msg = str(e).lower()
-            engine_name = "LLM" if self._use_llm else "Local"
 
-            if self._use_llm and (
-                "api" in error_msg or "key" in error_msg or "auth" in error_msg
-            ):
+            if "api" in error_msg or "key" in error_msg or "auth" in error_msg:
                 backend_name = (
                     type(self.llm_backend).__name__ if self.llm_backend else "unknown"
                 )
                 raise ProcessingError(
                     message=f"LLM API translation failed: {backend_name}",
                     context={
-                        "engine": engine_name,
+                        "engine": "LLM",
                         "backend": backend_name,
                         "src_lang": src_lang,
                         "tgt_lang": tgt_lang,
@@ -151,7 +115,7 @@ class TranslationEngine:
                 raise convert_exception(
                     e,
                     context={
-                        "engine": engine_name,
+                        "engine": "LLM",
                         "src_lang": src_lang,
                         "tgt_lang": tgt_lang,
                     },
@@ -189,261 +153,6 @@ class TranslationEngine:
         log_language_detection(detection_result, context)
         return detection_result
 
-    # ==================== 本地翻译 ====================
-
-    def _translate_with_local(
-        self,
-        result: dict[str, Any],
-        src_lang: str,
-        tgt_lang: str,
-        progress: ProgressCallback,
-    ) -> dict[str, Any]:
-        """使用本地模型翻译"""
-        from ..models.translation_runtime import get_translation_model
-
-        log_step(
-            f"Translating from {get_language_name(src_lang)} to {get_language_name(tgt_lang)} using local model..."
-        )
-        log_info(f"[TranslationEngine] Using device: {self.device}")
-        log_info(f"[TranslationEngine] Model type: {self.model_type}")
-
-        # 加载模型
-        log_info(
-            f"[TranslationEngine] Loading translation model for {src_lang} -> {tgt_lang}..."
-        )
-        log_info(
-            "[TranslationEngine] This may take a while for large models (e.g., M2M100-1.2B)"
-        )
-        progress.update(5, t("progress.loadingTranslationModel"))
-
-        model_callable = get_translation_model(
-            src_lang, tgt_lang, device=self.device, progress=progress
-        )
-
-        if not model_callable:
-            raise ProcessingError(
-                message=f"Translation model loading failed for {get_language_name(src_lang)} -> {get_language_name(tgt_lang)}",
-                context={
-                    "model_type": self.model_type,
-                    "src_lang": src_lang,
-                    "tgt_lang": tgt_lang,
-                    "suggestion": "Please download the translation model",
-                },
-            )
-
-        log_info("[TranslationEngine] Translation model loaded successfully")
-        progress.update(15, t("progress.translationModelLoaded"))
-
-        # 执行翻译
-        segments = result.get("segments", [])
-        translated_segments = self._local_context_aware_translation(
-            segments, src_lang, tgt_lang, model_callable, progress
-        )
-
-        self._validate_translation_result(segments, translated_segments)
-
-        translated_result = result.copy()
-        translated_result["segments"] = translated_segments
-        return translated_result
-
-    def _local_context_aware_translation(
-        self,
-        segments: list[dict[str, Any]],
-        src_lang: str,
-        tgt_lang: str,
-        model_callable: Any,
-        progress: ProgressCallback,
-    ) -> list[dict[str, Any]]:
-        """本地模型批量翻译"""
-        from ..models.local_models import local_model_manager
-
-        if not segments:
-            return segments
-
-        total_segments = len(segments)
-
-        src_code = local_model_manager.get_lang_code(src_lang, self.model_type)
-        tgt_code = local_model_manager.get_lang_code(tgt_lang, self.model_type)
-
-        log_debug(f"[LocalTranslation] src_lang={src_lang} -> src_code={src_code}")
-        log_debug(f"[LocalTranslation] tgt_lang={tgt_lang} -> tgt_code={tgt_code}")
-        log_debug(
-            f"[LocalTranslation] Batch mode: size={DEFAULT_BATCH_SIZE}, "
-            f"total={total_segments} segments"
-        )
-
-        # 分批索引：记录每个 batch 对应的 segment 原始索引
-        translated_segments = [None] * total_segments
-        batch_size = DEFAULT_BATCH_SIZE
-
-        batch_start = 0
-        while batch_start < total_segments:
-            if progress.is_cancelled():
-                raise OperationCancelledError(
-                    message=t("error.translationCancelled"),
-                    context={
-                        "model_type": self.model_type,
-                        "segment_index": batch_start,
-                    },
-                )
-
-            batch_end = min(batch_start + batch_size, total_segments)
-
-            # 收集当前 batch 的非空文本及其索引
-            batch_indices = []
-            batch_texts = []
-            for idx in range(batch_start, batch_end):
-                text = segments[idx]["text"].strip()
-                if text:
-                    batch_indices.append(idx)
-                    batch_texts.append(text)
-
-            # 批量翻译非空文本
-            if batch_texts:
-                progress.update(
-                    ((batch_end) / total_segments) * 100,
-                    t(
-                        "progress.translatingSegment",
-                        current=batch_end,
-                        total=total_segments,
-                    ),
-                )
-
-                translated_texts = self._perform_batch_translation(
-                    batch_texts, src_code, tgt_code, model_callable
-                )
-
-                for j, idx in enumerate(batch_indices):
-                    new_segment = segments[idx].copy()
-                    new_segment["original_text"] = batch_texts[j]
-                    new_segment["text"] = translated_texts[j]
-                    translated_segments[idx] = new_segment
-
-            # 空文本直接复制
-            for idx in range(batch_start, batch_end):
-                if translated_segments[idx] is None:
-                    translated_segments[idx] = segments[idx].copy()
-
-            batch_start = batch_end
-
-        progress.update(100.0, t("progress.completed"))
-        return translated_segments
-
-    def _perform_batch_translation(
-        self,
-        texts: list[str],
-        src_code: str,
-        tgt_code: str,
-        model_callable: Any,
-    ) -> list[str]:
-        """批量翻译，失败时回退逐句翻译"""
-        try:
-            translations = model_callable(
-                texts,
-                max_length=DEFAULT_MAX_LENGTH,
-                truncation=True,
-            )
-            if (
-                translations
-                and isinstance(translations, list)
-                and len(translations) == len(texts)
-                and all(
-                    isinstance(t, dict) and "translation_text" in t
-                    for t in translations
-                )
-            ):
-                return [t["translation_text"] for t in translations]
-
-            # 结果格式不符，回退逐句
-            log_warning(
-                "Batch translation returned unexpected format, "
-                "falling back to per-sentence"
-            )
-            return self._fallback_per_sentence(
-                texts, src_code, tgt_code, model_callable
-            )
-        except Exception as batch_err:
-            # 批量失败，逐句重试
-            log_warning(
-                f"Batch translation failed ({batch_err}), falling back to per-sentence"
-            )
-            return self._fallback_per_sentence(
-                texts, src_code, tgt_code, model_callable
-            )
-
-    def _fallback_per_sentence(
-        self,
-        texts: list[str],
-        src_code: str,
-        tgt_code: str,
-        model_callable: Any,
-    ) -> list[str]:
-        """逐句翻译回退"""
-        results = []
-        for text in texts:
-            results.append(
-                self._perform_multilingual_translation(
-                    text, src_code, tgt_code, model_callable
-                )
-            )
-        return results
-
-    def _perform_multilingual_translation(
-        self, text: str, src_code: str, tgt_code: str, model_callable: Any
-    ) -> str:
-        """执行单条多语言翻译。失败时抛出异常，不静默返回原文。"""
-        try:
-            translation = model_callable(
-                text,
-                max_length=DEFAULT_MAX_LENGTH,
-                truncation=True,
-            )
-            if (
-                translation
-                and isinstance(translation, list)
-                and len(translation) > 0
-                and isinstance(translation[0], dict)
-                and "translation_text" in translation[0]
-            ):
-                return translation[0]["translation_text"]
-
-            raise ProcessingError(
-                message="本地翻译模型返回格式异常",
-                context={
-                    "src_code": src_code,
-                    "tgt_code": tgt_code,
-                    "text_preview": text[:100],
-                    "result_type": type(translation).__name__,
-                },
-            )
-        except ProcessingError:
-            raise
-        except Exception as e:
-            raise ProcessingError(
-                message=f"本地翻译失败: {e}",
-                context={
-                    "src_code": src_code,
-                    "tgt_code": tgt_code,
-                    "text_preview": text[:100],
-                    "error": str(e),
-                },
-            ) from e
-
-    def _validate_translation_result(
-        self,
-        original_segments: list[dict[str, Any]],
-        translated_segments: list[dict[str, Any]],
-    ) -> None:
-        """验证翻译结果"""
-        if len(original_segments) > 0:
-            first_orig = original_segments[0].get("text", "").strip()
-            first_trans = translated_segments[0].get("text", "").strip()
-            if first_orig == first_trans and len(first_orig) > 0:
-                log_warning("Translation may have failed (output matches input)")
-                log_info(
-                    "Please check if the translation model is downloaded correctly"
-                )
-
     # ==================== LLM 翻译 ====================
 
     def _translate_with_llm(
@@ -453,10 +162,10 @@ class TranslationEngine:
         tgt_lang: str,
         progress: ProgressCallback,
     ) -> dict[str, Any]:
-        """使用 LLM API 翻译（简化版）
+        """使用 LLM API 翻译
 
         降级逻辑在 OpenAICompatibleBackend 内部处理：
-        批量 → 纠正 → 分批 → 逐句 → 本地模型
+        批量 → 验证失败二分递归 → contentFilter 递归二分 → 失败句保留原文
         """
         from ..llm import TranslationRequest
 

@@ -76,18 +76,6 @@ export interface ModelStatus {
   enabled: boolean;
 }
 
-export interface TranslationModelInfo {
-  id: string;
-  name: string;
-  purpose: string;
-  tier: string;
-  size: string;
-  memory: string;
-  vram?: string;
-  downloaded: boolean;
-  complete: boolean;
-}
-
 export interface EnhancementModelInfo {
   id: string;
   name: string;
@@ -128,9 +116,6 @@ export interface AllModelsStatus {
   whisper: ModelStatus & {
     models?: WhisperModelInfo[];
   };
-  translation: ModelStatus & {
-    models: TranslationModelInfo[];
-  };
   llm: ModelStatus & {
     config?: LLMApiConfig;
   };
@@ -146,7 +131,6 @@ export interface AllModelsStatus {
 
 export interface ModelReadiness {
   whisper_ready: boolean;
-  translation_ready: boolean;
   enhancement_ready: boolean;
   llm: {
     configured_presets: string[];
@@ -190,7 +174,6 @@ export interface ModelConfig {
   download_source?: string;
   download_timeout?: number;
   models_dir?: string;
-  available_translation_models?: string[];
   whisper_models?: string[];
 }
 

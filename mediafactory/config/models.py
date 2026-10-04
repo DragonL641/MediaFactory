@@ -137,10 +137,6 @@ class ModelConfig(BaseModel):
         le=600,
         description="模型下载 HTTP 请求超时（秒）",
     )
-    available_translation_models: list[str] = Field(
-        default_factory=list,
-        description="已下载的翻译模型列表",
-    )
     whisper_models: list[str] = Field(
         default_factory=list,
         description="已下载的 Whisper 模型列表",
@@ -353,10 +349,6 @@ class AppConfig(BaseModel):
         default_factory=LoggingConfig,
         description="日志清理配置",
     )
-
-    def has_available_models(self) -> bool:
-        """检查是否有可用的翻译模型"""
-        return len(self.model.available_translation_models) > 0
 
     def to_toml_dict(self) -> dict[str, Any]:
         """转换为 TOML 兼容的字典"""

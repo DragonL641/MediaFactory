@@ -129,10 +129,6 @@ class AppConfigManager:
         """设置配置值"""
         self.update(**{f"{section}__{key}": value})
 
-    def has_available_models(self) -> bool:
-        """检查是否有可用的翻译模型"""
-        return self.config.has_available_models()
-
     def sync_models(self) -> None:
         """同步本地模型列表到配置文件
 
@@ -149,7 +145,6 @@ class AppConfigManager:
         from .defaults import get_data_root_dir
 
         models_dir = get_data_root_dir() / "models"
-        translation_models: list[str] = []
         whisper_models: list[str] = []
 
         if models_dir.exists():
@@ -172,25 +167,13 @@ class AppConfigManager:
                         continue
 
                     info = MODEL_REGISTRY.get(huggingface_id)
-                    if info:
-                        if info.model_type == ModelType.TRANSLATION:
-                            translation_models.append(huggingface_id)
-                        elif info.model_type == ModelType.WHISPER:
-                            whisper_models.append(huggingface_id)
+                    if info and info.model_type == ModelType.WHISPER:
+                        whisper_models.append(huggingface_id)
 
-        has_translation_changed = set(translation_models) != set(
-            self._config.model.available_translation_models
-        )
-        has_whisper_changed = set(whisper_models) != set(
-            self._config.model.whisper_models
-        )
-        if not has_translation_changed and not has_whisper_changed:
+        if set(whisper_models) == set(self._config.model.whisper_models):
             return
 
-        self.update(
-            model__available_translation_models=translation_models,
-            model__whisper_models=whisper_models,
-        )
+        self.update(model__whisper_models=whisper_models)
 
     # ==================== 私有方法 ====================
 
@@ -275,7 +258,7 @@ class AppConfigManager:
         """解析 model 配置节"""
         result = copy.deepcopy(section_data)
 
-        list_fields = ["available_translation_models", "whisper_models"]
+        list_fields = ["whisper_models"]
         for field in list_fields:
             if field in result:
                 value = result[field]
@@ -291,7 +274,6 @@ class AppConfigManager:
     ) -> None:
         """合并 local_models 配置节到 model"""
         field_mapping = {
-            "translation_models": "available_translation_models",
             "whisper_models": "whisper_models",
         }
 

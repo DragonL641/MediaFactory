@@ -30,9 +30,8 @@ from mediafactory.engine.audio import AudioEngine
 from mediafactory.engine.recognition import RecognitionEngine
 from mediafactory.engine.srt import SRTEngine
 from mediafactory.engine.translation import TranslationEngine
-from mediafactory.exceptions import ConfigurationError
+from mediafactory.exceptions import ConfigurationError, ProcessingError
 from mediafactory.llm import initialize_llm_backend
-from mediafactory.logging import log_error
 from mediafactory.pipeline import Pipeline
 from mediafactory.pipeline.context import ProcessingContext, ProcessingResult
 
@@ -41,7 +40,6 @@ from mediafactory.pipeline.context import ProcessingContext, ProcessingResult
 _audio_engine: AudioEngine | None = None
 _recognition_engine: RecognitionEngine | None = None
 _srt_engine: SRTEngine | None = None
-_local_translation_engine: TranslationEngine | None = None
 
 
 def _get_audio_engine() -> AudioEngine:
@@ -65,24 +63,15 @@ def _get_srt_engine() -> SRTEngine:
     return _srt_engine
 
 
-def _get_local_translation_engine() -> TranslationEngine:
-    global _local_translation_engine
-    if _local_translation_engine is None:
-        _local_translation_engine = TranslationEngine()
-    return _local_translation_engine
-
-
 # ==================== 前置条件 ====================
 
 _READINESS_KEYS = {
     "whisper": "whisper_ready",
-    "translation_local": "translation_ready",
     "enhancement": "enhancement_ready",
 }
 
 _READINESS_MESSAGES = {
     "whisper": "Whisper model not downloaded. Please go to Settings to download a Whisper model.",
-    "translation_local": "Translation model not downloaded. Please go to Settings to download a translation model.",
     "enhancement": "Enhancement models not fully downloaded. Please go to Settings to download all enhancement models.",
 }
 
@@ -102,13 +91,19 @@ def _require_ready(key: str) -> None:
 
 
 def _select_translation_engine(config: TaskConfig) -> TranslationEngine:
-    """按任务配置选择翻译引擎：LLM 优先，初始化失败回退本地。"""
-    if config.use_llm:
-        backend = initialize_llm_backend(get_config(), preset=config.llm_preset)
-        if backend and backend.is_available:
-            return TranslationEngine(llm_backend=backend, use_llm_backend=True)
-        log_error("LLM backend initialization failed, falling back to local model")
-    return _get_local_translation_engine()
+    """构建 LLM 翻译引擎。翻译任务必须启用 LLM；初始化失败即报错。"""
+    if not config.use_llm:
+        raise ConfigurationError(
+            message="LLM translation is required for translation tasks. "
+            "Please enable LLM translation in task settings."
+        )
+    backend = initialize_llm_backend(get_config(), preset=config.llm_preset)
+    if not (backend and backend.is_available):
+        raise ConfigurationError(
+            message="LLM backend initialization failed. "
+            "Please check LLM settings in Settings page."
+        )
+    return TranslationEngine(llm_backend=backend, use_llm_backend=True)
 
 
 # ==================== 任务执行函数 ====================
@@ -243,27 +238,32 @@ async def _translate_text(
     target_lang = config.target_lang
     loop = asyncio.get_running_loop()
 
-    if config.use_llm:
-        backend = initialize_llm_backend(get_config(), preset=config.llm_preset)
-        if backend and backend.is_available:
-            try:
-                from mediafactory.llm import TranslationRequest
+    if not config.use_llm:
+        raise ConfigurationError(
+            message="LLM translation is required for translation tasks. "
+            "Please enable LLM translation in task settings."
+        )
 
-                request = TranslationRequest(
-                    text=text, src_lang="auto", tgt_lang=target_lang
-                )
-                result = await loop.run_in_executor(None, backend.translate, request)
-                if result.success:
-                    translated = result.translated_text
-                else:
-                    raise Exception(result.error_message or "LLM translation failed")
-            except Exception as e:
-                translated = await _translate_text_locally(text, target_lang, e)
-        else:
-            log_error("LLM backend unavailable, falling back to local model")
-            translated = await _translate_text_locally(text, target_lang, None)
-    else:
-        translated = await _translate_text_locally(text, target_lang, None)
+    backend = initialize_llm_backend(get_config(), preset=config.llm_preset)
+    if not (backend and backend.is_available):
+        raise ConfigurationError(
+            message="LLM backend unavailable. "
+            "Please check LLM settings in Settings page."
+        )
+
+    from mediafactory.llm import TranslationRequest
+
+    request = TranslationRequest(text=text, src_lang="auto", tgt_lang=target_lang)
+    result = await loop.run_in_executor(None, backend.translate, request)
+    if not result.success:
+        raise ProcessingError(
+            message=result.error_message or "LLM translation failed",
+            context={"target_lang": target_lang},
+        )
+
+    translated = result.translated_text
+    if isinstance(translated, list):
+        translated = translated[0] if translated else ""
 
     return ProcessingResult(
         success=True,
@@ -273,24 +273,6 @@ async def _translate_text(
             "target_lang": target_lang,
         },
     )
-
-
-async def _translate_text_locally(
-    text: str, target_lang: str, llm_error: Exception | None
-) -> str:
-    """本地引擎翻译单条文本（segments 包装协议）；LLM 失败时记录回退原因。"""
-    from mediafactory.logging import log_info
-
-    if llm_error is not None:
-        log_info(
-            f"LLM text translation failed: {llm_error}, falling back to local model"
-        )
-    loop = asyncio.get_running_loop()
-    wrapped = {"segments": [{"text": text}]}
-    result = await loop.run_in_executor(
-        None, _get_local_translation_engine().translate, wrapped, "auto", target_lang
-    )
-    return result["segments"][0]["text"]
 
 
 async def run_enhance(

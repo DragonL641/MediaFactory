@@ -8,7 +8,7 @@ Uses the unified model registry with huggingface_id as identifier.
 Usage:
     python download_model.py <huggingface_id> [options]
     python download_model.py Systran/faster-whisper-large-v3
-    python download_model.py facebook/m2m100_1.2B --source=https://hf-mirror.com
+    python download_model.py Systran/faster-whisper-large-v3 --source=https://hf-mirror.com
 
 This is a CLI wrapper around the core download functionality in
 mediafactory/models/model_download.py
@@ -20,6 +20,7 @@ from pathlib import Path
 # Add project root to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
+from mediafactory.config import get_config_manager
 from mediafactory.models.model_download import (
     delete_model,
     download_model,
@@ -29,9 +30,7 @@ from mediafactory.models.model_registry import (
     get_all_model_statuses,
     get_display_name,
     get_model_info,
-    is_model_downloaded,
 )
-from mediafactory.config import get_config_manager
 
 
 def get_project_root() -> Path:
@@ -180,18 +179,18 @@ def main():
 
         print(f"\n✓ Successfully downloaded {model_info.display_name}")
         print(f"  Location: {local_path_result}")
-        print(f"  Config updated: Model added to available list")
+        print("  Config updated: Model added to available list")
 
     except KeyboardInterrupt:
         print("\n\nDownload cancelled by user")
         sys.exit(1)
     except Exception as e:
-        print(f"\n✗ Error downloading model")
+        print("\n✗ Error downloading model")
         print(f"  Details: {e}")
-        print(f"\nTips:")
-        print(f"  - Check your network connection")
-        print(f"  - Try using a mirror: --source=https://hf-mirror.com")
-        print(f"  - Verify the model ID with --list")
+        print("\nTips:")
+        print("  - Check your network connection")
+        print("  - Try using a mirror: --source=https://hf-mirror.com")
+        print("  - Verify the model ID with --list")
         sys.exit(1)
 
 

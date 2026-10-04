@@ -26,7 +26,6 @@ import {
   SaveOutlined,
   ReloadOutlined,
   SoundOutlined,
-  TranslationOutlined,
   CloudOutlined,
   EyeOutlined,
   PlusOutlined,
@@ -220,7 +219,6 @@ const SettingsPage: React.FC = () => {
 
   // 模型数据
   const whisperModels = modelsStatus?.whisper?.models || [];
-  const translationModels = modelsStatus?.translation?.models || [];
   const enhancementModels = modelsStatus?.enhancement?.models || [];
   const denoiseModels = modelsStatus?.denoise?.models || [];
 
@@ -290,35 +288,6 @@ const SettingsPage: React.FC = () => {
             <Form.Item name={["whisper", "vad_filter"]} label={t("settings:whisper.vadFilter")} valuePropName="checked" tooltip={t("settings:whisper.vadFilterTooltip")}>
               <Switch />
             </Form.Item>
-          </div>
-        </div>
-
-        {/* 区块 2: Local Translation Models */}
-        <div className="settings-section-card" style={{ marginBottom: 24 }}>
-          <div className="section-title">
-            <span className="section-title-icon"><TranslationOutlined /></span>
-            <span>{t("settings:sections.localTranslation")}</span>
-          </div>
-
-          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-            {translationModels.map((m) => (
-              <SettingsModelCard
-                key={m.id}
-                name={m.purpose || m.name}
-                subtitle={m.vram
-                  ? t("models:card.subtitleWithVram", { name: m.name, size: m.size, memory: m.memory, vram: m.vram })
-                  : t("models:card.subtitle", { name: m.name, size: m.size, memory: m.memory })
-                }
-                downloaded={m.downloaded}
-                complete={m.complete}
-                isDownloading={downloadingId === m.id}
-                downloadProgress={downloadProgress}
-                downloadError={downloadingId === m.id ? undefined : downloadError || undefined}
-                downloadDisabled={isAnyDownloading && downloadingId !== m.id}
-                onDownload={() => handleDownload(m.id)}
-                onDelete={() => handleDeleteModel(m.id)}
-              />
-            ))}
           </div>
         </div>
 

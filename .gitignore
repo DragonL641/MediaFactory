@@ -186,3 +186,6 @@ node_modules
 
 # Playwright CLI 冒烟产物
 .playwright-cli/
+
+# 竞品对比等工作区临时目录
+tmp/

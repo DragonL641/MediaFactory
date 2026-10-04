@@ -49,7 +49,7 @@ async def get_models_status() -> dict[str, Any]:
     """
     获取所有模型状态
 
-    返回 Whisper、翻译模型、LLM、增强模型、降噪模型的状态信息。
+    返回 Whisper、LLM、增强模型、降噪模型的状态信息。
     使用 60 秒缓存减少文件系统检查。
     """
     global _models_status_cache, _models_status_cache_time
@@ -62,11 +62,7 @@ async def get_models_status() -> dict[str, Any]:
         return _models_status_cache
 
     whisper_status = _status_service.get_whisper_status()
-    translation_status = _status_service.get_translation_status()
     llm_status = _status_service.get_llm_status()
-
-    # 获取翻译模型详情
-    translation_models = _status_service.get_translation_model_statuses()
 
     enhancement_models = _get_enhancement_model_statuses()
     denoise_models = _get_denoise_model_statuses()
@@ -81,13 +77,6 @@ async def get_models_status() -> dict[str, Any]:
             "available": whisper_status.available,
             "enabled": whisper_status.enabled,
             "models": whisper_models,
-        },
-        "translation": {
-            "name": translation_status.name,
-            "loaded": translation_status.loaded,
-            "available": translation_status.available,
-            "enabled": translation_status.enabled,
-            "models": translation_models,
         },
         "llm": {
             "name": llm_status.name,
@@ -179,20 +168,6 @@ async def get_whisper_status() -> dict[str, Any]:
         "loaded": status.loaded,
         "available": status.available,
         "enabled": status.enabled,
-    }
-
-
-@router.get("/translation")
-async def get_translation_status() -> dict[str, Any]:
-    """获取翻译模型状态"""
-    status = _status_service.get_translation_status()
-    models = _status_service.get_translation_model_statuses()
-    return {
-        "name": status.name,
-        "loaded": status.loaded,
-        "available": status.available,
-        "enabled": status.enabled,
-        "models": models,
     }
 
 

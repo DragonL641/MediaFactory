@@ -82,7 +82,7 @@ class TestTranslationInterpolation:
 
     def test_multiple_variables(self):
         result = t(
-            "progress.translatingSegment",
+            "progress.processingFrames",
             current="5",
             total="20",
         )

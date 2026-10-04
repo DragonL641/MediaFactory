@@ -5,7 +5,6 @@
   },
   "sections": {
     "speechRecognition": "Speech Recognition",
-    "localTranslation": "Local Translation Models",
     "remoteLLM": "Remote LLM Providers",
     "videoEnhancement": "Video Enhancement",
     "huggingfaceHub": "HuggingFace Hub",

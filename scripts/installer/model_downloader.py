@@ -6,10 +6,10 @@
 注意：ModelType 从 model_registry 导入，保持统一。
 """
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
-from typing import Callable, List, Optional
 
 # 从统一的模型注册表导入 ModelType
 from ..models.model_registry import ModelType
@@ -60,16 +60,13 @@ MODEL_SOURCES = {
 }
 
 
-def get_default_models() -> List[ModelInfo]:
+def get_default_models() -> list[ModelInfo]:
     """从注册表获取默认推荐模型列表
 
     Returns:
         推荐下载的模型列表
     """
-    from ..models.model_registry import (
-        get_all_translation_models,
-        get_whisper_model_info,
-    )
+    from ..models.model_registry import get_whisper_model_info
 
     models = []
 
@@ -85,21 +82,6 @@ def get_default_models() -> List[ModelInfo]:
         )
     )
 
-    # 添加推荐的翻译模型（内存最小的）
-    translation_models = get_all_translation_models()
-    if translation_models:
-        # 选择内存需求最小的模型作为默认
-        best = min(translation_models, key=lambda m: m.runtime_memory_gb)
-        models.append(
-            ModelInfo(
-                model_id=best.huggingface_id,
-                alias=best.model_id.split("/")[-1],
-                model_type=ModelType.TRANSLATION,
-                size_gb=best.model_size_gb,
-                display_name=best.display_name,
-            )
-        )
-
     return models
 
 
@@ -110,7 +92,7 @@ class ModelDownloader:
     支持断点续传和镜像源选择。
     """
 
-    def __init__(self, project_root: Optional[Path] = None):
+    def __init__(self, project_root: Path | None = None):
         """初始化下载器
 
         Args:
@@ -155,7 +137,7 @@ class ModelDownloader:
         self,
         model_info: ModelInfo,
         source: ModelSource = ModelSource.MIRROR_CHINA,
-        progress_callback: Optional[ProgressCallback] = None,
+        progress_callback: ProgressCallback | None = None,
     ) -> bool:
         """下载模型
 
@@ -200,9 +182,9 @@ class ModelDownloader:
 
     def download_models(
         self,
-        models: List[ModelInfo],
+        models: list[ModelInfo],
         source: ModelSource = ModelSource.MIRROR_CHINA,
-        progress_callback: Optional[ProgressCallback] = None,
+        progress_callback: ProgressCallback | None = None,
     ) -> bool:
         """下载多个模型
 
@@ -271,7 +253,7 @@ class ModelDownloader:
 
         return success_count == total
 
-    def get_downloaded_models(self) -> List[str]:
+    def get_downloaded_models(self) -> list[str]:
         """获取已下载的模型列表
 
         Returns:

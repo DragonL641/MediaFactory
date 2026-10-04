@@ -84,7 +84,6 @@ class TestModelConfig:
         assert cfg.local_model_path == Path("./models")
         assert cfg.download_source == "https://hf-mirror.com"
         assert cfg.download_timeout == 30
-        assert cfg.available_translation_models == []
         assert cfg.whisper_models == []
 
     def test_download_timeout_constraint(self):
@@ -229,16 +228,6 @@ class TestAppConfig:
     def test_app_language_default(self):
         cfg = AppConfig()
         assert cfg.app.language == "en"
-
-    def test_has_available_models_false_by_default(self):
-        cfg = AppConfig()
-        assert cfg.has_available_models() is False
-
-    def test_has_available_models_true_when_models_exist(self):
-        cfg = AppConfig(
-            model=ModelConfig(available_translation_models=["facebook/m2m100_1.2B"])
-        )
-        assert cfg.has_available_models() is True
 
     def test_to_toml_dict_structure(self):
         cfg = AppConfig()

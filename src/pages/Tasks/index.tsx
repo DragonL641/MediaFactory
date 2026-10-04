@@ -66,13 +66,6 @@ const TasksPage: React.FC = () => {
         affectedTypes: ["Subtitle", "Transcribe"],
       });
     }
-    if (!readiness.translation_ready) {
-      warnings.push({
-        key: "translation",
-        message: t("tasks:readiness.translationWarning"),
-        affectedTypes: ["Translate"],
-      });
-    }
     if (!readiness.enhancement_ready) {
       warnings.push({
         key: "enhancement",

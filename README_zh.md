@@ -39,7 +39,7 @@
 
 ### 🤖 统一模型管理
 
-在设置页面统一管理所有模型 — 下载并配置本地模型（Whisper、M2M100）实现完全离线处理，或接入 6+ 种 LLM 服务（OpenAI、DeepSeek、智谱 GLM、通义千问、Moonshot 或自定义端点）进行云端翻译。你的选择，你的隐私。
+在设置页面统一管理所有模型 — 下载本地 Whisper 模型实现完全离线的语音识别，或接入 6+ 种 LLM 服务（OpenAI、DeepSeek、智谱 GLM、通义千问、Moonshot、Ollama 或自定义端点）进行翻译。你的选择，你的隐私。
 
 <p align="center">
   <img src="docs/images/ModelConfig.png" alt="模型配置" width="500"/>
@@ -60,10 +60,7 @@ cd MediaFactory
 uv sync --group core          # Python 后端依赖（包含 CUDA 12.8 版本的 PyTorch）
 npm install                   # Web 前端依赖
 
-# 3. 下载模型（首次运行前必须）
-uv run python scripts/utils/download_model.py facebook/m2m100_1.2B
-
-# 4. 运行应用
+# 3. 运行应用
 npm run build                          # 构建 Web UI（产物输出到 webui/）
 uv run python -m mediafactory          # 启动 daemon，浏览器打开 http://127.0.0.1:8765
 ```
@@ -133,17 +130,7 @@ AI 视频工具往往让你在质量和速度之间、云端便利和隐私之�
 
 **模型选择**：使用 `faster-whisper-large-v3` 进行语音识别，推荐使用 GPU 获得最佳性能。
 
-**翻译质量**：LLM 翻译通常比本地模型产生更自然的结果。对隐私要求高时使用本地模型。
-
-**模型下载**：首次运行前需下载翻译模型：
-
-```bash
-# 列出可用模型
-uv run python scripts/utils/download_model.py --list
-
-# 下载翻译模型
-uv run python scripts/utils/download_model.py facebook/m2m100_1.2B
-```
+**翻译**：需在设置页面配置 LLM 服务 — 云端 LLM API（OpenAI、DeepSeek、GLM 等）或本地端点（Ollama）。个别句子翻译失败时将保留原文，并在日志中汇总提示。
 
 **日志文件**：所有日志写入应用目录下的 `logs/LOG-YYYY-MM-DD-HHMM.log`。
 

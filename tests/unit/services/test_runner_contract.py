@@ -146,16 +146,6 @@ class FakeSRTEngine:
         return list(type(self).stub_segments)
 
 
-class FakeLocalEngine:
-    """本地翻译引擎替身：记录调用并回显翻译。"""
-
-    calls = []
-
-    def translate(self, wrapped, src, tgt):
-        type(self).calls.append((wrapped, src, tgt))
-        return {"segments": [{"text": f"[{tgt}] {wrapped['segments'][0]['text']}"}]}
-
-
 class FakeEngineEnhancementConfig:
     """引擎侧 EnhancementConfig 替身：记录构造 kwargs。
 
@@ -198,7 +188,6 @@ def reset_fake_state():
     FakeRecognitionEngine.instances.clear()
     RecordingTranslationEngine.instances.clear()
     RecordingTranslationEngine.init_kwargs.clear()
-    FakeLocalEngine.calls.clear()
     FakeEngineEnhancementConfig.init_kwargs.clear()
     FakeEnhancementEngine.instances.clear()
     FakeEnhancementEngine.enhance_calls.clear()
@@ -206,7 +195,6 @@ def reset_fake_state():
     runner_module._audio_engine = None
     runner_module._recognition_engine = None
     runner_module._srt_engine = None
-    runner_module._local_translation_engine = None
     runner_module._readiness_service = None
     yield
 
@@ -224,7 +212,7 @@ def make_config(**overrides) -> TaskConfig:
 
 
 class TestRunSubtitle:
-    def test_local_mode_builds_context_and_binds_engines(self, monkeypatch):
+    def test_llm_mode_builds_context_and_binds_engines(self, monkeypatch):
         monkeypatch.setattr(runner_module, "Pipeline", FakeDefaultPipeline)
         monkeypatch.setattr(runner_module, "AudioEngine", FakeAudioEngine)
         monkeypatch.setattr(runner_module, "RecognitionEngine", FakeRecognitionEngine)
@@ -232,12 +220,18 @@ class TestRunSubtitle:
         monkeypatch.setattr(
             runner_module, "TranslationEngine", RecordingTranslationEngine
         )
+        monkeypatch.setattr(
+            runner_module,
+            "initialize_llm_backend",
+            lambda *a, **k: FakeLLMBackend(is_available=True),
+        )
 
         result = run(
             run_subtitle(
                 make_config(
                     source_lang="en",
                     target_lang="ja",
+                    use_llm=True,
                     subtitle_config=SubtitleConfig(output_format="ass"),
                 ),
                 NO_OP_PROGRESS,
@@ -246,14 +240,14 @@ class TestRunSubtitle:
 
         assert result.success is True
         assert result.output_path == "out/sub.srt"
-        # 契约：四个引擎按位传入 create_default，翻译位=本地缓存引擎
+        # 契约：四个引擎按位传入 create_default，翻译位为本次新建的 LLM 引擎
         received = FakeDefaultPipeline.received_engines
         assert received is not None
         audio, recognition, translation, srt = received
         assert audio is runner_module._audio_engine
         assert recognition is runner_module._recognition_engine
         assert srt is runner_module._srt_engine
-        assert translation is runner_module._local_translation_engine
+        assert translation is RecordingTranslationEngine.instances[0]
         ctx = FakeDefaultPipeline.last_context
         assert ctx is not None
         assert ctx.video_path == "v.mp4"
@@ -265,26 +259,27 @@ class TestRunSubtitle:
     def test_subtitle_src_lang_auto_passthrough(self, monkeypatch):
         """契约：subtitle 的 src_lang 原值传递（含 auto，与旧 SubtitleService 一致）。"""
         monkeypatch.setattr(runner_module, "Pipeline", FakeDefaultPipeline)
+        monkeypatch.setattr(
+            runner_module,
+            "initialize_llm_backend",
+            lambda *a, **k: FakeLLMBackend(is_available=True),
+        )
 
-        run(run_subtitle(make_config(source_lang="auto"), NO_OP_PROGRESS))
+        run(run_subtitle(make_config(source_lang="auto", use_llm=True), NO_OP_PROGRESS))
 
         ctx = FakeDefaultPipeline.last_context
         assert ctx is not None
         assert ctx.src_lang == "auto"
 
-    def test_llm_unavailable_falls_back_to_local(self, monkeypatch):
+    def test_llm_unavailable_raises_configuration_error(self, monkeypatch):
+        """契约：LLM 初始化失败直接报 ConfigurationError（本地回退已移除）。"""
         monkeypatch.setattr(runner_module, "Pipeline", FakeDefaultPipeline)
         monkeypatch.setattr(
             runner_module, "initialize_llm_backend", lambda *a, **k: None
         )
 
-        result = run(run_subtitle(make_config(use_llm=True), NO_OP_PROGRESS))
-
-        assert result.success is True
-        received = FakeDefaultPipeline.received_engines
-        assert received is not None
-        # 契约：LLM 初始化失败回退到本地缓存引擎（第 3 位）
-        assert received[2] is runner_module._local_translation_engine
+        with pytest.raises(ConfigurationError, match="LLM backend initialization"):
+            run(run_subtitle(make_config(use_llm=True), NO_OP_PROGRESS))
 
     def test_subtitle_llm_backend_binds_to_pipeline(self, monkeypatch):
         """契约：LLM 可用时新建引擎绑定 llm_backend 且 use_llm_backend=True。"""
@@ -304,7 +299,6 @@ class TestRunSubtitle:
         assert received is not None
         # 契约：第 3 位是本次为 LLM 新建的引擎（非本地缓存），构造 kwargs 绑定 backend
         assert received[2] is RecordingTranslationEngine.instances[0]
-        assert received[2] is not runner_module._local_translation_engine
         assert RecordingTranslationEngine.init_kwargs[0]["llm_backend"] is backend
         assert RecordingTranslationEngine.init_kwargs[0]["use_llm_backend"] is True
 
@@ -335,8 +329,13 @@ class TestRunSubtitle:
                 return failure
 
         monkeypatch.setattr(runner_module, "Pipeline", FailingPipeline)
+        monkeypatch.setattr(
+            runner_module,
+            "initialize_llm_backend",
+            lambda *a, **k: FakeLLMBackend(is_available=True),
+        )
 
-        result = run(run_subtitle(make_config(), NO_OP_PROGRESS))
+        result = run(run_subtitle(make_config(use_llm=True), NO_OP_PROGRESS))
 
         # 同一实例原样返回（旧 service 层的重包正是丢掉了 error_context）
         assert result is failure
@@ -413,27 +412,20 @@ class TestRunTranscribe:
 
 
 class TestRunTranslate:
-    def test_text_local_wraps_and_unwraps_segments(self, monkeypatch):
-        runner_module._local_translation_engine = FakeLocalEngine()
+    def test_text_mode_without_llm_raises(self):
+        """契约：use_llm=False 的文本翻译直接报 ConfigurationError（本地模型已移除）。"""
 
-        result = run(
-            run_translate(
-                make_config(
-                    task_type=TaskType.TRANSLATE, input_text="hello", target_lang="zh"
-                ),
-                NO_OP_PROGRESS,
+        with pytest.raises(ConfigurationError, match="LLM translation is required"):
+            run(
+                run_translate(
+                    make_config(
+                        task_type=TaskType.TRANSLATE,
+                        input_text="hello",
+                        target_lang="zh",
+                    ),
+                    NO_OP_PROGRESS,
+                )
             )
-        )
-
-        assert result.success is True
-        assert result.metadata["translated_text"] == "[zh] hello"
-        assert result.metadata["original_text"] == "hello"
-        assert result.metadata["target_lang"] == "zh"
-        # 契约：本地引擎收到的必须是 segments 包装格式，源语言 auto
-        wrapped, src, tgt = FakeLocalEngine.calls[0]
-        assert wrapped == {"segments": [{"text": "hello"}]}
-        assert src == "auto"
-        assert tgt == "zh"
 
     def test_translate_text_llm_success_path(self, monkeypatch):
         """契约：LLM 文本翻译成功时结果直接来自 backend，不经本地引擎。"""
@@ -447,7 +439,6 @@ class TestRunTranslate:
         monkeypatch.setattr(
             runner_module, "initialize_llm_backend", lambda *a, **k: backend
         )
-        runner_module._local_translation_engine = FakeLocalEngine()
 
         result = run(
             run_translate(
@@ -463,42 +454,40 @@ class TestRunTranslate:
 
         assert result.success is True
         assert result.metadata["translated_text"] == "[llm] 你好"
-        # LLM 成功路径不触碰本地引擎
-        assert FakeLocalEngine.calls == []
         assert len(backend.translate_calls) == 1
 
-    def test_translate_text_llm_failure_falls_back_to_local(self, monkeypatch):
-        """契约：LLM 文本翻译抛异常时回退本地引擎。"""
+    def test_translate_text_llm_failure_raises(self, monkeypatch):
+        """契约：LLM 文本翻译抛异常时上抛（由 TaskManager 标记 FAILED）。"""
         backend = FakeLLMBackend(
             is_available=True, translate_error=RuntimeError("api down")
         )
         monkeypatch.setattr(
             runner_module, "initialize_llm_backend", lambda *a, **k: backend
         )
-        runner_module._local_translation_engine = FakeLocalEngine()
 
-        result = run(
-            run_translate(
-                make_config(
-                    task_type=TaskType.TRANSLATE,
-                    input_text="hello",
-                    target_lang="zh",
-                    use_llm=True,
-                ),
-                NO_OP_PROGRESS,
+        with pytest.raises(RuntimeError, match="api down"):
+            run(
+                run_translate(
+                    make_config(
+                        task_type=TaskType.TRANSLATE,
+                        input_text="hello",
+                        target_lang="zh",
+                        use_llm=True,
+                    ),
+                    NO_OP_PROGRESS,
+                )
             )
-        )
-
-        assert result.success is True
-        # 回退到本地引擎的 segments 包装协议
-        assert result.metadata["translated_text"] == "[zh] hello"
-        assert len(FakeLocalEngine.calls) == 1
 
     def test_srt_file_builds_translation_pipeline(self, monkeypatch):
         monkeypatch.setattr(runner_module, "Pipeline", FakeTranslationPipeline)
         monkeypatch.setattr(runner_module, "SRTEngine", FakeSRTEngine)
         monkeypatch.setattr(
             runner_module, "TranslationEngine", RecordingTranslationEngine
+        )
+        monkeypatch.setattr(
+            runner_module,
+            "initialize_llm_backend",
+            lambda *a, **k: FakeLLMBackend(is_available=True),
         )
 
         result = run(
@@ -508,6 +497,7 @@ class TestRunTranslate:
                     input_path="in/sub.srt",
                     target_lang="ja",
                     output_format="ass",
+                    use_llm=True,
                 ),
                 NO_OP_PROGRESS,
             )
@@ -528,6 +518,11 @@ class TestRunTranslate:
     def test_srt_file_explicit_output_path_takes_priority(self, monkeypatch):
         monkeypatch.setattr(runner_module, "Pipeline", FakeTranslationPipeline)
         monkeypatch.setattr(runner_module, "SRTEngine", FakeSRTEngine)
+        monkeypatch.setattr(
+            runner_module,
+            "initialize_llm_backend",
+            lambda *a, **k: FakeLLMBackend(is_available=True),
+        )
 
         run(
             run_translate(
@@ -536,6 +531,7 @@ class TestRunTranslate:
                     input_path="in/sub.srt",
                     target_lang="ja",
                     output_path="custom/out.srt",
+                    use_llm=True,
                 ),
                 NO_OP_PROGRESS,
             )
@@ -579,16 +575,10 @@ class TestRunTranslate:
                 )
             )
 
-    def test_local_mode_checks_translation_readiness(self, monkeypatch):
-        """契约：非 LLM 翻译必须过 translation_local readiness 门。"""
+    def test_local_mode_raises_configuration_error(self):
+        """契约：use_llm=False 的翻译任务直接报 ConfigurationError（本地模型已移除）。"""
 
-        def raise_no_model(key):
-            assert key == "translation_local"
-            raise ConfigurationError(message="no model")
-
-        monkeypatch.setattr(runner_module, "_require_ready", raise_no_model)
-
-        with pytest.raises(ConfigurationError):
+        with pytest.raises(ConfigurationError, match="LLM translation is required"):
             run(
                 run_translate(
                     make_config(

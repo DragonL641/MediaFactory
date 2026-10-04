@@ -5,7 +5,6 @@
   },
   "sections": {
     "speechRecognition": "语音识别",
-    "localTranslation": "本地翻译模型",
     "remoteLLM": "远端 LLM 供应商",
     "videoEnhancement": "视频增强",
     "huggingfaceHub": "HuggingFace Hub",

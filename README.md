@@ -39,7 +39,7 @@ Drag and drop multiple files or entire folders. Set source/target languages and 
 
 ### 🤖 Unified Model Management
 
-Manage all models in one place — the Settings page. Download and configure local models (Whisper, M2M100) for fully offline processing, or connect to 6+ LLM providers (OpenAI, DeepSeek, GLM, Qwen, Moonshot, or custom endpoints) for cloud-based translation. Your choice, your privacy.
+Manage all models in one place — the Settings page. Download local Whisper models for fully offline speech recognition, or connect to 6+ LLM providers (OpenAI, DeepSeek, GLM, Qwen, Moonshot, Ollama, or custom endpoints) for translation. Your choice, your privacy.
 
 <p align="center">
   <img src="docs/images/ModelConfig.png" alt="Model Configuration" width="500"/>
@@ -60,10 +60,7 @@ cd MediaFactory
 uv sync --group core          # Python backend deps (includes PyTorch with CUDA 12.8)
 npm install                   # Web UI deps
 
-# 3. Download models (required before first run)
-uv run python scripts/utils/download_model.py facebook/m2m100_1.2B
-
-# 4. Run the application
+# 3. Run the application
 npm run build                          # Build the Web UI (outputs to webui/)
 uv run python -m mediafactory          # Start the daemon, then open http://127.0.0.1:8765 in your browser
 ```
@@ -133,17 +130,7 @@ AI video tools often force you to choose between quality and speed, or between c
 
 **Model selection**: Uses `faster-whisper-large-v3` for speech recognition. GPU recommended for best performance.
 
-**Translation quality**: LLM translation generally produces more natural results than local models. Use local models when privacy is critical.
-
-**Model download**: Download translation model before first run:
-
-```bash
-# List available models
-uv run python scripts/utils/download_model.py --list
-
-# Download translation model
-uv run python scripts/utils/download_model.py facebook/m2m100_1.2B
-```
+**Translation**: Requires an LLM provider configured in Settings — cloud LLM APIs (OpenAI, DeepSeek, GLM, etc.) or a local endpoint (Ollama). If some sentences fail to translate, they are kept in the original language and summarized in the logs.
 
 **Log files**: All logs are written to `logs/LOG-YYYY-MM-DD-HHMM.log` in the application directory.
 

@@ -61,11 +61,26 @@
     "enhance": "视频增强"
   },
   "typeOptions": {
-    "subtitle": { "title": "字幕生成器", "description": "从视频文件生成字幕" },
-    "audio": { "title": "音频提取器", "description": "从视频文件提取音频" },
-    "transcribe": { "title": "语音转文字", "description": "将语音转换为文本（SRT 格式）" },
-    "translate": { "title": "字幕翻译器", "description": "翻译 SRT 字幕文件" },
-    "enhance": { "title": "视频增强", "description": "使用 AI 超分辨率增强视频画质" }
+    "subtitle": {
+      "title": "字幕生成器",
+      "description": "从视频文件生成字幕"
+    },
+    "audio": {
+      "title": "音频提取器",
+      "description": "从视频文件提取音频"
+    },
+    "transcribe": {
+      "title": "语音转文字",
+      "description": "将语音转换为文本（SRT 格式）"
+    },
+    "translate": {
+      "title": "字幕翻译器",
+      "description": "翻译 SRT 字幕文件"
+    },
+    "enhance": {
+      "title": "视频增强",
+      "description": "使用 AI 超分辨率增强视频画质"
+    }
   },
   "createDialog": {
     "title": "创建任务",
@@ -86,11 +101,9 @@
   "readiness": {
     "title": "前置条件未就绪",
     "whisperWarning": "Whisper 模型未下载",
-    "translationWarning": "翻译模型未下载",
     "enhancementWarning": "增强模型未完全下载",
     "goToSettings": "前往设置",
     "whisperRequired": "Whisper 模型未下载",
-    "translationRequired": "翻译模型未下载",
     "enhancementRequired": "增强模型未完全下载"
   }
 }

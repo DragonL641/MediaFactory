@@ -4,7 +4,7 @@ import os
 
 from ..exceptions import ProcessingError
 from ..i18n import t
-from ..logging import log_info, log_step, log_success, log_warning
+from ..logging import log_info, log_step, log_success
 from ..utils.resources import get_language_name
 from .context import ProcessingContext
 from .stage import ProcessingStage
@@ -214,41 +214,6 @@ class TranslationStage(ProcessingStage):
         log_info(
             f"[TranslationStage] Source language: {src_lang}, Target language: {ctx.tgt_lang}"
         )
-
-        # 检查本地模型是否可用
-        if not ctx.use_local_models_only:
-            from ..models.local_models import local_model_manager
-
-            log_info(
-                "[TranslationStage] Checking available local translation models..."
-            )
-            downloaded_models = local_model_manager.get_downloaded_translation_models()
-            log_info(
-                f"[TranslationStage] Found {len(downloaded_models)} downloaded models: {downloaded_models}"
-            )
-
-            # 如果用户指定了特定模型，检查是否可用
-            if ctx.translation_model:
-                if not local_model_manager.is_model_available_locally(
-                    ctx.translation_model
-                ):
-                    log_warning(
-                        f"Translation model ({ctx.translation_model}) not found locally."
-                    )
-                    if downloaded_models:
-                        log_info(f"Available models: {', '.join(downloaded_models)}")
-                    else:
-                        log_info(
-                            "Please run: python scripts/utils/download_model.py facebook/m2m100_1.2B"
-                        )
-            elif not downloaded_models:
-                log_warning(
-                    f"No translation models found for "
-                    f"{get_language_name(src_lang)} -> {get_language_name(ctx.tgt_lang)}."
-                )
-                log_info(
-                    "Please run: python scripts/utils/download_model.py facebook/m2m100_1.2B"
-                )
 
         # 里程碑进度：开始语言检测
         progress.update(10, t("progress.detectingSourceLanguage"))

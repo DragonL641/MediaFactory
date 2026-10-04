@@ -62,78 +62,6 @@ class ModelStatusService:
                 enabled=True,
             )
 
-    def get_translation_status(self) -> ModelStatusInfo:
-        """获取翻译模型状态"""
-        try:
-            from mediafactory.models.model_registry import (
-                get_all_translation_models,
-                is_model_complete,
-                is_model_downloaded,
-            )
-
-            available = any(
-                is_model_downloaded(m.huggingface_id)
-                and is_model_complete(m.huggingface_id)
-                for m in get_all_translation_models()
-            )
-
-            return ModelStatusInfo(
-                name="M2M100-1.2B",
-                loaded=available,
-                available=available,
-                enabled=True,
-            )
-        except Exception as e:
-            log_error(f"Failed to get translation status: {e}")
-            return ModelStatusInfo(
-                name="M2M100-1.2B",
-                loaded=False,
-                available=False,
-                enabled=True,
-            )
-
-    def get_translation_model_statuses(self) -> list[dict[str, Any]]:
-        """获取所有翻译模型的状态列表"""
-        from mediafactory.models.model_registry import (
-            get_all_translation_models,
-            is_model_complete,
-            is_model_downloaded,
-        )
-
-        models = []
-
-        for info in get_all_translation_models():
-            model_id = info.huggingface_id
-            downloaded = is_model_downloaded(model_id)
-            complete = is_model_complete(model_id) if downloaded else False
-
-            # 从 runtime_memory_gb 推断 tier
-            memory_gb = info.runtime_memory_gb
-            if memory_gb >= 16:
-                tier = "heavy"
-            elif memory_gb >= 6:
-                tier = "standard"
-            else:
-                tier = "light"
-
-            models.append(
-                {
-                    "id": model_id,
-                    "name": info.display_name,
-                    "purpose": info.purpose or info.display_name,
-                    "tier": tier,
-                    "memory": f"{info.runtime_memory_gb:.0f} GB",
-                    "size": f"{info.model_size_mb // 1024} GB",
-                    "vram": (
-                        f"{info.runtime_vram_gb:.0f} GB" if info.runtime_vram_mb else ""
-                    ),
-                    "downloaded": downloaded,
-                    "complete": complete,
-                }
-            )
-
-        return models
-
     def get_llm_status(self) -> ModelStatusInfo:
         """获取 LLM API 状态"""
         try:
@@ -272,7 +200,6 @@ class ModelStatusService:
         Returns:
             包含就绪状态的字典：
             - whisper_ready: bool — 是否有任意 Whisper 模型已下载且完整
-            - translation_ready: bool — 是否有任意翻译模型已下载且完整
             - enhancement_ready: bool — 所有增强模型是否已下载且完整
             - llm: dict — LLM 配置状态
         """
@@ -289,13 +216,6 @@ class ModelStatusService:
                 is_model_downloaded(mid) and is_model_complete(mid)
                 for mid, info in MODEL_REGISTRY.items()
                 if info.model_type == ModelType.WHISPER
-            )
-
-            # 翻译: 任意模型已下载且完整即可
-            translation_ready = any(
-                is_model_downloaded(mid) and is_model_complete(mid)
-                for mid, info in MODEL_REGISTRY.items()
-                if info.model_type == ModelType.TRANSLATION
             )
 
             # 增强: 所有 SUPER_RESOLUTION + DENOISE 模型都必须已下载且完整
@@ -337,7 +257,6 @@ class ModelStatusService:
 
             return {
                 "whisper_ready": whisper_ready,
-                "translation_ready": translation_ready,
                 "enhancement_ready": enhancement_ready,
                 "llm": {
                     "configured_presets": configured_presets,
@@ -350,7 +269,6 @@ class ModelStatusService:
             log_error(f"Failed to get readiness status: {e}")
             return {
                 "whisper_ready": False,
-                "translation_ready": False,
                 "enhancement_ready": False,
                 "llm": {
                     "configured_presets": [],

@@ -14,8 +14,7 @@
 - 批量翻译 + 二分降级策略
 - 验证失败时：二分（递归至 split_threshold）→ 记录失败位置
 - API 异常时：content filter 二分递归，其他异常记录失败位置
-- 所有失败位置统一在末尾用本地模型翻译
-- 未翻译检测：日语假名残留自动标记为失败，触发本地回退
+- 失败位置保留原文，结束日志汇总
 - 支持可中断的翻译操作
 - Prompt 外置管理
 """
@@ -25,7 +24,7 @@ import re
 from collections.abc import Callable
 from dataclasses import dataclass, field
 
-from ..constants import CHINESE_LANG_CODES, LANGUAGE_NAMES
+from ..constants import LANGUAGE_NAMES
 from ..core.progress_protocol import ProgressCallback
 from ..exceptions import OperationCancelledError
 from ..logging import (
@@ -43,7 +42,6 @@ from .base import (
     prepare_texts,
     restore_result,
 )
-from .local_fallback import LocalModelFallback
 
 
 @dataclass
@@ -66,8 +64,7 @@ class OpenAICompatibleBackend(TranslationBackend):
     只需配置 base_url + api_key + model 即可使用。
 
     降级策略：
-    批量翻译 → 二分（递归至最小批次）→ 记录失败位置 → 末尾本地翻译
-    未翻译检测：日语假名残留自动回退本地模型
+    批量翻译 → 二分（递归至最小批次）→ 记录失败位置（保留原文）
     """
 
     def __init__(
@@ -105,7 +102,6 @@ class OpenAICompatibleBackend(TranslationBackend):
         self._split_threshold = split_threshold
         self._client = None
         self._kwargs = kwargs
-        self._local_fallback: LocalModelFallback | None = None
 
         try:
             self._init_client()
@@ -274,9 +270,6 @@ class OpenAICompatibleBackend(TranslationBackend):
         # 使用基类的文本标准化方法
         texts = self._normalize_texts(request.text)
 
-        # 初始化本地回退（但不加载）
-        self._local_fallback = LocalModelFallback()
-
         try:
             translated = self._translate_all_texts(
                 texts=texts,
@@ -311,12 +304,6 @@ class OpenAICompatibleBackend(TranslationBackend):
                 success=False,
                 error_message=error_msg,
             )
-
-        finally:
-            # 翻译完成后释放本地模型
-            if self._local_fallback:
-                self._local_fallback.release()
-                self._local_fallback = None
 
     # ==================== 核心翻译逻辑 ====================
 
@@ -442,18 +429,12 @@ class OpenAICompatibleBackend(TranslationBackend):
                     f"Translating batch {batch_idx + 1}/{total_batches}",
                 )
 
-        # 统一用本地模型翻译所有失败位置
+        # 汇总失败位置（保留原文）
         if failed_global_indices:
-            log_info(
-                f"[OpenAI-Compatible] {len(failed_global_indices)} 句 LLM 翻译失败，"
-                f"使用本地模型回退翻译"
+            log_warning(
+                f"[OpenAI-Compatible] {len(failed_global_indices)} 句翻译失败，"
+                f"保留原文输出"
             )
-            failed_texts = [all_translated[i] for i in failed_global_indices]
-            local_results = self._local_fallback.translate_batch(
-                failed_texts, tgt_lang, src_lang=src_lang
-            )
-            for idx, translated in zip(failed_global_indices, local_results):
-                all_translated[idx] = translated
 
         # 恢复空字符串
         result = restore_result(all_translated, empty_indices, len(texts))
@@ -465,7 +446,7 @@ class OpenAICompatibleBackend(TranslationBackend):
         log_info(
             f"[OpenAI-Compatible] 翻译完成: {len(non_empty_texts)} 行"
             + (
-                f"，其中 {len(failed_global_indices)} 句使用本地模型"
+                f"，其中 {len(failed_global_indices)} 句保留原文"
                 if failed_global_indices
                 else ""
             )
@@ -509,15 +490,6 @@ class OpenAICompatibleBackend(TranslationBackend):
             translations = [
                 str(result.get(str(i), batch[i])) for i in range(len(batch))
             ]
-            # 检测未翻译的条目，标记为失败以触发本地回退
-            untranslated_indices = self._flag_untranslated(
-                translations, batch, tgt_lang
-            )
-            if untranslated_indices:
-                return BatchResult(
-                    translations=translations,
-                    failed_indices=untranslated_indices,
-                )
             return BatchResult(translations=translations)
 
         # 2. 验证失败，尝试二分
@@ -752,34 +724,6 @@ class OpenAICompatibleBackend(TranslationBackend):
         expected_keys = {str(i) for i in range(len(batch))}
         result_keys = set(result.keys())
         return expected_keys.issubset(result_keys)
-
-    # 日语假名字符范围
-    _HIRAGANA = re.compile(r"[\u3040-\u309F]")
-    _KATAKANA = re.compile(r"[\u30A0-\u30FF]")
-
-    def _flag_untranslated(
-        self, translations: list[str], originals: list[str], tgt_lang: str
-    ) -> list[int]:
-        """检测未翻译的段落，返回应回退本地模型的索引列表。
-
-        检测规则：目标语言是中文时，如果译文仍包含日语假名，则视为未翻译。
-        """
-        if tgt_lang not in CHINESE_LANG_CODES:
-            return []
-
-        failed = []
-        for i, (trans, orig) in enumerate(zip(translations, originals)):
-            if trans == orig:
-                continue
-            if self._HIRAGANA.search(trans) or self._KATAKANA.search(trans):
-                failed.append(i)
-
-        if failed:
-            log_warning(
-                f"[OpenAI-Compatible] 检测到 {len(failed)} 条可能未翻译"
-                f"（包含日语假名），将回退本地模型"
-            )
-        return failed
 
     def _get_batch_prompt(
         self,

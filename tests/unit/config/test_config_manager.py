@@ -30,7 +30,6 @@ class TestLoadDefaultConfig:
         assert cfg.whisper.beam_size == 5
         assert cfg.llm_api.timeout == 30
         assert cfg.app.language == "en"
-        assert cfg.model.available_translation_models == []
 
     def test_config_path_property(self, tmp_config_file):
         manager = AppConfigManager(config_path=tmp_config_file)
@@ -165,17 +164,4 @@ class TestGetSetConvenience:
         assert manager2.config.whisper.beam_size == 3
 
 
-# ============================================================================
-# 6. has_available_models()
-# ============================================================================
 
-
-class TestHasAvailableModels:
-    def test_false_by_default(self, tmp_config_file):
-        manager = AppConfigManager(config_path=tmp_config_file)
-        assert manager.has_available_models() is False
-
-    def test_true_after_update(self, tmp_config_file):
-        manager = AppConfigManager(config_path=tmp_config_file)
-        manager.update(model__available_translation_models=["facebook/m2m100_1.2B"])
-        assert manager.has_available_models() is True

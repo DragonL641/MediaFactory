@@ -142,9 +142,6 @@ const CreateTaskDialog: React.FC<CreateTaskDialogProps> = ({ open, onClose }) =>
       result["subtitle"] = { disabled: true, reason: t("readiness.whisperRequired") };
       result["transcribe"] = { disabled: true, reason: t("readiness.whisperRequired") };
     }
-    if (readiness && !readiness.translation_ready) {
-      result["translate"] = { disabled: true, reason: t("readiness.translationRequired") };
-    }
     if (readiness && !readiness.enhancement_ready) {
       result["enhance"] = { disabled: true, reason: t("readiness.enhancementRequired") };
     }

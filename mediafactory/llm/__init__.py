@@ -9,17 +9,15 @@
 - 智谱 GLM
 - 通义千问
 - Moonshot
+- Ollama 本地端点
 - 自定义 OpenAI 兼容服务
 
 降级策略:
-LLM API 批量翻译 → 纠正重试 → 二分（仅一次）→ 记录失败位置 → 末尾本地翻译 (M2M100-1.2B)
+LLM API 批量翻译 → 验证失败二分递归 → contentFilter 递归二分 → 失败句保留原文
 """
 
 # 导入基础类
 from .base import TranslationBackend, TranslationRequest, TranslationResult
-
-# 导入本地回退
-from .local_fallback import LocalModelFallback
 
 # 导入后端实现
 from .openai_compatible_backend import OpenAICompatibleBackend
@@ -31,8 +29,6 @@ __all__ = [
     "TranslationResult",
     # 后端类
     "OpenAICompatibleBackend",
-    # 本地回退
-    "LocalModelFallback",
     # 辅助函数
     "initialize_llm_backend",
 ]

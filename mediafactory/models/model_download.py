@@ -348,12 +348,7 @@ def _update_config_after_download(huggingface_id: str, model_type: ModelType) ->
     config_manager = get_config_manager()
     config = config_manager.config
 
-    if model_type == ModelType.TRANSLATION:
-        models_list = list(config.model.available_translation_models)
-        if huggingface_id not in models_list:
-            models_list.append(huggingface_id)
-            config_manager.update(model__available_translation_models=models_list)
-    elif model_type == ModelType.WHISPER:
+    if model_type == ModelType.WHISPER:
         models_list = list(config.model.whisper_models)
         if huggingface_id not in models_list:
             models_list.append(huggingface_id)
@@ -387,12 +382,7 @@ def _update_config_after_delete(huggingface_id: str, model_type: ModelType) -> N
     config_manager = get_config_manager()
     config = config_manager.config
 
-    if model_type == ModelType.TRANSLATION:
-        models_list = list(config.model.available_translation_models)
-        if huggingface_id in models_list:
-            models_list.remove(huggingface_id)
-            config_manager.update(model__available_translation_models=models_list)
-    elif model_type == ModelType.WHISPER:
+    if model_type == ModelType.WHISPER:
         models_list = list(config.model.whisper_models)
         if huggingface_id in models_list:
             models_list.remove(huggingface_id)

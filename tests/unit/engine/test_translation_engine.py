@@ -11,13 +11,14 @@ class TestTranslationEngine:
     """TranslationEngine 测试 — mock 模型加载和 API 调用。"""
 
     @pytest.mark.unit
-    def test_engine_creation_local_mode(self):
-        """测试创建本地翻译引擎。"""
+    def test_engine_creation_without_backend(self):
+        """测试未配置 LLM 后端创建引擎：合法但不可用。"""
         from mediafactory.engine import TranslationEngine
 
-        engine = TranslationEngine(use_local_models_only=True)
+        engine = TranslationEngine()
         assert engine is not None
-        assert engine.use_local_models_only is True
+        assert engine.llm_backend is None
+        assert engine._use_llm is False
 
     @pytest.mark.unit
     def test_engine_creation_llm_mode(self):
@@ -34,7 +35,7 @@ class TestTranslationEngine:
         """测试源语言和目标语言相同时应返回原始内容。"""
         from mediafactory.engine import TranslationEngine
 
-        engine = TranslationEngine(use_local_models_only=True)
+        engine = TranslationEngine()
 
         segments = [
             {"start": 0.0, "end": 2.0, "text": "Hello"},
@@ -42,36 +43,22 @@ class TestTranslationEngine:
         ]
         result = {"segments": segments, "language": "en"}
 
-        # mock 内部模型调用，不 mock translate 本身
-        with patch.object(
-            engine,
-            "_translate_with_local",
-            return_value=[
-                {"start": 0.0, "end": 2.0, "text": "Hello"},
-                {"start": 2.0, "end": 4.0, "text": "World"},
-            ],
-        ):
-            translated = engine.translate(result, "en", "en")
-            # 相同语言应直接返回或轻量处理
-            assert len(translated["segments"]) == 2
+        translated = engine.translate(result, "en", "en")
+        # 相同语言应直接返回或轻量处理
+        assert len(translated["segments"]) == 2
 
     @pytest.mark.unit
-    def test_translate_empty_segments(self):
-        """测试空片段列表。"""
+    def test_translate_without_backend_raises(self):
+        """测试未配置 LLM 后端时翻译报 ProcessingError。"""
         from mediafactory.engine import TranslationEngine
+        from mediafactory.exceptions import ProcessingError
 
-        engine = TranslationEngine(use_local_models_only=True)
+        engine = TranslationEngine()
 
         result = {"segments": [], "language": "en"}
 
-        with patch.object(
-            engine,
-            "_translate_with_local",
-            return_value={"segments": [], "language": "en"},
-        ):
-            translated = engine.translate(result, "en", "zh")
-
-            assert len(translated["segments"]) == 0
+        with pytest.raises(ProcessingError, match="not configured"):
+            engine.translate(result, "en", "zh")
 
     @pytest.mark.unit
     def test_translate_with_llm_backend(self):
@@ -123,7 +110,7 @@ class TestTranslationEngine:
         """测试引擎清理资源。"""
         from mediafactory.engine import TranslationEngine
 
-        engine = TranslationEngine(use_local_models_only=True)
+        engine = TranslationEngine()
 
         # cleanup 不应抛出异常
         try:

@@ -2,8 +2,7 @@
 
 This module provides a centralized registry for ALL models:
 - Whisper models (speech recognition)
-- Translation models (M2M100)
-- Enhancement models (Real-ESRGAN, NAFNet, CodeFormer)
+- Enhancement models (Real-ESRGAN, NAFNet)
 
 Supports memory-aware selection and license tracking for commercial use compliance.
 """
@@ -38,7 +37,6 @@ class ModelType(Enum):
     """Model type enumeration."""
 
     WHISPER = "whisper"
-    TRANSLATION = "translation"
     SUPER_RESOLUTION = "super_resolution"  # Real-ESRGAN
     DENOISE = "denoise"  # NAFNet
 
@@ -167,24 +165,6 @@ MODEL_REGISTRY: dict[str, ModelInfo] = {
         precision="float16",
         description="Best quality for transcription",
         purpose="Speech Recognition",
-    ),
-    # ========== Translation Models ==========
-    # M2M100-1.2B (MIT 许可证，唯一本地翻译模型)
-    "facebook/m2m100_1.2B": ModelInfo(
-        huggingface_id="facebook/m2m100_1.2B",
-        display_name="M2M100-1.2B",
-        model_type=ModelType.TRANSLATION,
-        model_size_mb=2500,
-        runtime_memory_mb=5120,  # ~5 GB (CPU fp16)
-        runtime_vram_mb=4800,  # ~4.8 GB VRAM (fp16)
-        recommended_system_mb=16384,  # 16 GB
-        recommended_vram_mb=8192,  # 8 GB VRAM
-        license=LicenseType.MIT,
-        language_support="100 languages",
-        precision="fp16",
-        requires_prompt=False,
-        description="Multilingual translation model (1.2B parameters)",
-        purpose="Multilingual Translation",
     ),
     # ========== Enhancement Models: Super Resolution (Real-ESRGAN) ==========
     "RealESRGAN_x4plus": ModelInfo(
@@ -315,35 +295,6 @@ def get_whisper_model_info() -> ModelInfo:
         ModelInfo for Whisper Large V3
     """
     return MODEL_REGISTRY[WHISPER_MODEL_ID]
-
-
-def get_all_translation_models() -> list[ModelInfo]:
-    """Get all translation models in the registry.
-
-    Returns:
-        List of translation ModelInfo objects, sorted by runtime memory
-    """
-    models = [
-        info
-        for info in MODEL_REGISTRY.values()
-        if info.model_type == ModelType.TRANSLATION
-    ]
-    return sorted(models, key=lambda m: m.runtime_memory_gb)
-
-
-def get_translation_model_info(huggingface_id: str) -> Optional[ModelInfo]:
-    """Get translation model information by HuggingFace ID.
-
-    Args:
-        huggingface_id: HuggingFace 模型 ID（如 "facebook/m2m100_1.2B"）
-
-    Returns:
-        ModelInfo if found and is a translation model, None otherwise
-    """
-    info = MODEL_REGISTRY.get(huggingface_id)
-    if info and info.model_type == ModelType.TRANSLATION:
-        return info
-    return None
 
 
 def get_model_info(huggingface_id: str) -> Optional[ModelInfo]:

@@ -41,8 +41,6 @@ class TestProcessingContext:
             tgt_lang="ja",
             whisper_model="large-v3",
             whisper_device="cpu",
-            translation_model="facebook/m2m100_1.2B",
-            use_local_models_only=True,
             bilingual=True,
             bilingual_layout="source_on_top",
             style_preset="anime",
@@ -53,8 +51,6 @@ class TestProcessingContext:
         assert ctx.tgt_lang == "ja"
         assert ctx.whisper_model == "large-v3"
         assert ctx.whisper_device == "cpu"
-        assert ctx.translation_model == "facebook/m2m100_1.2B"
-        assert ctx.use_local_models_only is True
         assert ctx.bilingual is True
         assert ctx.bilingual_layout == "source_on_top"
         assert ctx.style_preset == "anime"

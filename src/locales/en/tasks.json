@@ -61,11 +61,26 @@
     "enhance": "Video Enhancement"
   },
   "typeOptions": {
-    "subtitle": { "title": "Subtitle Generator", "description": "Generate subtitles from video files" },
-    "audio": { "title": "Audio Extractor", "description": "Extract audio from video files" },
-    "transcribe": { "title": "Speech to Text", "description": "Convert speech to text (SRT format)" },
-    "translate": { "title": "Subtitle Translator", "description": "Translate SRT subtitle files" },
-    "enhance": { "title": "Video Enhancement", "description": "Enhance video quality with AI upscaling" }
+    "subtitle": {
+      "title": "Subtitle Generator",
+      "description": "Generate subtitles from video files"
+    },
+    "audio": {
+      "title": "Audio Extractor",
+      "description": "Extract audio from video files"
+    },
+    "transcribe": {
+      "title": "Speech to Text",
+      "description": "Convert speech to text (SRT format)"
+    },
+    "translate": {
+      "title": "Subtitle Translator",
+      "description": "Translate SRT subtitle files"
+    },
+    "enhance": {
+      "title": "Video Enhancement",
+      "description": "Enhance video quality with AI upscaling"
+    }
   },
   "createDialog": {
     "title": "Create Task",
@@ -86,11 +101,9 @@
   "readiness": {
     "title": "Prerequisites Not Ready",
     "whisperWarning": "Whisper model not downloaded",
-    "translationWarning": "Translation model not downloaded",
     "enhancementWarning": "Enhancement models not fully downloaded",
     "goToSettings": "Go to Settings",
     "whisperRequired": "Whisper model not downloaded",
-    "translationRequired": "Translation model not downloaded",
     "enhancementRequired": "Enhancement models not fully downloaded"
   }
 }
