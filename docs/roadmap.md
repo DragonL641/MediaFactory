@@ -6,11 +6,19 @@
 
 ## Now
 
-（在做的工作包——附 spec / plan 路径回链）
+### Ollama pull 可靠性与进度收尾 + 表单/队列卫生批（合并实施，bounded 直改）
+- 来源：2026-10-05 冒烟测试 + R2/R3 评审 deferred minors；用户批准合并实施
+- 验收要点：
+  - [ ] pull 进度在 Local Models 卡片内可见（替代误导性 toast 文案）
+  - [ ] 流看门狗：无事件超时判 FAILED，消灭无限挂起
+  - [ ] 完成后校验 is_model_installed，假完成改标 FAILED
+  - [ ] `LLM Response` 日志按真实成败打印
+  - [ ] 同名并发 pull 409 竞态、取消逐事件轮询清算
+  - [ ] use_llm 复选框移除；localModels 随 task_complete 失效；单向门归一化判定；content-filter 降级批过术语提取
+- 依赖：无
+- spec / plan：bounded 直改（根因与修法已在会话中对齐），TDD 逐项落
 
 ## Next
-
-### Ollama pull 可靠性与进度收尾（R3 质量收尾）
 - 来源：2026-10-05 冒烟测试（pull 全程无进度反馈；流挂起数分钟后自愈、空流假成功均实测复现，根因=框架层流式读竞态，不再深挖、以看门狗+校验兜底）
 - 验收要点：
   - [ ] pull 进度在 Local Models 卡片内可见（当前 toast 引导去的任务队列按设计不显示 DOWNLOAD 任务）
@@ -23,7 +31,6 @@
 
 ## Later
 
-- 表单/队列卫生批：任务表单 use_llm 复选框移除或锁定（R2 遗留）；localModels 查询不随 task_complete 失效；runner 同步探测阻塞事件循环 ≤4s；单向门 startswith 判定可绕（非资损）；content-filter 降级批产物未过术语提取（R2 遗留）（来源：2026-10-04/05 R2/R3 评审 deferred minors + 冒烟；半天-一天）
 - 跨批翻译上下文：批边界约 5% 句子缺前后文；优先试零成本杠杆——把 batch_size 40 调小（竞品 10-12，顺带降低长输出格式漂移），而非加窗口机制（来源：2026-10-04 R1 讨论，边际效益评估后撤出）
 - 转录段级幻觉过滤（消费 no_speech_prob/avg_logprob + 复读正则 + 幻听短语黑名单）：参数层主防线已在（condition_on_previous_text 默认 False + faster-whisper 库默认阈值）；待实际素材触发再做（来源：2026-10-04 R1 讨论）
 - ASR/翻译结果缓存（重跑不重复消耗，配合任务历史；来源：同上，VideoCaptioner）
