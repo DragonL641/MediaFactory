@@ -64,6 +64,7 @@ export interface TaskConfig {
   target_lang?: string;
   use_llm?: boolean;
   llm_preset?: string;
+  terminology?: Record<string, string>;
   audio_config?: AudioConfig;
   subtitle_config?: SubtitleConfig;
   enhancement_config?: EnhancementConfig;

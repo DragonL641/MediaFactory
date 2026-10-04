@@ -52,7 +52,12 @@
     "layout": "布局",
     "useRemoteLlm": "使用远程 LLM 翻译",
     "useRemoteLlmShort": "使用远程 LLM",
-    "llmProvider": "LLM 供应商"
+    "llmProvider": "LLM 供应商",
+    "terminologyFile": "术语表文件（可选）",
+    "terminologyTooltip": "JSON 格式的源词→译法对照，翻译时强制生效",
+    "chooseTerminologyFile": "选择 JSON 文件",
+    "terminologyLoaded": "术语表已加载（{{count}} 条）",
+    "terminologyInvalid": "术语表文件无效"
   },
   "placeholder": {
     "selectVideo": "输入或浏览选择视频文件...",

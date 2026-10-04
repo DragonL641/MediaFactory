@@ -15,6 +15,7 @@ import {
   useBilingualLayoutOptions,
 } from "./shared";
 import LLMProviderSelect from "../../../components/Form/LLMProviderSelect";
+import TerminologyFileField from "./TerminologyFileField";
 
 interface SubtitleFormFieldsProps {
   form: FormInstance;
@@ -81,6 +82,7 @@ const SubtitleFormFields: React.FC<SubtitleFormFieldsProps> = ({ form, llmAvaila
       )}
 
       {useLlm && llmAvailable && <LLMProviderSelect form={form} />}
+      <TerminologyFileField form={form} />
     </>
   );
 };

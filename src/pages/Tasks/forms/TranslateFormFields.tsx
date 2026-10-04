@@ -8,6 +8,7 @@ import type { FormInstance } from "antd";
 import { useTranslation } from "react-i18next";
 import { useLanguageOptions, useTargetLanguageOptions } from "./shared";
 import LLMProviderSelect from "../../../components/Form/LLMProviderSelect";
+import TerminologyFileField from "./TerminologyFileField";
 
 interface TranslateFormFieldsProps {
   form: FormInstance;
@@ -42,6 +43,8 @@ const TranslateFormFields: React.FC<TranslateFormFieldsProps> = ({ form, llmAvai
       )}
 
       {useLlm && llmAvailable && <LLMProviderSelect form={form} />}
+
+      <TerminologyFileField form={form} />
     </>
   );
 };

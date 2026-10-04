@@ -52,7 +52,12 @@
     "layout": "Layout",
     "useRemoteLlm": "Use Remote LLM for Translation",
     "useRemoteLlmShort": "Use Remote LLM",
-    "llmProvider": "LLM Provider"
+    "llmProvider": "LLM Provider",
+    "terminologyFile": "Terminology file (optional)",
+    "terminologyTooltip": "JSON mapping of source terms to translations, enforced during translation",
+    "chooseTerminologyFile": "Choose JSON file",
+    "terminologyLoaded": "Terminology loaded ({{count}} entries)",
+    "terminologyInvalid": "Invalid terminology file"
   },
   "placeholder": {
     "selectVideo": "Enter or browse for a video file...",
