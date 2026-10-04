@@ -109,6 +109,18 @@ const HistoryPage: React.FC = () => {
         ),
     },
     {
+      title: t("columns.stats"),
+      dataIndex: "metadata",
+      key: "stats",
+      render: (_: unknown, record: TaskHistoryRecord) => {
+        const stats = record.metadata?.translation_stats as
+          | { total: number; remote: number; fallback: number; failed: number }
+          | undefined;
+        if (!stats) return "-";
+        return `Translated ${stats.remote} · Fallback ${stats.fallback} · Failed ${stats.failed}`;
+      },
+    },
+    {
       title: t("columns.error"),
       dataIndex: "error",
       ellipsis: true,

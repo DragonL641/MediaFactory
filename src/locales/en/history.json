@@ -8,7 +8,8 @@
     "completedAt": "Completed At",
     "duration": "Duration",
     "outputPath": "Output",
-    "error": "Error"
+    "error": "Error",
+    "stats": "Translation Stats"
   },
   "status": {
     "completed": "Completed",

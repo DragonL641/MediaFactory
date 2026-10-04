@@ -8,7 +8,8 @@
     "completedAt": "完成时间",
     "duration": "耗时",
     "outputPath": "输出",
-    "error": "错误"
+    "error": "错误",
+    "stats": "翻译统计"
   },
   "status": {
     "completed": "已完成",
