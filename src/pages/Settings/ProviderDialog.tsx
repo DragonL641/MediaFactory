@@ -7,7 +7,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Modal, Form, Input, Select, App, theme } from "antd";
 import { useTranslation } from "react-i18next";
-import { useLLMPresetsQuery, useUpdateLLMPresetMutation } from "../../api/queries";
+import { useLLMPresetsQuery, useLocalModelsQuery, useUpdateLLMPresetMutation } from "../../api/queries";
 import { getErrorDetail } from "../../api/client";
 import type { LLMPresetInfo } from "../../types";
 
@@ -31,6 +31,7 @@ const ProviderDialog: React.FC<ProviderDialogProps> = ({
   const isEditing = !!editingPresetId;
 
   const { data: presets, isLoading: presetsLoading } = useLLMPresetsQuery();
+  const { data: localModels } = useLocalModelsQuery();
   const updateMutation = useUpdateLLMPresetMutation();
 
   const handlePresetChange = (presetId: string) => {
@@ -140,7 +141,8 @@ const ProviderDialog: React.FC<ProviderDialogProps> = ({
           label={t("dialog.apiKey")}
           rules={[
             {
-              required: selectedProvider !== "custom",
+              required:
+                selectedProvider !== "custom" && selectedProvider !== "ollama",
               message: t("dialog.apiKeyRequired"),
             },
           ]}
@@ -148,12 +150,12 @@ const ProviderDialog: React.FC<ProviderDialogProps> = ({
           <>
             <Input.Password
               placeholder={
-                selectedProvider === "custom"
+                selectedProvider === "custom" || selectedProvider === "ollama"
                   ? t("dialog.apiKeyOptional")
                   : "sk-..."
               }
             />
-            {selectedProvider === "custom" && (
+            {(selectedProvider === "custom" || selectedProvider === "ollama") && (
               <span style={{ fontSize: 12, color: token.colorTextSecondary }}>
                 {t("dialog.localLlmNoApiKey")}
               </span>
@@ -166,7 +168,19 @@ const ProviderDialog: React.FC<ProviderDialogProps> = ({
           label={t("dialog.model")}
           rules={[{ required: true, message: t("dialog.modelRequired") }]}
         >
-          <Input placeholder="e.g., gpt-4o-mini, deepseek-chat" />
+          {selectedProvider === "ollama" ? (
+            <Select
+              showSearch
+              placeholder={t("dialog.selectLocalModel")}
+              options={(localModels?.models ?? []).map((m) => ({
+                value: m.name,
+                label: m.name,
+              }))}
+              notFoundContent={t("dialog.noLocalModels")}
+            />
+          ) : (
+            <Input placeholder="e.g., gpt-4o-mini, deepseek-chat" />
+          )}
         </Form.Item>
       </Form>
     </Modal>

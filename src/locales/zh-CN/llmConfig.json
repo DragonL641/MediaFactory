@@ -49,7 +49,9 @@
     "localLlmNoApiKey": "本地 LLM 不需要 API Key",
     "model": "模型",
     "modelRequired": "模型名称为必填项",
-    "modelPlaceholder": "例如: gpt-4o-mini, deepseek-chat"
+    "modelPlaceholder": "例如: gpt-4o-mini, deepseek-chat",
+    "selectLocalModel": "选择已安装的 Ollama 模型",
+    "noLocalModels": "暂无本地模型，请在下方「本地模型」区拉取。"
   },
   "error": {
     "loadFailed": "加载 LLM 配置失败"
