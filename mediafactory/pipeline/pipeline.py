@@ -98,10 +98,16 @@ class Pipeline:
 
                 stage._log("Completed successfully", "success")
 
+            stats = (
+                context.translation_result.get("translation_stats")
+                if isinstance(context.translation_result, dict)
+                else None
+            )
             return ProcessingResult(
                 success=True,
                 output_path=context.output_path,
                 context=context,
+                metadata=({"translation_stats": stats} if stats else {}),
             )
 
         except OperationCancelledError as e:

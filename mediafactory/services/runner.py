@@ -104,7 +104,10 @@ def _select_translation_engine(config: TaskConfig) -> TranslationEngine:
             "Please check LLM settings in Settings page."
         )
     return TranslationEngine(
-        llm_backend=backend, use_llm_backend=True, user_terms=config.terminology
+        llm_backend=backend,
+        use_llm_backend=True,
+        user_terms=config.terminology,
+        fallback_model=config.fallback_model,
     )
 
 
@@ -246,31 +249,12 @@ async def _translate_text(
             "Please enable LLM translation in task settings."
         )
 
-    backend = initialize_llm_backend(get_config(), preset=config.llm_preset)
-    if not (backend and backend.is_available):
-        raise ConfigurationError(
-            message="LLM backend unavailable. "
-            "Please check LLM settings in Settings page."
-        )
-
-    from mediafactory.llm import TranslationRequest
-
-    request = TranslationRequest(
-        text=text,
-        src_lang="auto",
-        tgt_lang=target_lang,
-        user_terms=config.terminology,
+    engine = _select_translation_engine(config)
+    outcome = await loop.run_in_executor(
+        None,
+        functools.partial(engine.translate_texts, [text], "auto", target_lang),
     )
-    result = await loop.run_in_executor(None, backend.translate, request)
-    if not result.success:
-        raise ProcessingError(
-            message=result.error_message or "LLM translation failed",
-            context={"target_lang": target_lang},
-        )
-
-    translated = result.translated_text
-    if isinstance(translated, list):
-        translated = translated[0] if translated else ""
+    translated = outcome.translations[0] if outcome.translations else ""
 
     return ProcessingResult(
         success=True,
@@ -278,6 +262,7 @@ async def _translate_text(
             "original_text": text,
             "translated_text": translated,
             "target_lang": target_lang,
+            "translation_stats": outcome.stats,
         },
     )
 
