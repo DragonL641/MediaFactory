@@ -23,6 +23,7 @@ import json
 import re
 from collections.abc import Callable
 from dataclasses import dataclass, field
+from typing import Any
 
 from ..constants import LANGUAGE_NAMES
 from ..core.progress_protocol import ProgressCallback
@@ -588,11 +589,12 @@ class OpenAICompatibleBackend(TranslationBackend):
             )
             response = self._call_llm(prompt, user_content, cancelled_callback)
             parsed = self._parse_json_response(response)
-            if not parsed or not isinstance(parsed.get("terms"), dict):
+            raw_terms: Any = parsed.get("terms") if parsed else None
+            if not isinstance(raw_terms, dict):
                 return {}
             terms = {
                 str(k): str(v).strip()
-                for k, v in parsed["terms"].items()
+                for k, v in raw_terms.items()
                 if str(k).strip() and str(v).strip()
             }
             return self._cap_candidates(terms)
