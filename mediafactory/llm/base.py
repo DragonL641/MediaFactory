@@ -11,6 +11,8 @@ from typing import TYPE_CHECKING, Optional
 if TYPE_CHECKING:
     from mediafactory.core.progress_protocol import ProgressCallback
 
+    from .term_memory import TermDict
+
 
 # ============================================================================
 # 辅助函数
@@ -101,6 +103,21 @@ class TranslationResult:
     backend_used: str
     success: bool = True
     error_message: str = ""
+
+
+@dataclass
+class DetailedTranslationResult:
+    """带失败位置与术语记忆的翻译结果。
+
+    Attributes:
+        result: 原有 TranslationResult（translated_text 中失败处为原文）
+        failed_indices: 相对最终输出列表的失败位置（空字符串位已跳过）
+        term_dict: 本次翻译使用的 TermDict（含运行中学习到的词条）
+    """
+
+    result: TranslationResult
+    failed_indices: list[int] = field(default_factory=list)
+    term_dict: Optional["TermDict"] = None
 
 
 class TranslationBackend(ABC):

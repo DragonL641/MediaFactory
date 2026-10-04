@@ -37,11 +37,11 @@ from ..logging import (
     log_warning,
 )
 from .base import (
+    DetailedTranslationResult,
     TranslationBackend,
     TranslationRequest,
     TranslationResult,
     prepare_texts,
-    restore_result,
 )
 from .term_memory import TermDict
 
@@ -253,32 +253,42 @@ class OpenAICompatibleBackend(TranslationBackend):
     # ==================== 主翻译入口 ====================
 
     def translate(self, request: TranslationRequest) -> TranslationResult:
-        """执行翻译。
+        """执行翻译。translate_detailed 的薄包装，行为与旧版一致。"""
+        return self.translate_detailed(request).result
+
+    def translate_detailed(
+        self,
+        request: TranslationRequest,
+        term_dict: TermDict | None = None,
+    ) -> DetailedTranslationResult:
+        """执行翻译并暴露失败位置与术语记忆。
 
         Args:
-            request: 翻译请求对象
+            request: 翻译请求
+            term_dict: 可传入既有 TermDict（兜底链复用主链学到的词条）；
+                None 时新建并从 request.user_terms 注册种子
 
         Returns:
-            翻译结果对象
+            DetailedTranslationResult（failed_indices 相对最终输出列表）
         """
         if not self.is_available:
-            return TranslationResult(
-                translated_text=request.text,
-                backend_used=self.name,
-                success=False,
-                error_message="OpenAI 兼容 API 未配置或不可用",
+            return DetailedTranslationResult(
+                result=TranslationResult(
+                    translated_text=request.text,
+                    backend_used=self.name,
+                    success=False,
+                    error_message="OpenAI 兼容 API 未配置或不可用",
+                ),
             )
 
-        # 使用基类的文本标准化方法
         texts = self._normalize_texts(request.text)
-
-        # 术语记忆：加载用户种子（user 先入典，first-wins 保证其优先）
-        term_dict = TermDict()
-        if request.user_terms:
-            term_dict.register_user(request.user_terms)
+        if term_dict is None:
+            term_dict = TermDict()
+            if request.user_terms:
+                term_dict.register_user(request.user_terms)
 
         try:
-            translated = self._translate_all_texts(
+            translated, failed_indices = self._translate_all_texts(
                 texts=texts,
                 src_lang=request.src_lang,
                 tgt_lang=request.tgt_lang,
@@ -286,31 +296,26 @@ class OpenAICompatibleBackend(TranslationBackend):
                 progress_callback=request.progress_callback,
                 term_dict=term_dict,
             )
-
-            # 返回结果
-            if len(texts) == 1:
-                return TranslationResult(
-                    translated_text=translated[0],
-                    backend_used=self.name,
-                    success=True,
-                )
-            else:
-                return TranslationResult(
-                    translated_text=translated,
-                    backend_used=self.name,
-                    success=True,
-                )
-
+            result = TranslationResult(
+                translated_text=translated[0] if len(texts) == 1 else translated,
+                backend_used=self.name,
+                success=True,
+            )
+            return DetailedTranslationResult(
+                result=result, failed_indices=failed_indices, term_dict=term_dict
+            )
         except OperationCancelledError:
             raise
         except Exception as e:
             error_msg = str(e)
             log_error(f"[OpenAI-Compatible] 翻译失败: {error_msg}")
-            return TranslationResult(
-                translated_text=texts if len(texts) > 1 else texts[0],
-                backend_used=self.name,
-                success=False,
-                error_message=error_msg,
+            return DetailedTranslationResult(
+                result=TranslationResult(
+                    translated_text=texts if len(texts) > 1 else texts[0],
+                    backend_used=self.name,
+                    success=False,
+                    error_message=error_msg,
+                ),
             )
 
     # ==================== 核心翻译逻辑 ====================
@@ -323,7 +328,7 @@ class OpenAICompatibleBackend(TranslationBackend):
         cancelled_callback: Callable | None = None,
         progress_callback: ProgressCallback | None = None,
         term_dict: TermDict | None = None,
-    ) -> list[str]:
+    ) -> tuple[list[str], list[int]]:
         """翻译所有文本（分批处理 + 统一失败收集）。
 
         Args:
@@ -335,7 +340,8 @@ class OpenAICompatibleBackend(TranslationBackend):
             term_dict: 术语记忆实例（None 时创建空的）
 
         Returns:
-            翻译结果列表
+            (翻译结果列表, 失败索引列表)——失败索引相对最终输出列表
+            （已把非空空间的失败位映射回含空字符串的原空间）
         """
         term_dict = term_dict or TermDict()
         tgt_name = self.get_language_name(tgt_lang)
@@ -348,7 +354,7 @@ class OpenAICompatibleBackend(TranslationBackend):
         if not non_empty_texts:
             if progress_callback:
                 progress_callback.update(100, "Translation completed")
-            return texts
+            return texts, []
 
         # Log LLM request
         log_llm_request(
@@ -453,8 +459,20 @@ class OpenAICompatibleBackend(TranslationBackend):
                 f"保留原文输出"
             )
 
-        # 恢复空字符串
-        result = restore_result(all_translated, empty_indices, len(texts))
+        # 恢复空字符串，并把失败索引从非空空间映射回最终列表空间
+        result = []
+        failed_set = set(failed_global_indices)
+        failed_final: list[int] = []
+        non_empty_idx = 0
+        empty_set = set(empty_indices)
+        for i in range(len(texts)):
+            if i in empty_set:
+                result.append("")
+            else:
+                result.append(all_translated[non_empty_idx])
+                if non_empty_idx in failed_set:
+                    failed_final.append(i)
+                non_empty_idx += 1
 
         # 报告完成
         if progress_callback:
@@ -479,7 +497,7 @@ class OpenAICompatibleBackend(TranslationBackend):
             output_length=sum(len(t) for t in result),
         )
 
-        return result
+        return result, failed_final
 
     def _translate_batch(
         self,
