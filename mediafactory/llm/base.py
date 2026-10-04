@@ -75,6 +75,7 @@ class TranslationRequest:
         tgt_lang: 目标语言代码
         cancelled_callback: 取消检查回调函数，返回 True 表示已取消
         progress_callback: 进度回调，用于报告翻译进度
+        user_terms: 用户术语表（源词→译法），可选；翻译时强制生效
     """
 
     text: str | list[str]
@@ -82,6 +83,7 @@ class TranslationRequest:
     tgt_lang: str
     cancelled_callback: Callable[[], bool] | None = field(default=None, repr=False)
     progress_callback: Optional["ProgressCallback"] = field(default=None, repr=False)
+    user_terms: dict[str, str] | None = field(default=None, repr=False)
 
 
 @dataclass

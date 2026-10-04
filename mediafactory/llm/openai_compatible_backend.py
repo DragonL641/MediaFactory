@@ -42,6 +42,7 @@ from .base import (
     prepare_texts,
     restore_result,
 )
+from .term_memory import TermDict
 
 
 @dataclass
@@ -270,6 +271,11 @@ class OpenAICompatibleBackend(TranslationBackend):
         # 使用基类的文本标准化方法
         texts = self._normalize_texts(request.text)
 
+        # 术语记忆：加载用户种子（user 先入典，first-wins 保证其优先）
+        term_dict = TermDict()
+        if request.user_terms:
+            term_dict.register_user(request.user_terms)
+
         try:
             translated = self._translate_all_texts(
                 texts=texts,
@@ -277,6 +283,7 @@ class OpenAICompatibleBackend(TranslationBackend):
                 tgt_lang=request.tgt_lang,
                 cancelled_callback=request.cancelled_callback,
                 progress_callback=request.progress_callback,
+                term_dict=term_dict,
             )
 
             # 返回结果
@@ -314,6 +321,7 @@ class OpenAICompatibleBackend(TranslationBackend):
         tgt_lang: str,
         cancelled_callback: Callable | None = None,
         progress_callback: ProgressCallback | None = None,
+        term_dict: TermDict | None = None,
     ) -> list[str]:
         """翻译所有文本（分批处理 + 统一失败收集）。
 
@@ -323,10 +331,12 @@ class OpenAICompatibleBackend(TranslationBackend):
             tgt_lang: 目标语言代码
             cancelled_callback: 取消检查回调
             progress_callback: 进度回调
+            term_dict: 术语记忆实例（None 时创建空的）
 
         Returns:
             翻译结果列表
         """
+        term_dict = term_dict or TermDict()
         tgt_name = self.get_language_name(tgt_lang)
         src_name = self.get_language_name(src_lang)
 
@@ -385,6 +395,7 @@ class OpenAICompatibleBackend(TranslationBackend):
                     cancelled_callback,
                     allow_split=True,
                     src_lang=src_lang,
+                    term_dict=term_dict,
                 )
                 # 填入翻译结果
                 for i, text in enumerate(result.translations):
@@ -407,6 +418,7 @@ class OpenAICompatibleBackend(TranslationBackend):
                         tgt_lang,
                         cancelled_callback,
                         src_lang=src_lang,
+                        term_dict=term_dict,
                     )
                     for i, text in enumerate(result.translations):
                         all_translated[global_start + i] = text
@@ -466,6 +478,7 @@ class OpenAICompatibleBackend(TranslationBackend):
         cancelled_callback: Callable | None = None,
         allow_split: bool = True,
         src_lang: str = "",
+        term_dict: TermDict | None = None,
     ) -> BatchResult:
         """单批次翻译，包含降级逻辑。
 
@@ -479,9 +492,17 @@ class OpenAICompatibleBackend(TranslationBackend):
         tgt_name = self.get_language_name(tgt_lang)
         src_name = self.get_language_name(src_lang) if src_lang else ""
 
+        # 术语注入：命中当前批的词条渲染进 prompt
+        hits = term_dict.hits(batch) if term_dict else {}
+        custom_instructions = term_dict.render(hits) if term_dict else ""
+
         # 1. 尝试批量翻译
         response = self._call_llm_batch(
-            batch, tgt_name, cancelled_callback, src_name=src_name
+            batch,
+            tgt_name,
+            cancelled_callback,
+            src_name=src_name,
+            custom_instructions=custom_instructions,
         )
         result = self._parse_json_response(response)
 
@@ -506,6 +527,7 @@ class OpenAICompatibleBackend(TranslationBackend):
                 cancelled_callback,
                 allow_split=True,
                 src_lang=src_lang,
+                term_dict=term_dict,
             )
             second = self._translate_batch(
                 batch[half:],
@@ -513,6 +535,7 @@ class OpenAICompatibleBackend(TranslationBackend):
                 cancelled_callback,
                 allow_split=True,
                 src_lang=src_lang,
+                term_dict=term_dict,
             )
 
             return BatchResult(
@@ -546,6 +569,7 @@ class OpenAICompatibleBackend(TranslationBackend):
         tgt_lang: str,
         cancelled_callback: Callable | None = None,
         src_lang: str = "",
+        term_dict: TermDict | None = None,
     ) -> BatchResult:
         """contentFilter 错误的二分递归处理。
 
@@ -562,6 +586,7 @@ class OpenAICompatibleBackend(TranslationBackend):
                 cancelled_callback,
                 allow_split=True,
                 src_lang=src_lang,
+                term_dict=term_dict,
             )
         except OperationCancelledError:
             raise
@@ -649,6 +674,7 @@ class OpenAICompatibleBackend(TranslationBackend):
         tgt_name: str,
         cancelled_callback: Callable | None = None,
         src_name: str = "",
+        custom_instructions: str = "",
     ) -> str:
         """批量翻译 API 调用。
 
@@ -657,11 +683,12 @@ class OpenAICompatibleBackend(TranslationBackend):
             tgt_name: 目标语言名称
             cancelled_callback: 取消检查回调
             src_name: 源语言名称
+            custom_instructions: 术语注入文本（空串表示无）
 
         Returns:
             LLM 响应文本
         """
-        prompt = self._get_batch_prompt(tgt_name, src_name)
+        prompt = self._get_batch_prompt(tgt_name, src_name, custom_instructions)
         input_json = json.dumps(
             {str(i): t for i, t in enumerate(batch)}, ensure_ascii=False
         )
@@ -729,6 +756,7 @@ class OpenAICompatibleBackend(TranslationBackend):
         self,
         target_language: str,
         source_language: str = "",
+        custom_instructions: str = "",
     ) -> str:
         """获取批量翻译 prompt。"""
         from ..utils.prompt_loader import get_prompt
@@ -737,7 +765,7 @@ class OpenAICompatibleBackend(TranslationBackend):
             "translate/batch",
             target_language=target_language,
             source_language=source_language,
-            custom_instructions="",
+            custom_instructions=custom_instructions,
         )
 
     def get_language_name(self, lang_code: str) -> str:
