@@ -37,7 +37,6 @@
 | `mediafactory/llm/` | TranslationBackend ABC：OpenAI 兼容后端（批量+二分降级+contentFilter 递归+术语记忆）+ OllamaClient（Ollama REST 唯一封装） | `mediafactory/llm/` |
 | `mediafactory/config/` | Pydantic v2 + TOML 配置，MF_ 环境变量，frozen 数据目录 | `mediafactory/config/` |
 | `mediafactory/models/` | 模型注册表、whisper 运行时、模型下载任务 | `mediafactory/models/` |
-| `mediafactory/persistence/` | 任务历史 SQLite（db/orm/repository） | `mediafactory/persistence/` |
 | `src/` | React SPA（TypeScript + Ant Design 6 + vite），构建产物 webui/ 由 daemon 同源伺服 | `src/` |
 | `src-tauri/` | Tauri 2 壳（约 250 行 Rust，仅进程生命周期） | `src-tauri/` |
 | `tests/` | unit（按模块分子目录）+ integration；契约测试防线 | `tests/unit/` |
@@ -50,7 +49,7 @@
 #### 本地模型与本地兜底（2026-10-04，R3）
 **模型管理**：Settings「Local Models (Ollama)」卡片。状态与已装列表 `GET /api/models/local`；拉取 `POST /api/models/local/pull`（DOWNLOAD 类型任务 + WS 进度节流 0.5s；取消=任务置 CANCELLED 后协程停止消费流，断流即中止，终态写入前复查防覆盖取消态）；删除 `DELETE /api/models/local/{name}`（拉取中 409、Ollama 不可达 503）。Ollama 地址为常量 `OLLAMA_BASE_URL`（`constants.py`），不做用户配置。LLM 预设含 `ollama`（base_url `http://localhost:11434/v1`，免 key；ProviderDialog 的 model 字段在选中该预设时切换为已装模型下拉）。
 
-**本地兜底**：任务级显式开启。`TaskConfig.fallback_model`（None=不兜底；≤200 字符）经 `SubtitleRequest`/`TranslateRequest` 透传。表单「Local Fallback」开关打开条件：Ollama 可用且有已装模型，且主渠道非 ollama preset（单向：本地主渠道不兜底）。编排点 `TranslationEngine.translate_texts`：主链 `translate_detailed()` 的失败句（空串映射后的最终空间索引）按源文转投兜底 backend（同一 `OpenAICompatibleBackend` 指向 Ollama `/v1`），`TermDict` 跨主/兜底共享；兜底再失败保留原文（R1 终态），不二次兜底。四计数 `translation_stats {total, remote, fallback, failed}` 随 `ProcessingResult.metadata` 进任务结果（`GET /api/processing/tasks` 的 `metadata` 字段），任务队列卡片完成态展示（i18n）；句级明细只进日志。（2026-10-05：History 前端页已移除，任务队列即终态记录入口；后端历史表仍 write-through 保留。）生命周期：随用随载（Ollama 原生行为）+ 翻译步骤结束卸载（keep_alive 0，先查 `/api/ps` 未加载不触发；卸载异步生效）。backend 层 `translate_detailed()` 返回 `DetailedTranslationResult`（translations + failed_indices + term_dict），`translate()` 为其薄包装；`_translate_all_texts` 返回 `(译文, 失败索引)` 二元组，失败索引已从非空空间映射回含空串的最终空间。
+**本地兜底**：任务级显式开启。`TaskConfig.fallback_model`（None=不兜底；≤200 字符）经 `SubtitleRequest`/`TranslateRequest` 透传。表单「Local Fallback」开关打开条件：Ollama 可用且有已装模型，且主渠道非 ollama preset（单向：本地主渠道不兜底）。编排点 `TranslationEngine.translate_texts`：主链 `translate_detailed()` 的失败句（空串映射后的最终空间索引）按源文转投兜底 backend（同一 `OpenAICompatibleBackend` 指向 Ollama `/v1`），`TermDict` 跨主/兜底共享；兜底再失败保留原文（R1 终态），不二次兜底。四计数 `translation_stats {total, remote, fallback, failed}` 随 `ProcessingResult.metadata` 进任务结果（`GET /api/processing/tasks` 的 `metadata` 字段），任务队列卡片完成态展示（i18n）；句级明细只进日志。（2026-10-05：History 前端页与后端历史栈（persistence/、/api/history、write-through 钩子）一并移除，任务队列即终态记录入口。）生命周期：随用随载（Ollama 原生行为）+ 翻译步骤结束卸载（keep_alive 0，先查 `/api/ps` 未加载不触发；卸载异步生效）。backend 层 `translate_detailed()` 返回 `DetailedTranslationResult`（translations + failed_indices + term_dict），`translate()` 为其薄包装；`_translate_all_texts` 返回 `(译文, 失败索引)` 二元组，失败索引已从非空空间映射回含空串的最终空间。
 
 （ship 时按 ADDED/MODIFIED/REMOVED 增量生长；五种任务类型：音频提取、转录、字幕生成、字幕翻译、视频增强——audio/enhance 单动作直调引擎不走 Pipeline）
 
@@ -67,6 +66,5 @@
 ## 可机检断言
 
 - [ ] `pyproject.toml` 的 project.version == package.json 的 version == src-tauri/Cargo.toml 的 version（`uv run python scripts/utils/sync_version.py --check`）
-- [ ] `mediafactory/persistence/` 存在且含 db.py/orm.py/repository.py
 - [ ] daemon 端口 8765（`mediafactory/api/` 内常量）
 - [ ] `uv run pytest -m "unit"` 全绿

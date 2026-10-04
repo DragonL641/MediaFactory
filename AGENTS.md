@@ -4,7 +4,7 @@
 
 ## 目录
 
-- `mediafactory/` — 全部后端，单一包。分层：`api/`（FastAPI 路由、task_manager、worker）→ `services/runner.py`（RUNNERS 按 TaskType 分发）→ `pipeline/`（stage 编排）→ `engine/`；另有 `llm/`、`config/`、`models/`、`persistence/`（任务历史 SQLite：db/orm/repository）
+- `mediafactory/` — 全部后端，单一包。分层：`api/`（FastAPI 路由、task_manager、worker）→ `services/runner.py`（RUNNERS 按 TaskType 分发）→ `pipeline/`（stage 编排）→ `engine/`；另有 `llm/`、`config/`、`models/`
 - `src/` — React SPA（TypeScript + Ant Design + vite），构建产物输出 `webui/`
 - `src-tauri/` — Tauri 壳（约 250 行 Rust，只做进程生命周期：拉起 daemon / 优雅停机，**无业务逻辑**；改业务去 SPA 或 daemon）
 - `tests/` — `unit/`（按模块分子目录）+ `integration/`
