@@ -58,7 +58,7 @@
 | 内容 | 真源 | 版本锚 |
 |---|---|---|
 | 架构细节与实现约定 | CLAUDE.md | 完整内嵌版 |
-| 契约测试清单（115 个） | CLAUDE.md「测试」节 | 115 |
+| 契约测试清单（160 个） | CLAUDE.md「测试」节 | 160 |
 | 打包链 | BUILD.md | — |
 | API 文档 | docs/api.md | — |
 | 版本号 | pyproject.toml `project.version` | 0.4.0 |

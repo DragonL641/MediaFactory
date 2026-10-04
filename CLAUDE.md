@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 项目概述
 
-**MediaFactory**（前身为 VideoDub）是一个多媒体处理平台，用于字幕生成和视频相关任务。提供统一的架构，包括服务层、流水线层和引擎层，用于处理音频提取、语音转文字转录（使用 Faster Whisper）、翻译（本地模型和 LLM API）和字幕生成等任务。
+**MediaFactory**（前身为 VideoDub）是一个多媒体处理平台，用于字幕生成和视频相关任务。提供统一的架构，包括服务层、流水线层和引擎层，用于处理音频提取、语音转文字转录（使用 Faster Whisper）、翻译（本地 LLM 与云端 LLM API，统一 OpenAI 兼容后端）和字幕生成等任务。
 
 **平台支持**：macOS、Windows（Linux 暂不支持）；桌面交付 = Tauri 2 壳（`src-tauri/`，约 250 行 Rust 胶水：拉起 daemon → 就绪显示窗口 → 退出优雅停机，只做进程生命周期管理、无业务逻辑）
 
@@ -15,11 +15,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **三层架构**：Frontend (React SPA，浏览器) → API (FastAPI) → Service → Pipeline → Engine
 - **单一包**：`mediafactory/` 包含所有后端代码（API、服务、流水线、引擎）
 - 使用 **Faster Whisper** 而非 OpenAI Whisper，转录速度快 4-6 倍
-- LLM 翻译使用**逐句顺序翻译**，每句添加上下文参考以提高翻译质量
+- LLM 翻译为**批量翻译**（~40 句/批）+ 递归二分降级 + 内容过滤递归，失败句保留原文；任务可开本地兜底（Ollama），术语表跨主/兜底共享
 - 构建产物**包含所有 ML 依赖**（torch, transformers, faster-whisper 等），开箱即用
-- 翻译模型文件（2GB+）不捆绑在包中，用户在设置页面自行下载
+- 本地翻译模型（M2M100）已于 2026-10-04 整体裁剪（commit 23cf627），翻译任务必须启用 LLM
 - **基于 TOML 的配置**，使用 Pydantic v2 模型
-- **模型按需下载**：用户在设置页面自行下载所需模型（语音识别、翻译模型等）
+- **模型按需下载**：用户在设置页面自行下载所需模型（语音识别、视频增强模型等）；本地 LLM 走 Ollama（`constants.py` 的 `OLLAMA_BASE_URL`），不经应用内下载器
 
 ### 架构层次
 
@@ -215,6 +215,8 @@ result = await loop.run_in_executor(None, pipeline.execute, context)
 - `server_ref.py`：uvicorn Server 实例引用（入口构造后 `set_server` 注册，`POST /api/system/shutdown` 优雅停机经 `request_shutdown()` 置 `should_exit` → lifespan 收尾）
 - `routes/config.py`：配置管理 API（读取、更新、保存、LLM 预设）
 - `routes/models.py`：模型管理 API
+- `routes/local_models.py`：Ollama 本地模型 API（`/local` 列表、`/local/pull` 流式拉取、`/local/{name}` 删除；**必须注册在 routes/models.py 之前**——后者的 `DELETE /{model_id:path}` 是全捕获路由）
+- `local_pull_task.py`：Ollama pull 后台任务（NDJSON 流消费 + WS 进度节流；在飞任务持模块级强引用防 GC 丢终态）
 - `routes/processing.py`：任务处理 API（字幕、音频、转录、翻译、增强）
 - `routes/system.py`：系统交互 API（`/browse` 目录浏览供 Web UI 文件选取、`/reveal` 在文件管理器中定位产物、`/shutdown` 优雅停机供 Tauri 壳调用）
 - `schemas.py`：Pydantic 数据模型（TaskConfig、TaskProgress、TaskResult 等）
@@ -242,21 +244,22 @@ result = await loop.run_in_executor(None, pipeline.execute, context)
 - `AudioEngine`：ffmpeg 音频提取（48000Hz 立体声，语音增强滤波器）
 - `RecognitionEngine`：Faster Whisper 语音识别
 - `PostProcessEngine`：stable-ts 智能分句
-- `TranslationEngine`：统一翻译引擎，通过 `use_local_models_only` 和 `use_llm_backend` 参数切换本地翻译/LLM API 模式
+- `TranslationEngine`：统一翻译引擎（LLM-only），`translate_texts()` 编排主链 + 可选本地兜底（`fallback_model`，单向远端→本地），四计数 `translation_stats` 进任务 metadata
 - `SRTEngine`、`ASSEngine`、`VTTEngine`：字幕文件生成
 - `VideoEnhancementEngine`：视频画质增强
 - `enhancement/`：`RealESRGANEnhancer`（超分辨率）、`Denoiser`（降噪）、`TemporalSmoother`（时序平滑）
 
 **LLM 翻译**（`mediafactory/llm/`）：
-- 统一 OpenAI 兼容后端架构：`TranslationBackend`（ABC）→ `OpenAICompatibleBackend`
+- 统一 OpenAI 兼容后端架构：`TranslationBackend`（ABC）→ `OpenAICompatibleBackend`（批量 + 二分降级 + contentFilter 递归 + 术语记忆注入；`translate_detailed()` 返回译文 + 失败索引 + 术语表）
+- `OllamaClient`：Ollama REST 唯一封装（tags/ps/pull 流/generate 卸载/delete；async 供路由、sync 供 engine）
 - `initialize_llm_backend()`：集中后端初始化
-- 预设服务：OpenAI、DeepSeek、GLM、通义千问、Moonshot、自定义
-- 翻译方式：批量翻译 + 递归验证 + 本地回退
+- 预设服务：OpenAI、DeepSeek、GLM、通义千问、Moonshot、**Ollama (Local)**、自定义（`constants.py` 的 `BASE_URL_PRESETS`）
+- 术语记忆：`term_memory.py` 的 `TermDict`（R2，种子 + LLM 滚动，first-wins）
 
 **其他**：
 - `config/`：Pydantic v2 配置系统（TOML 存储，`MF_` 环境变量前缀），包含 `PostProcessConfig`（分句配置）
 - `logging/`：统一日志系统（loguru，自动清理过期日志，配置审计）
-- `models/`：模型管理（`model_registry` 注册表、`whisper_runtime`/`translation_runtime` 运行时、`model_download` 下载、`local_models` 本地模型发现）
+- `models/`：模型管理（`model_registry` 注册表、`whisper_runtime` 运行时、`model_download` 下载；翻译运行时随 M2M100 裁剪移除）
 - `i18n.py` + `locales/`：轻量 i18n，后端用户可见消息统一用 `t("key")`，语言偏好读自 config.toml，JSON 字典实现（前端则用 react-i18next + `src/locales/`）
 - `core/error_utils.py`：`sanitize_error()` 将异常转为用户友好消息（Service/API 层共用）
 - `constants.py`：`BackendConfigMapping`（含 `BASE_URL_PRESETS` LLM 服务预设）、`LANGUAGE_NAMES` 等语言常量
@@ -307,7 +310,7 @@ save_config()
 
 ### 模型管理
 
-- 翻译模型文件（2GB+）不捆绑在包中，用户在设置页面自行下载
+- 本地翻译模型（M2M100）已于 2026-10-04 整体裁剪（commit 23cf627），翻译任务必须启用 LLM
 - 模型从 `./models` 目录加载，启动时自动扫描并写入 `config.toml`
 - `whisper_model()`：上下文管理器确保 Whisper 模型正确释放（`resource_manager.py`）
 - 硬件自动检测：CUDA (NVIDIA GPU, float16) / CPU (int8 量化)；**Faster Whisper 不支持 MPS**
@@ -332,7 +335,7 @@ save_config()
 - 框架：pytest 带覆盖率
 - 结构：`tests/unit/`（按模块分子目录：api、config、core、engine、llm、pipeline、services、utils）+ `tests/integration/`
 - 标记：`unit`、`integration`、`slow`、`requires_ml`、`requires_network`（无 `e2e`）
-- **契约测试安全网**（共 115 个，精简重构 Phase 1-3、持久化队列 Phase 1、Electron 移除 Phase 2 与 Tauri 壳 Phase 3 的回归防线——**改动 runner/task_manager/task_store/worker/pipeline/download_task/daemon_lock/system 路由/SPA 伺服/config 数据目录前先确认这些测试全绿**）：`tests/unit/services/test_runner_contract.py`（21 个：5 个 runner 全覆盖、LLM 三分支、字段改名映射、失败透传）、`tests/unit/api/test_task_manager_contract.py`（9 个：状态机/CANCELLED 不变量/串行队列/取消出队）、`tests/unit/api/test_download_task.py`（3 个：成功/失败/节流）、`tests/unit/pipeline/test_progress_mapping.py`（8 个：区间归一化/防叠加/恢复）、`tests/unit/api/test_task_store.py`（11 个：任务 CRUD/白名单更新/队列标记/崩溃恢复）、`tests/unit/api/test_worker_executor.py`（10 个：子进程执行往返/崩溃隔离 respawn/取消 IPC/进度回传）、`tests/unit/api/test_task_manager_persistence.py`（14 个：write-through 落库/重启恢复/corrupt-row 跳过/lifespan 启动恢复/生产装配/manager+worker+SQLite 端到端链路）、`tests/unit/api/test_daemon_lock.py`（11 个：PID 锁获取/双开拒绝/死锁接管/入口装配/server 注册）、`tests/unit/api/test_system_routes.py`（15 个：browse 目录浏览排序与过滤/dotfile 跳过/reveal 平台命令/shutdown 端点）、`tests/unit/config/test_defaults.py`（7 个：frozen 数据目录迁移——Application Support/%APPDATA% 落点、config 路径随数据根、webui 仍从 exe 旁解析）、`tests/unit/api/test_spa_serving.py`（6 个：index 伺服/客户端路由回退/静态资源/API 路径不受影响/缺 webui 优雅降级）
+- **契约测试安全网**（共 160 个，精简重构 Phase 1-3、持久化队列 Phase 1、Electron 移除 Phase 2 与 Tauri 壳 Phase 3 的回归防线——**改动 runner/task_manager/task_store/worker/pipeline/download_task/daemon_lock/system 路由/local_models 路由/翻译降级链/SPA 伺服/config 数据目录前先确认这些测试全绿**）：`tests/unit/services/test_runner_contract.py`（22 个：5 个 runner 全覆盖、LLM 三分支、字段改名映射、失败透传）、`tests/unit/api/test_task_manager_contract.py`（9 个：状态机/CANCELLED 不变量/串行队列/取消出队）、`tests/unit/api/test_download_task.py`（3 个：成功/失败/节流）、`tests/unit/pipeline/test_progress_mapping.py`（8 个：区间归一化/防叠加/恢复）、`tests/unit/api/test_task_store.py`（11 个：任务 CRUD/白名单更新/队列标记/崩溃恢复）、`tests/unit/api/test_worker_executor.py`（10 个：子进程执行往返/崩溃隔离 respawn/取消 IPC/进度回传）、`tests/unit/api/test_task_manager_persistence.py`（14 个：write-through 落库/重启恢复/corrupt-row 跳过/lifespan 启动恢复/生产装配/manager+worker+SQLite 端到端链路）、`tests/unit/api/test_daemon_lock.py`（11 个：PID 锁获取/双开拒绝/死锁接管/入口装配/server 注册）、`tests/unit/api/test_system_routes.py`（15 个：browse 目录浏览排序与过滤/dotfile 跳过/reveal 平台命令/shutdown 端点）、`tests/unit/config/test_defaults.py`（7 个：frozen 数据目录迁移——Application Support/%APPDATA% 落点、config 路径随数据根、webui 仍从 exe 旁解析）、`tests/unit/api/test_spa_serving.py`（6 个：index 伺服/客户端路由回退/静态资源/API 路径不受影响/缺 webui 优雅降级）、`tests/unit/api/test_models_local.py`（10 个：Ollama 列表/拉取/删除路由 + pull 任务终态防覆盖取消态）、`tests/unit/llm/test_ollama_client.py`（10 个：tags/ps/pull 流/卸载/delete 与异常路径）、`tests/unit/llm/test_translate_detailed.py`（6 个：detailed 契约/单文本标量归一/失败索引映射）、`tests/unit/engine/test_translation_fallback.py`（11 个：兜底编排/术语共享/单向门/用后卸载）、`tests/unit/services/test_runner_fallback.py`（1 个：engine 选择透传 fallback_model）、`tests/unit/api/test_schemas_fallback.py`（6 个：TaskConfig/SubtitleRequest/TranslateRequest 的 fallback_model 校验）
 
 ## 重要实现细节
 
