@@ -162,3 +162,16 @@ class TestGetSetConvenience:
         # 验证持久化
         manager2 = AppConfigManager(config_path=tmp_config_file)
         assert manager2.config.whisper.beam_size == 3
+
+
+# ============================================================================
+# N. ollama 预设 round-trip（R3）
+# ============================================================================
+
+
+class TestOllamaPresetRoundtrip:
+    def test_ollama_preset_roundtrip(self, tmp_config_file):
+        manager = AppConfigManager(config_path=tmp_config_file)
+        manager.update(openai_compatible__ollama__model="qwen2.5:7b")
+        reloaded = AppConfigManager(config_path=tmp_config_file)
+        assert reloaded.config.openai_compatible.ollama.model == "qwen2.5:7b"

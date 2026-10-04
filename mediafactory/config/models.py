@@ -224,6 +224,10 @@ class OpenAICompatibleConfig(BaseModel):
         default_factory=PresetServiceConfig,
         description="Moonshot AI 配置",
     )
+    ollama: PresetServiceConfig = Field(
+        default_factory=PresetServiceConfig,
+        description="Ollama 本地服务配置",
+    )
     custom: PresetServiceConfig = Field(
         default_factory=PresetServiceConfig,
         description="自定义服务配置",

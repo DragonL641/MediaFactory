@@ -71,7 +71,7 @@ THREAD_JOIN_TIMEOUT = 1
 
 
 # LLM 服务预设名单（单一真相源；新增服务商在此与 BASE_URL_PRESETS 同步添加）
-PRESET_NAMES = ("openai", "deepseek", "glm", "qwen", "moonshot", "custom")
+PRESET_NAMES = ("openai", "deepseek", "glm", "qwen", "moonshot", "ollama", "custom")
 
 # Ollama 本地服务地址（OpenAI 兼容端点为 {OLLAMA_BASE_URL}/v1）
 OLLAMA_BASE_URL = "http://localhost:11434"
@@ -110,6 +110,11 @@ class BackendConfigMapping:
             "display_name": "Moonshot AI",
             "base_url": "https://api.moonshot.cn/v1",
             "model_examples": ["moonshot-v1-8k", "moonshot-v1-32k"],
+        },
+        "ollama": {
+            "display_name": "Ollama (Local)",
+            "base_url": "http://localhost:11434/v1",
+            "model_examples": [],
         },
         "custom": {
             "display_name": "Custom / Local LLM",
