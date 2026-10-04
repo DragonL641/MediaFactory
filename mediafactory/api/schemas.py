@@ -109,6 +109,19 @@ class TaskConfig(BaseModel):
                 raise ValueError("terminology entry exceeds 200 characters")
         return v
 
+    # 本地兜底模型（Ollama）；None = 不兜底
+    fallback_model: str | None = Field(default=None)
+
+    @field_validator("fallback_model")
+    @classmethod
+    def _validate_fallback_model(cls, v: str | None) -> str | None:
+        if v is None:
+            return v
+        v = v.strip()
+        if not v or len(v) > 200:
+            raise ValueError("fallback_model must be 1-200 characters")
+        return v
+
     # 输出格式
     output_format: str = "srt"  # srt, ass, vtt, txt
 
@@ -246,6 +259,20 @@ class SubtitleRequest(BaseModel):
                 raise ValueError("terminology entry exceeds 200 characters")
         return v
 
+    fallback_model: str | None = None
+
+    @field_validator("fallback_model")
+    @classmethod
+    def _validate_subtitle_request_fallback_model(
+        cls, v: str | None
+    ) -> str | None:
+        if v is None:
+            return v
+        v = v.strip()
+        if not v or len(v) > 200:
+            raise ValueError("fallback_model must be 1-200 characters")
+        return v
+
 
 class AudioRequest(BaseModel):
     """音频提取请求"""
@@ -295,6 +322,20 @@ class TranslateRequest(BaseModel):
         for key, value in v.items():
             if len(key) > 200 or len(value) > 200:
                 raise ValueError("terminology entry exceeds 200 characters")
+        return v
+
+    fallback_model: str | None = None
+
+    @field_validator("fallback_model")
+    @classmethod
+    def _validate_translate_request_fallback_model(
+        cls, v: str | None
+    ) -> str | None:
+        if v is None:
+            return v
+        v = v.strip()
+        if not v or len(v) > 200:
+            raise ValueError("fallback_model must be 1-200 characters")
         return v
 
 
