@@ -2,7 +2,7 @@
 
 > **本文件是产品现状的 source of truth**——描述"现在是什么"。要做什么在 `docs/roadmap.md`，怎么做的设计在 `docs/superpowers/specs/`，本文件只管现状。
 >
-> 锚点：`c03f6ff`（最近一次回填/校对时的 commit）· 最近校对：2026-10-04
+> 锚点：`a7664e4`（最近一次回填/校对时的 commit）· 最近校对：2026-10-05
 > 校对方式：diff 引导（`git log <锚点>..HEAD` + 下方可机检断言对账）
 
 ## 稳定层 — 为什么（产品级决策才动）
@@ -47,7 +47,7 @@
 翻译任务可选 JSON 术语表（`TaskConfig.terminology`，≤200 条、单条 ≤200 字符，超限 422）。`TermDict`（`mediafactory/llm/term_memory.py`）first-wins 语义：key 小写归一化、最小 2 字符；用户种子先于翻译加载（时序保证优先，文件永不写回）；每批翻译后 LLM 自判提取「值得记」候选（≤5 条/批，提取调用不带历史 dict）滚动入典（source=auto）；命中词条经 `batch.md` 的 `${custom_instructions}` 槽位注入；译法冲突按术语表替换译文，日志按来源分级（user=warning 注入失效信号 / auto=debug 常态波动）。链路：`SubtitleRequest`/`TranslateRequest.terminology` → 路由透传 → `TranslationEngine(user_terms=)` → `TranslationRequest.user_terms` → `OpenAICompatibleBackend`。前端：字幕与翻译表单共享 `TerminologyFileField` 上传控件（hidden Form.Item 承载值）。
 
 #### 本地模型与本地兜底（2026-10-04，R3）
-**模型管理**：Settings「Local Models (Ollama)」卡片。状态与已装列表 `GET /api/models/local`；拉取 `POST /api/models/local/pull`（DOWNLOAD 类型任务 + WS 进度节流 0.5s；取消=任务置 CANCELLED 后协程停止消费流，断流即中止，终态写入前复查防覆盖取消态）；删除 `DELETE /api/models/local/{name}`（拉取中 409、Ollama 不可达 503）。Ollama 地址为常量 `OLLAMA_BASE_URL`（`constants.py`），不做用户配置。LLM 预设含 `ollama`（base_url `http://localhost:11434/v1`，免 key；ProviderDialog 的 model 字段在选中该预设时切换为已装模型下拉）。
+**模型管理**：Settings「Local Models (Ollama)」卡片。状态与已装列表 `GET /api/models/local`；拉取 `POST /api/models/local/pull`（DOWNLOAD 类型任务 + WS 进度节流 0.5s；在飞任务持模块级强引用防 GC 丢终态；取消=任务置 CANCELLED 后协程停止消费流，断流即中止，终态写入前复查防覆盖取消态）；删除 `DELETE /api/models/local/{name}`（拉取中 409、Ollama 不可达 503）。Ollama 地址为常量 `OLLAMA_BASE_URL`（`constants.py`），不做用户配置。LLM 预设含 `ollama`（base_url `http://localhost:11434/v1`，免 key；ProviderDialog 的 model 字段在选中该预设时切换为已装模型下拉，API Key 字段整行不渲染）。
 
 **本地兜底**：任务级显式开启。`TaskConfig.fallback_model`（None=不兜底；≤200 字符）经 `SubtitleRequest`/`TranslateRequest` 透传。表单「Local Fallback」开关打开条件：Ollama 可用且有已装模型，且主渠道非 ollama preset（单向：本地主渠道不兜底）。编排点 `TranslationEngine.translate_texts`：主链 `translate_detailed()` 的失败句（空串映射后的最终空间索引）按源文转投兜底 backend（同一 `OpenAICompatibleBackend` 指向 Ollama `/v1`），`TermDict` 跨主/兜底共享；兜底再失败保留原文（R1 终态），不二次兜底。四计数 `translation_stats {total, remote, fallback, failed}` 随 `ProcessingResult.metadata` 进任务结果（`GET /api/processing/tasks` 的 `metadata` 字段），任务队列卡片完成态展示（i18n）；句级明细只进日志。（2026-10-05：History 前端页与后端历史栈（persistence/、/api/history、write-through 钩子）一并移除，任务队列即终态记录入口。）生命周期：随用随载（Ollama 原生行为）+ 翻译步骤结束卸载（keep_alive 0，先查 `/api/ps` 未加载不触发；卸载异步生效）。backend 层 `translate_detailed()` 返回 `DetailedTranslationResult`（translations + failed_indices + term_dict），`translate()` 为其薄包装；`_translate_all_texts` 返回 `(译文, 失败索引)` 二元组，失败索引已从非空空间映射回含空串的最终空间。
 
