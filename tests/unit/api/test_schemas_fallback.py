@@ -23,9 +23,7 @@ def test_task_config_fallback_model_accepts_name():
 @pytest.mark.parametrize("bad", ["", "   ", "x" * 201])
 def test_task_config_fallback_model_rejects_blank_and_overlong(bad):
     with pytest.raises(ValidationError):
-        TaskConfig(
-            task_type=TaskType.TRANSLATE, input_path="a.srt", fallback_model=bad
-        )
+        TaskConfig(task_type=TaskType.TRANSLATE, input_path="a.srt", fallback_model=bad)
 
 
 def test_translate_request_fallback_model():
