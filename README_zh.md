@@ -39,7 +39,7 @@
 
 ### 🤖 统一模型管理
 
-在设置页面统一管理所有模型 — 下载本地 Whisper 模型实现完全离线的语音识别，或接入 6+ 种 LLM 服务（OpenAI、DeepSeek、智谱 GLM、通义千问、Moonshot、Ollama 或自定义端点）进行翻译。你的选择，你的隐私。
+在设置页面统一管理所有模型 — 下载本地 Whisper 模型实现完全离线的语音识别，或接入 7 种 LLM 服务预设（OpenAI、DeepSeek、智谱 GLM、通义千问、Moonshot、Ollama 或自定义端点）进行翻译。你的选择，你的隐私。
 
 <p align="center">
   <img src="docs/images/ModelConfig.png" alt="模型配置" width="500"/>
@@ -96,8 +96,8 @@ AI 视频工具往往让你在质量和速度之间、云端便利和隐私之�
 | **核心定位** | 自动生成 | 视频翻译 | LLM 字幕 | 手动编辑 |
 | **许可证** | MIT | GPL-3.0 | GPL-3.0 | GPL/LGPL |
 | **语音识别** | ✅ Faster Whisper | ✅ 多种 | ✅ 多种 | ✅ Whisper |
-| **本地翻译** | ✅ | ✅ | ❌ | ❌ |
-| **LLM 翻译** | ✅ 6+ 服务商 | ✅ | ✅ | ✅ Google/DeepL |
+| **本地 LLM 翻译（Ollama）** | ✅ | ✅ | ❌ | ❌ |
+| **LLM 翻译** | ✅ 7 个预设（含本地 Ollama） | ✅ | ✅ | ✅ Google/DeepL |
 | **批量处理** | ✅ | ✅ | ✅ | ✅ |
 | **字幕编辑** | ❌ | ❌ | ❌ | ✅ 完整编辑器 |
 | **TTS 配音** | ❌ | ✅ | ❌ | ✅ |

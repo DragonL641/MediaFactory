@@ -39,7 +39,7 @@ Drag and drop multiple files or entire folders. Set source/target languages and 
 
 ### 🤖 Unified Model Management
 
-Manage all models in one place — the Settings page. Download local Whisper models for fully offline speech recognition, or connect to 6+ LLM providers (OpenAI, DeepSeek, GLM, Qwen, Moonshot, Ollama, or custom endpoints) for translation. Your choice, your privacy.
+Manage all models in one place — the Settings page. Download local Whisper models for fully offline speech recognition, or connect to 7 LLM provider presets (OpenAI, DeepSeek, GLM, Qwen, Moonshot, Ollama, or custom endpoints) for translation. Your choice, your privacy.
 
 <p align="center">
   <img src="docs/images/ModelConfig.png" alt="Model Configuration" width="500"/>
@@ -96,8 +96,8 @@ AI video tools often force you to choose between quality and speed, or between c
 | **Core Focus** | Auto Generation | Video Translation | LLM Subtitles | Manual Editing |
 | **License** | MIT | GPL-3.0 | GPL-3.0 | GPL/LGPL |
 | **Speech Recognition** | ✅ Faster Whisper | ✅ Multiple | ✅ Multiple | ✅ Whisper |
-| **Local Translation** | ✅ | ✅ | ❌ | ❌ |
-| **LLM Translation** | ✅ 6+ Providers | ✅ | ✅ | ✅ Google/DeepL |
+| **Local LLM Translation (Ollama)** | ✅ | ✅ | ❌ | ❌ |
+| **LLM Translation** | ✅ 7 presets incl. local Ollama | ✅ | ✅ | ✅ Google/DeepL |
 | **Batch Processing** | ✅ | ✅ | ✅ | ✅ |
 | **Subtitle Editing** | ❌ | ❌ | ❌ | ✅ Full Editor |
 | **TTS Dubbing** | ❌ | ✅ | ❌ | ✅ |

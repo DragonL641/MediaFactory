@@ -28,7 +28,6 @@
 - 转录段级幻觉过滤（消费 no_speech_prob/avg_logprob + 复读正则 + 幻听短语黑名单）：参数层主防线已在（condition_on_previous_text 默认 False + faster-whisper 库默认阈值）；待实际素材触发再做（来源：2026-10-04 R1 讨论）
 - ASR/翻译结果缓存（重跑不重复消耗，配合任务历史；来源：同上，VideoCaptioner）
 - 两步反思翻译开关（直译→反思→重写，token 翻倍；来源：同上，VideoLingo/VideoCaptioner）
-- README 对比表补 VideoLingo/KlicStudio（宽松协议位已被 Apache 系占据，加列价值存疑待裁决）；顺带修「Local Translation」行语义（原指 M2M100，现应指 Ollama 主渠道）（来源：2026-10-04 对比会话发现；CLAUDE.md 与 tmp/ 两项已于 2026-10-05 完成）
 - 视频增强定位（收口）：自用 + 免费 + 老片子（低清糊画面）场景；冻结向第三代（生成式修复）的画质投入——观感差距主要来自工程缺口而非模型代际（来源：2026-10-04 视频增强对比会话：三代技术演进 + Topaz/SeedVR2 对标分析，硬件约束见该次讨论）
 - 老片增强小件包（P0）：deinterlace 检查（FFmpeg bwdif 前置）+ CodeFormer 人脸修复 + film grain 后处理 + spandrel 换社区模型（4x-UltraSharp 类）——老片观感九成缺口，估算 2-3 工程日（来源：同上）
 - 帧插值（P1，RIFE 可选 stage）：24→60fps，老片"高级感"最大杠杆，估算 3-5 工程日（来源：同上）
