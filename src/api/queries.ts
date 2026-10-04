@@ -12,6 +12,7 @@ import type {
   HistoryListResponse,
   HistoryQueryParams,
   ModelReadiness,
+  LocalModelsStatus,
 } from "../types";
 
 // Query Keys
@@ -22,6 +23,7 @@ export const queryKeys = {
   config: ["config"] as const,
   llmPresets: ["config", "llm", "presets"] as const,
   modelReadiness: ["models", "readiness"] as const,
+  localModels: ["models", "local"] as const,
   history: (params?: HistoryQueryParams) => ["history", params] as const,
 };
 
@@ -72,6 +74,7 @@ export function useCreateSubtitleTaskMutation() {
       use_llm: boolean;
       output_format: string;
       terminology?: Record<string, string>;
+      fallback_model?: string;
       bilingual?: boolean;
       bilingual_layout?: string;
       style_preset?: string;
@@ -152,6 +155,7 @@ export function useCreateTranslateTaskMutation() {
       use_llm: boolean;
       llm_preset?: string;
       terminology?: Record<string, string>;
+      fallback_model?: string;
     }) => {
       const client = getApiClient();
       const response = await client.post("/api/processing/translate", params);
@@ -426,6 +430,51 @@ export function useDeleteModelMutation() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.modelsStatus });
       queryClient.invalidateQueries({ queryKey: queryKeys.modelReadiness });
+    },
+  });
+}
+
+/**
+ * 本地（Ollama）模型状态与已装列表
+ */
+export function useLocalModelsQuery() {
+  return useQuery<LocalModelsStatus>({
+    queryKey: queryKeys.localModels,
+    queryFn: async () => {
+      const client = getApiClient();
+      const response = await client.get("/api/models/local");
+      return response.data;
+    },
+    staleTime: 10000,
+  });
+}
+
+/**
+ * 拉取本地模型（返回后台任务 ID，进度走任务列表）
+ */
+export function usePullLocalModelMutation() {
+  return useMutation({
+    mutationFn: async (name: string) => {
+      const client = getApiClient();
+      const response = await client.post("/api/models/local/pull", { name });
+      return response.data as { task_id: string };
+    },
+  });
+}
+
+/**
+ * 删除本地模型
+ */
+export function useDeleteLocalModelMutation() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (name: string) => {
+      const client = getApiClient();
+      await client.delete(`/api/models/local/${name}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.localModels });
     },
   });
 }

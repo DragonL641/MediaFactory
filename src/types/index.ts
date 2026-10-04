@@ -65,6 +65,7 @@ export interface TaskConfig {
   use_llm?: boolean;
   llm_preset?: string;
   terminology?: Record<string, string>;
+  fallback_model?: string;
   audio_config?: AudioConfig;
   subtitle_config?: SubtitleConfig;
   enhancement_config?: EnhancementConfig;
@@ -128,6 +129,19 @@ export interface AllModelsStatus {
     name: string;
     models: DenoiseModelInfo[];
   };
+}
+
+export interface LocalModelInfo {
+  name: string;
+  size: number;
+  parameterSize: string;
+  quantizationLevel: string;
+  modifiedAt: string;
+}
+
+export interface LocalModelsStatus {
+  available: boolean;
+  models: LocalModelInfo[];
 }
 
 export interface ModelReadiness {
