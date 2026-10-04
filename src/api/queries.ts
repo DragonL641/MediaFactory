@@ -9,8 +9,6 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { getApiClient } from "./client";
 import type {
   AllModelsStatus,
-  HistoryListResponse,
-  HistoryQueryParams,
   ModelReadiness,
   LocalModelsStatus,
 } from "../types";
@@ -24,7 +22,6 @@ export const queryKeys = {
   llmPresets: ["config", "llm", "presets"] as const,
   modelReadiness: ["models", "readiness"] as const,
   localModels: ["models", "local"] as const,
-  history: (params?: HistoryQueryParams) => ["history", params] as const,
 };
 
 // ============ Tasks ============
@@ -663,42 +660,6 @@ export function useReloadConfigMutation() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.config });
-    },
-  });
-}
-
-// ============ History ============
-
-/**
- * 分页查询任务历史（completed_at 降序）
- */
-export function useHistoryQuery(params: HistoryQueryParams = {}) {
-  return useQuery({
-    queryKey: queryKeys.history(params),
-    queryFn: async () => {
-      const client = getApiClient();
-      const response = await client.get<HistoryListResponse>("/api/history", {
-        params,
-      });
-      return response.data;
-    },
-    staleTime: 15000,
-  });
-}
-
-/**
- * 清空任务历史
- */
-export function useClearHistoryMutation() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: async () => {
-      const client = getApiClient();
-      const response = await client.delete("/api/history");
-      return response.data;
-    },
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["history"] });
     },
   });
 }

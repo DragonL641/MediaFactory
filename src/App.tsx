@@ -11,7 +11,6 @@ import { useTranslation } from "react-i18next";
 import MainLayout from "./components/Layout/MainLayout";
 import ErrorBoundary from "./components/ErrorBoundary";
 import TasksPage from "./pages/Tasks";
-import HistoryPage from "./pages/History";
 import SettingsPage from "./pages/Settings";
 import { initApiClient, wsClient } from "./api/client";
 import { queryKeys } from "./api/queries";
@@ -128,7 +127,6 @@ const App: React.FC = () => {
         <Routes>
           <Route path="/" element={<Navigate to="/tasks" replace />} />
           <Route path="/tasks" element={<TasksPage />} />
-          <Route path="/history" element={<HistoryPage />} />
           <Route path="/settings" element={<SettingsPage />} />
           <Route path="*" element={<Navigate to="/tasks" replace />} />
         </Routes>

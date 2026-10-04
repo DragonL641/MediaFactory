@@ -572,6 +572,7 @@ class TaskManager:
             "message": task.message,
             "error": task.result.error if task.result else None,
             "stage": task.stage,
+            "metadata": task.result.metadata if task.result else {},
         }
 
     async def get_task_status(self, task_id: str) -> dict[str, Any] | None:

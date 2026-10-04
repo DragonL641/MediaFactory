@@ -68,6 +68,9 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, onCancel, onDelete, onRetry, 
 
   const outputPath = task.outputPath;
   const isCompleted = status === TaskStatus.COMPLETED;
+  const translationStats = task.metadata?.translation_stats as
+    | { remote: number; fallback: number; failed: number }
+    | undefined;
   const canStart = status === TaskStatus.PENDING;
   const canEdit = status === TaskStatus.PENDING;
   const canCancel = status === TaskStatus.RUNNING;
@@ -143,6 +146,17 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, onCancel, onDelete, onRetry, 
       {status === TaskStatus.FAILED && task.error && (
         <Text type="danger" ellipsis={{ tooltip: true }} style={{ display: "block", fontSize: 12 }}>
           {task.error}
+        </Text>
+      )}
+
+      {/* 翻译统计（R3：总数=远端+兜底+失败，失败句保留原文） */}
+      {isCompleted && translationStats && (
+        <Text type="secondary" style={{ display: "block", fontSize: 12 }}>
+          {t("card.translationStats", {
+            remote: translationStats.remote,
+            fallback: translationStats.fallback,
+            failed: translationStats.failed,
+          })}
         </Text>
       )}
 

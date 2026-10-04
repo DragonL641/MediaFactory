@@ -11,7 +11,6 @@ import {
   FileTextOutlined,
   SettingOutlined,
   GlobalOutlined,
-  HistoryOutlined,
 } from "@ant-design/icons";
 import { useLocation, Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
@@ -26,7 +25,6 @@ interface MainLayoutProps {
 
 const TAB_ITEMS = [
   { key: "/tasks", icon: <FileTextOutlined />, label: "tasks" },
-  { key: "/history", icon: <HistoryOutlined />, label: "history" },
   { key: "/settings", icon: <SettingOutlined />, label: "settings" },
 ];
 

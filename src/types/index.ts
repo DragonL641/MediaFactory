@@ -30,6 +30,7 @@ export interface Task {
   message: string;
   stage?: string;
   error?: string; // 后端直接返回 error 字段
+  metadata?: Record<string, unknown>; // 结果附加数据（如 translation_stats）
 }
 
 export interface AudioConfig {
@@ -259,37 +260,4 @@ export interface TestConnectionResponse {
   success: boolean;
   error?: string;
   latency_ms?: number;
-}
-
-// ==================== 任务历史 ====================
-
-export interface TaskHistoryRecord {
-  id: number;
-  taskId: string;
-  name: string;
-  type: string;
-  status: string;
-  inputPath: string | null;
-  outputPath: string | null;
-  error: string | null;
-  errorType: string | null;
-  metadata: Record<string, unknown>;
-  /** ISO 8601 UTC */
-  createdAt: string;
-  completedAt: string;
-  startedAt: string | null;
-  /** 毫秒；缺失为 null */
-  durationMs: number | null;
-}
-
-export interface HistoryListResponse {
-  total: number;
-  items: TaskHistoryRecord[];
-}
-
-export interface HistoryQueryParams {
-  limit?: number;
-  offset?: number;
-  status?: string;
-  type?: string;
 }
