@@ -22,6 +22,10 @@ logger = logging.getLogger(__name__)
 # 并发保护：正在拉取的模型名集合
 _active_pulls: set[str] = set()
 
+# 在飞拉取任务的强引用（asyncio 事件循环对 task 只持弱引用，
+# 不保存引用则任务可能在挂起等待流数据时被 GC 静默回收）
+_running_pull_tasks: set[asyncio.Task] = set()
+
 _PROGRESS_THROTTLE_SEC = 0.5
 
 
@@ -37,7 +41,9 @@ async def start_pull(name: str, on_complete: Callable[[], None] | None = None) -
     task_id = await task_manager.create_task(config, name=f"Pull model: {name}")
 
     _active_pulls.add(name)
-    asyncio.create_task(_execute_pull_task(task_id, name, on_complete))
+    task = asyncio.create_task(_execute_pull_task(task_id, name, on_complete))
+    _running_pull_tasks.add(task)
+    task.add_done_callback(_running_pull_tasks.discard)
     return task_id
 
 
