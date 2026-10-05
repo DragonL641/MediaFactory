@@ -57,6 +57,7 @@ dependencies = [
     "sqlalchemy[asyncio]>=2.0.52,<3.0.0",
     "aiosqlite>=0.22.1",
     "httpx>=0.28.1",
+    "facexlib>=0.3.0",
 ]
 requires-python = ">=3.11,<3.14"
 
