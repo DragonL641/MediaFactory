@@ -47,18 +47,67 @@ class SRTEngine:
     )
 
     def parse(self, filepath: str) -> list[dict[str, Any]]:
-        """解析字幕文件（SRT/VTT）"""
+        """解析字幕文件（SRT/VTT/ASS）"""
         ext = Path(filepath).suffix.lower()
 
         if ext == ".srt":
             return self._parse_srt(filepath)
         elif ext == ".vtt":
             return self._parse_vtt(filepath)
+        elif ext == ".ass":
+            return self._parse_ass(filepath)
         else:
             raise ProcessingError(
                 message=f"Unsupported subtitle format: {ext}",
                 context={"filepath": filepath, "extension": ext},
             )
+
+    def _parse_ass(self, filepath: str) -> list[dict[str, Any]]:
+        """解析 ASS 文件的 Dialogue 事件。
+
+        时间戳 H:MM:SS.cc（厘秒）；Text 为第 10 字段起（文本内逗号不断句）；
+        剥除 {\\...} 覆盖标签。
+        """
+        segments: list[dict[str, Any]] = []
+        try:
+            if not os.path.exists(filepath):
+                raise ProcessingError(
+                    message=f"Subtitle file not found: {filepath}",
+                    context={"filepath": filepath},
+                )
+            with open(filepath, encoding="utf-8") as f:
+                content = f.read()
+        except ProcessingError:
+            raise
+        except Exception as e:
+            raise convert_exception(e, context={"filepath": filepath}) from e
+
+        override_re = re.compile(r"\{\\[^}]*\}")
+        for line in content.splitlines():
+            line = line.strip()
+            if not line.lower().startswith("dialogue:"):
+                continue
+            fields = line.split(":", 1)[1].split(",", 9)
+            if len(fields) < 10:
+                continue
+            try:
+                start = self._parse_ass_timestamp(fields[1].strip())
+                end = self._parse_ass_timestamp(fields[2].strip())
+            except ValueError:
+                continue  # 跳过畸形时间戳行
+            text = override_re.sub("", fields[9]).strip()
+            if text:
+                segments.append({"start": start, "end": end, "text": text})
+        return segments
+
+    @staticmethod
+    def _parse_ass_timestamp(ts: str) -> float:
+        """'H:MM:SS.cc' → 秒"""
+        m = re.match(r"^(\d+):(\d{1,2}):(\d{1,2})\.(\d{1,2})$", ts)
+        if not m:
+            raise ValueError(f"bad ass timestamp: {ts}")
+        h, mi, s, cs = (int(g) for g in m.groups())
+        return h * 3600 + mi * 60 + s + cs / 100
 
     def _parse_srt(self, filepath: str) -> list[dict[str, Any]]:
         """解析 SRT 文件"""
