@@ -18,6 +18,7 @@
 - 版本单一真相源：`pyproject.toml` 的 `project.version`，`sync_version.py` 同步下游
 - 日志双模式：API 层标准 logging（InterceptHandler 转 loguru），Service/Engine/Pipeline 层直用 loguru 封装
 - 翻译只有两条腿：云端 LLM API 与本地 LLM（Ollama），同一个 OpenAI 兼容后端（本地占位 key）；云端 MT 翻译 API（Azure/腾讯云/阿里云）2026-10-04 整体裁剪不再接入。降级链 LLM 批量→二分→内容过滤递归，失败句保留原文并在日志汇总（可按任务开本地兜底，见「本地模型与本地兜底」节）；本地翻译模型（M2M100）已于 2026-10-04 裁剪（commit 23cf627），翻译任务必须启用 LLM
+- 视频增强定位（2026-10-04 视频增强对比会话定案）：自用 + 免费 + 老片（低清糊画面）恢复场景；画质投入冻结在第二代（RealESRGAN 类超分 + NAFNet 降噪）——观感差距主要来自工程缺口而非模型代际；明确不做 Topaz CLI 集成（license 禁止再分发）与云端 GPU 渲染（商业模式变更）；第三代生成式修复（SeedVR2 级）待量化生态压进 8GB 消费级卡再重评（观察项留在 roadmap）
 
 ### 非功能约束
 - 平台仅 macOS / Windows（Linux 不支持）
