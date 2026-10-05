@@ -16,7 +16,6 @@ import type {
 // Query Keys
 export const queryKeys = {
   tasks: ["tasks"] as const,
-  taskStatus: (id: string) => ["tasks", id] as const,
   modelsStatus: ["models", "status"] as const,
   config: ["config"] as const,
   llmPresets: ["config", "llm", "presets"] as const,
@@ -39,21 +38,6 @@ export function useTasksQuery() {
       return response.data;
     },
     staleTime: 30000,
-  });
-}
-
-/**
- * 获取单个任务状态
- */
-export function useTaskStatusQuery(taskId: string) {
-  return useQuery({
-    queryKey: queryKeys.taskStatus(taskId),
-    queryFn: async () => {
-      const client = getApiClient();
-      const response = await client.get(`/api/processing/status/${taskId}`);
-      return response.data;
-    },
-    enabled: !!taskId,
   });
 }
 
@@ -640,19 +624,6 @@ export function useUpdateConfigMutation() {
 
 /**
  * 保存配置到磁盘
- */
-export function useSaveConfigMutation() {
-  return useMutation({
-    mutationFn: async () => {
-      const client = getApiClient();
-      const response = await client.post("/api/config/save");
-      return response.data;
-    },
-  });
-}
-
-/**
- * 重新加载配置
  */
 export function useReloadConfigMutation() {
   const queryClient = useQueryClient();

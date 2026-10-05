@@ -242,7 +242,6 @@ scripts/
     ├── check_gpu.py           # GPU 检测脚本
     ├── download_model.py      # 模型下载脚本
     ├── sync_version.py        # 版本同步脚本
-    └── init_models_in_installation.py # 模型初始化脚本
 
 src-tauri/                     # Tauri 2 桌面壳（Rust）
 ├── src/main.rs                # 壳唯一源文件（daemon 生命周期管理）

@@ -182,12 +182,6 @@ class LLMPresetUpdateRequest(BaseModel):
     model: str | None = None
 
 
-class SetCurrentPresetRequest(BaseModel):
-    """设置当前预设请求"""
-
-    preset: str
-
-
 @router.put("/llm/preset/{preset_id}")
 async def update_llm_preset(preset_id: str, request: LLMPresetUpdateRequest):
     """
@@ -272,27 +266,4 @@ async def delete_llm_preset(preset_id: str):
         raise HTTPException(
             status_code=500,
             detail=t("error.presetDeleteFailed", error=sanitize_error(e)),
-        ) from e
-
-
-@router.put("/llm/current-preset")
-async def set_current_llm_preset(request: SetCurrentPresetRequest):
-    """
-    设置当前使用的 LLM 预设
-    """
-    from mediafactory.constants import BackendConfigMapping
-
-    if request.preset not in BackendConfigMapping.BASE_URL_PRESETS:
-        raise HTTPException(
-            status_code=404, detail=t("error.unknownPreset", preset=request.preset)
-        )
-
-    try:
-        update_config(openai_compatible__current_preset=request.preset)
-        return {"success": True, "current_preset": request.preset}
-    except Exception as e:
-        logger.exception(f"设置当前预设失败: {e}")
-        raise HTTPException(
-            status_code=500,
-            detail=t("error.setCurrentPresetFailed", error=sanitize_error(e)),
         ) from e

@@ -72,7 +72,6 @@
     "unknownPreset": "未知预设: {{preset}}",
     "presetUpdateFailed": "更新预设失败: {{error}}",
     "presetDeleteFailed": "删除预设失败: {{error}}",
-    "setCurrentPresetFailed": "设置当前预设失败: {{error}}",
     "noResultReturned": "未返回结果",
     "eitherSrtOrTextRequired": "需要提供 srt_path 或 text",
     "startupFailed": "启动失败",

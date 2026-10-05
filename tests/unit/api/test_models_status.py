@@ -25,4 +25,11 @@ class TestModelsStatusFaceRestoration:
         ids = [m["id"] for m in section["models"]]
         assert ids == ["CodeFormer", "facexlib-detection", "facexlib-parsing"]
         for m in section["models"]:
-            assert {"name", "purpose", "size", "memory", "downloaded", "complete"} <= set(m)
+            assert {
+                "name",
+                "purpose",
+                "size",
+                "memory",
+                "downloaded",
+                "complete",
+            } <= set(m)

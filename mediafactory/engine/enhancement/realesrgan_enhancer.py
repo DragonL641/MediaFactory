@@ -24,17 +24,6 @@ class RealESRGANEnhancer(BaseEnhancer):
     基于 spandrel 库加载和推理 Real-ESRGAN 模型。
     """
 
-    enhancer_type = "super_resolution"
-
-    # 默认配置
-    DEFAULT_CONFIG = {
-        "scale": 4,
-        "model_type": "general",
-        "tile": 0,
-        "tile_pad": DEFAULT_TILE_PAD,
-        "pre_pad": DEFAULT_PRE_PAD,
-    }
-
     # 默认批处理大小
     DEFAULT_BATCH_SIZE = 4
 
@@ -362,11 +351,3 @@ class RealESRGANEnhancer(BaseEnhancer):
         super().unload_model()
         self._input_tensor_cache = None
         self._cached_frame_shape = None
-
-    def clear_cache(self) -> None:
-        """清理 tensor 缓存"""
-        self._input_tensor_cache = None
-        self._cached_frame_shape = None
-
-        if self.device == "cuda":
-            torch.cuda.empty_cache()

@@ -47,9 +47,8 @@ class FaceRestoreManager:
     """
 
     def __init__(self, device: str | None = None, fidelity_weight: float = 0.7):
-        self._requested = device or self._auto_device()
         self._fidelity = fidelity_weight
-        self.device = self._requested
+        self.device = device or self._auto_device()
         self.faces_found = 0
         self._batches_with_faces = 0  # 日志节流：每 25 个含脸批打一条摘要
         try:

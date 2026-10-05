@@ -358,62 +358,8 @@ class TemporalSmoother:
         """重置平滑器状态"""
         self._buffer.clear()
 
-    @property
-    def delay(self) -> int:
-        """输出延迟（帧数）"""
-        return self.config.window_size // 2
-
-    @property
-    def buffer_size(self) -> int:
-        """当前缓冲区大小"""
-        return len(self._buffer)
-
-
-def smooth_video_frames(
-    frames: list[np.ndarray],
-    original_frames: list[np.ndarray] | None = None,
-    strength: float = 0.5,
-    window_size: int = 3,
-) -> list[np.ndarray]:
-    """
-    对视频帧序列进行时序平滑的便捷函数
-
-    Args:
-        frames: 增强后的帧列表
-        original_frames: 原始帧列表（用于光流计算），如果为 None 则使用 frames
-        strength: 混合强度
-        window_size: 窗口大小
-
-    Returns:
-        平滑后的帧列表
-    """
-    if original_frames is None:
-        original_frames = frames
-
-    if len(frames) != len(original_frames):
-        raise ValueError("帧列表长度不匹配")
-
-    config = TemporalSmootherConfig(
-        window_size=window_size,
-        strength=strength,
-    )
-    smoother = TemporalSmoother(config)
-
-    results: list[np.ndarray] = []
-
-    for original, enhanced in zip(original_frames, frames):
-        result = smoother.add_frame(original, enhanced)
-        if result is not None:
-            results.append(result)
-
-    # 刷新剩余帧
-    results.extend(smoother.flush())
-
-    return results
-
 
 __all__ = [
     "TemporalSmoother",
     "TemporalSmootherConfig",
-    "smooth_video_frames",
 ]

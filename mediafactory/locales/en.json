@@ -72,7 +72,6 @@
     "unknownPreset": "Unknown preset: {{preset}}",
     "presetUpdateFailed": "Failed to update preset: {{error}}",
     "presetDeleteFailed": "Failed to delete preset: {{error}}",
-    "setCurrentPresetFailed": "Failed to set current preset: {{error}}",
     "noResultReturned": "No result returned",
     "eitherSrtOrTextRequired": "Either srt_path or text is required",
     "startupFailed": "Startup Failed",

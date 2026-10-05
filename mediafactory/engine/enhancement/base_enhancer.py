@@ -1,7 +1,6 @@
 """增强器基础接口 - 定义所有增强器的统一接口"""
 
 from abc import ABC, abstractmethod
-from typing import Any
 
 import numpy as np
 import torch
@@ -18,12 +17,6 @@ class BaseEnhancer(ABC):
     所有增强器 (超分、去噪、人脸修复等) 都应继承此类并实现相应方法。
     """
 
-    # 增强器类型标识
-    enhancer_type: str = "base"
-
-    # 默认配置
-    DEFAULT_CONFIG: dict[str, Any] = {}
-
     def __init__(
         self, device: str | None = None, half_precision: bool = False, **kwargs
     ):
@@ -37,7 +30,6 @@ class BaseEnhancer(ABC):
         """
         self.device = self._detect_device(device)
         self.half_precision = half_precision and self.device == "cuda"
-        self.config = {**self.DEFAULT_CONFIG, **kwargs}
         self._model = None
         self._is_loaded = False
 
@@ -130,28 +122,6 @@ class BaseEnhancer(ABC):
             info += " (Apple Silicon)"
 
         return info
-
-    def get_memory_usage(self) -> dict[str, float] | None:
-        """
-        获取显存使用情况 (仅 CUDA)
-
-        Returns:
-            包含显存信息的字典，或 None (非 CUDA 设备)
-        """
-        if self.device != "cuda":
-            return None
-
-        return {
-            "allocated": torch.cuda.memory_allocated() / 1024**3,  # GB
-            "reserved": torch.cuda.memory_reserved() / 1024**3,  # GB
-            "max_allocated": torch.cuda.max_memory_allocated() / 1024**3,  # GB
-        }
-
-    def __enter__(self):
-        """上下文管理器入口"""
-        if not self.is_loaded():
-            self.load_model()
-        return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         """上下文管理器出口"""

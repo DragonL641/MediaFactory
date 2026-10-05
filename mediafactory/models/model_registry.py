@@ -12,7 +12,6 @@ from enum import Enum
 from pathlib import Path
 from typing import Any
 
-import psutil
 
 # Memory tier definitions (GB)
 MEMORY_TIERS = [8, 16, 32, 64, 128]
@@ -146,11 +145,6 @@ class ModelInfo:
     @property
     def recommended_system_gb(self) -> int:
         return self.recommended_system_mb // 1024 if self.recommended_system_mb else 0
-
-    @property
-    def runtime_vram_gb(self) -> float:
-        """GPU 运行时显存需求 (GB)。"""
-        return self.runtime_vram_mb / 1024
 
 
 # Unified model registry
@@ -287,62 +281,8 @@ FACE_MODEL_IDS: tuple[str, str, str] = (
 WHISPER_MODEL_ID = "Systran/faster-whisper-large-v3"
 
 
-def get_available_memory_gb() -> float:
-    """Get currently available memory in gigabytes.
-
-    Returns:
-        Available system RAM in GB
-    """
-    return psutil.virtual_memory().available / (1024**3)
 
 
-def get_available_vram_gb() -> float:
-    """获取当前可用的 GPU 显存 (GB)。
-
-    Returns:
-        可用 GPU 显存 (GB)，无 GPU 时返回 0
-    """
-    try:
-        import torch
-
-        if torch.cuda.is_available():
-            free, total = torch.cuda.mem_get_info(0)
-            return free / (1024**3)
-    except Exception:
-        pass
-    return 0.0
-
-
-def get_available_memory_for_device(device: str = "cpu") -> float:
-    """获取指定设备的可用内存 (GB)。
-
-    Args:
-        device: 设备类型 ("cuda" 或 "cpu")
-
-    Returns:
-        可用内存 (GB)，GPU 返回 VRAM，CPU 返回 RAM
-    """
-    if device == "cuda":
-        return get_available_vram_gb()
-    return get_available_memory_gb()
-
-
-def get_required_memory_for_model(model_id: str, device: str = "cpu") -> float:
-    """获取模型在指定设备上运行所需的内存 (GB)。
-
-    Args:
-        model_id: 模型 ID (HuggingFace ID)
-        device: 设备类型 ("cuda" 或 "cpu")
-
-    Returns:
-        所需内存 (GB)，GPU 返回 VRAM 需求，CPU 返回 RAM 需求
-    """
-    info = MODEL_REGISTRY.get(model_id)
-    if info is None:
-        return 0.0
-    if device == "cuda":
-        return info.runtime_vram_gb
-    return info.runtime_memory_gb
 
 
 def get_whisper_model_info() -> ModelInfo:

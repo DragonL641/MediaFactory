@@ -15,26 +15,7 @@ from .model_registry import WHISPER_MODEL_ID, get_whisper_model_info, is_model_c
 # - cpu: Always available, uses int8 quantization
 # - cuda: NVIDIA GPU, uses float16 for best performance
 # - mps: Apple Silicon GPU (NOT supported - falls back to CPU)
-VALID_DEVICES = ("cpu", "cuda", "mps")
 
-
-def _ensure_ml_dependencies():
-    """Ensure ML dependencies are installed.
-
-    Raises:
-        ProcessingError: If ML dependencies are not installed
-    """
-    try:
-        import torch  # noqa: F401
-        from faster_whisper import WhisperModel  # noqa: F401
-    except ImportError as e:
-        raise ProcessingError(
-            message="ML dependencies not installed. Please run the setup wizard to install PyTorch and faster-whisper.",
-            context={
-                "missing_dependencies": ["torch", "faster-whisper"],
-                "suggestion": "The setup wizard will start automatically when launching the application",
-            },
-        ) from e
 
 
 def select_device() -> str:
@@ -213,19 +194,4 @@ def load_model(
     return model
 
 
-def get_fixed_model_id() -> str:
-    """Get the fixed Whisper model ID.
 
-    Returns:
-        The fixed model ID ("large-v3")
-    """
-    return WHISPER_MODEL_ID
-
-
-def get_fixed_model_display_name() -> str:
-    """Get the fixed Whisper model display name.
-
-    Returns:
-        The fixed model display name
-    """
-    return get_whisper_model_info().display_name

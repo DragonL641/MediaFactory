@@ -21,14 +21,6 @@ class Denoiser(BaseEnhancer):
     特别适合老视频中的噪点、压缩伪影等问题。
     """
 
-    enhancer_type = "denoise"
-
-    # 默认配置
-    DEFAULT_CONFIG = {
-        "strength": 1.0,  # 去噪强度 [0, 1]
-        "model_name": "NAFNet-GoPro-width64",
-    }
-
     def __init__(
         self,
         strength: float = 1.0,

@@ -53,9 +53,7 @@ class TestNullValueValidation:
         批 1 返回 {"0": "你好", "1": null} → 验证失败 → 二分为单句重试；
         单句再给 null → 该句按失败处理（保留原文，由上层 failed 通道接管）。
         """
-        backend, client = make_backend(
-            ['{"0": "你好", "1": null}', '{"0": "世界好"}']
-        )
+        backend, client = make_backend(['{"0": "你好", "1": null}', '{"0": "世界好"}'])
         request = TranslationRequest(
             text=["Hello", "World"],
             src_lang="en",

@@ -260,18 +260,6 @@ async def retry_task(task_id: str):
     )
 
 
-@router.get("/status/{task_id}")
-async def get_task_status(task_id: str):
-    """获取任务状态"""
-    task_manager = _get_task_manager()
-    status = await task_manager.get_task_status(task_id)
-
-    if not status:
-        raise HTTPException(status_code=404, detail=t("error.taskNotFound"))
-
-    return status
-
-
 @router.get("/tasks")
 async def list_tasks():
     """列出所有任务（排除下载任务）"""

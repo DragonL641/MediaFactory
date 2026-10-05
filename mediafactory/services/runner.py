@@ -261,13 +261,6 @@ async def _translate_text(
     text = config.input_text
     target_lang = config.target_lang
     loop = asyncio.get_running_loop()
-
-    if not config.use_llm:
-        raise ConfigurationError(
-            message="LLM translation is required for translation tasks. "
-            "Please enable LLM translation in task settings."
-        )
-
     engine = _select_translation_engine(config)
     outcome = await loop.run_in_executor(
         None,

@@ -33,45 +33,6 @@ export interface Task {
   metadata?: Record<string, unknown>; // 结果附加数据（如 translation_stats）
 }
 
-export interface AudioConfig {
-  sample_rate?: number;
-  channels?: number;
-  filter_enabled?: boolean;
-  highpass_freq?: number;
-  lowpass_freq?: number;
-  volume?: number;
-  output_format?: string;
-}
-
-export interface SubtitleConfig {
-  output_format?: string;
-  bilingual?: boolean;
-  bilingual_layout?: string;
-  style_preset?: string;
-}
-
-export interface EnhancementConfig {
-  scale?: number;
-  model?: string;
-  denoise?: boolean;
-  temporal?: boolean;
-}
-
-export interface TaskConfig {
-  task_type: TaskType;
-  input_path: string;
-  output_path?: string;
-  source_lang?: string;
-  target_lang?: string;
-  use_llm?: boolean;
-  llm_preset?: string;
-  terminology?: Record<string, string>;
-  fallback_model?: string;
-  audio_config?: AudioConfig;
-  subtitle_config?: SubtitleConfig;
-  enhancement_config?: EnhancementConfig;
-}
-
 export interface ModelStatus {
   name: string;
   loaded: boolean;
@@ -79,31 +40,8 @@ export interface ModelStatus {
   enabled: boolean;
 }
 
-export interface EnhancementModelInfo {
-  id: string;
-  name: string;
-  purpose: string;
-  size: string;
-  memory: string;
-  vram?: string;
-  description: string;
-  downloaded: boolean;
-  complete: boolean;
-}
-
-export interface DenoiseModelInfo {
-  id: string;
-  name: string;
-  purpose: string;
-  size: string;
-  memory: string;
-  vram?: string;
-  description: string;
-  downloaded: boolean;
-  complete: boolean;
-}
-
-export interface WhisperModelInfo {
+// 注册表模型条目（enhancement/denoise/whisper/face_restoration 共用同一结构）
+export interface RegistryModelInfo {
   id: string;
   name: string;
   purpose: string;
@@ -117,22 +55,22 @@ export interface WhisperModelInfo {
 
 export interface AllModelsStatus {
   whisper: ModelStatus & {
-    models?: WhisperModelInfo[];
+    models?: RegistryModelInfo[];
   };
   llm: ModelStatus & {
     config?: LLMApiConfig;
   };
   enhancement: {
     name: string;
-    models: EnhancementModelInfo[];
+    models: RegistryModelInfo[];
   };
   denoise: {
     name: string;
-    models: DenoiseModelInfo[];
+    models: RegistryModelInfo[];
   };
   face_restoration: {
     name: string;
-    models: EnhancementModelInfo[];
+    models: RegistryModelInfo[];
   };
 }
 
@@ -253,12 +191,6 @@ export interface WebSocketProgressMessage extends WebSocketMessage {
 }
 
 // API 响应/错误类型
-export interface ApiErrorResponse {
-  detail?: string;
-  message?: string;
-  error?: string;
-}
-
 export interface BatchOperationResponse {
   started?: number;
   cancelled?: number;
