@@ -54,14 +54,7 @@ class FaceRestoreManager:
         try:
             self._init_chain()
         except RuntimeError as e:
-            log_warning(f"face_restore 初始化在 {self.device} 上失败，回退 CPU: {e}")
-            self.device = "cpu"
-            try:
-                self._init_chain()
-            except RuntimeError as e2:
-                raise ProcessingError(
-                    message=f"Face restoration failed on CPU fallback: {e2}"
-                ) from e2
+            self._rebuild_on_cpu(stage="初始化", cause=e)
 
     @staticmethod
     def _auto_device() -> str:
@@ -77,21 +70,30 @@ class FaceRestoreManager:
         self._net = _load_net(_weight_path("CodeFormer"), self.device)
         self._helper = _build_helper(self.device, str(get_enhancement_models_dir()))
 
+    def _rebuild_on_cpu(self, stage: str, cause: Exception) -> None:
+        """GPU 失败后以 CPU 重建整链（仅一次；CPU 再失败抛 ProcessingError）。
+
+        初始化与推理两个阶段共用（此前两处各写一份回退块）。
+        """
+        if self.device == "cpu":
+            raise ProcessingError(
+                message=f"Face restoration failed: {cause}"
+            ) from cause
+        log_warning(f"face_restore {stage}在 {self.device} 上失败，回退 CPU: {cause}")
+        self.device = "cpu"
+        try:
+            self._init_chain()
+        except RuntimeError as e2:
+            raise ProcessingError(
+                message=f"Face restoration failed on CPU fallback: {e2}"
+            ) from e2
+
     def restore_batch(self, frames: list[np.ndarray]) -> tuple[list[np.ndarray], int]:
         """批量修复。返回 (修复后帧列表, 含脸帧数)。BGR uint8 进出。"""
         try:
             return self._restore_batch_inner(frames)
         except RuntimeError as e:
-            if self.device == "cpu":
-                raise ProcessingError(message=f"Face restoration failed: {e}") from e
-            log_warning(f"face_restore 在 {self.device} 上失败，回退 CPU: {e}")
-            self.device = "cpu"
-            try:
-                self._init_chain()
-            except RuntimeError as e2:
-                raise ProcessingError(
-                    message=f"Face restoration failed on CPU fallback: {e2}"
-                ) from e2
+            self._rebuild_on_cpu(stage="", cause=e)
             return self._restore_batch_inner(frames)
 
     def _restore_batch_inner(

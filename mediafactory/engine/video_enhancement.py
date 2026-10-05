@@ -263,9 +263,9 @@ class VideoEnhancementEngine:
                 try:
                     # 预加载增强器（try 内：加载抛错时 cap/out 由 finally 释放）
                     sr_enhancer = self._get_sr_enhancer()
-                    denoiser = self._get_denoiser()
+                    self._get_denoiser()
                     temporal_smoother = self._get_temporal_smoother()
-                    face_restorer = self._get_face_restorer()
+                    self._get_face_restorer()
 
                     log_info(f"设备信息: {sr_enhancer.get_device_info()}")
                     log_info(f"批处理大小: {self.config.batch_size}")
@@ -293,41 +293,7 @@ class VideoEnhancementEngine:
                         # 缓冲区满时批量处理
                         if len(frame_buffer) >= batch_size:
                             frame_start = time.time()
-
-                            # 批量去噪
-                            if denoiser is not None:
-                                frames_to_denoise = [f[0] for f in frame_buffer]
-                                denoised_frames = denoiser.enhance_batch(
-                                    frames_to_denoise, batch_size=batch_size
-                                )
-                            else:
-                                denoised_frames = [f[0] for f in frame_buffer]
-
-                            # 批量超分辨率
-                            enhanced_frames = sr_enhancer.enhance_batch(
-                                denoised_frames, batch_size=batch_size
-                            )
-
-                            # 批量人脸修复（超分之后、时序平滑之前，spec §3.2）
-                            if face_restorer is not None:
-                                enhanced_frames, _faced = face_restorer.restore_batch(
-                                    enhanced_frames
-                                )
-
-                            # 更新缓冲区中的增强帧
-                            for i, enhanced in enumerate(enhanced_frames):
-                                frame_buffer[i] = (frame_buffer[i][0], enhanced)
-
-                            # 逐帧写入（时序平滑需要原始帧）
-                            for orig, enhanced in frame_buffer:
-                                if temporal_smoother is not None:
-                                    output_frame = temporal_smoother.add_frame(
-                                        orig, enhanced
-                                    )
-                                    if output_frame is not None:
-                                        out.write(output_frame)
-                                else:
-                                    out.write(enhanced)
+                            self._process_and_write(frame_buffer, batch_size, out)
 
                             frame_buffer.clear()
 
@@ -359,41 +325,7 @@ class VideoEnhancementEngine:
                     # 处理缓冲区剩余帧
                     if frame_buffer and not progress.is_cancelled():
                         frame_start = time.time()
-
-                        # 批量去噪
-                        if denoiser is not None:
-                            frames_to_denoise = [f[0] for f in frame_buffer]
-                            denoised_frames = denoiser.enhance_batch(
-                                frames_to_denoise, batch_size=len(frames_to_denoise)
-                            )
-                        else:
-                            denoised_frames = [f[0] for f in frame_buffer]
-
-                        # 批量超分辨率
-                        enhanced_frames = sr_enhancer.enhance_batch(
-                            denoised_frames, batch_size=len(denoised_frames)
-                        )
-
-                        # 批量人脸修复（同主分支）
-                        if face_restorer is not None:
-                            enhanced_frames, _faced = face_restorer.restore_batch(
-                                enhanced_frames
-                            )
-
-                        # 更新缓冲区中的增强帧
-                        for i, enhanced in enumerate(enhanced_frames):
-                            frame_buffer[i] = (frame_buffer[i][0], enhanced)
-
-                        # 逐帧写入
-                        for orig, enhanced in frame_buffer:
-                            if temporal_smoother is not None:
-                                output_frame = temporal_smoother.add_frame(
-                                    orig, enhanced
-                                )
-                                if output_frame is not None:
-                                    out.write(output_frame)
-                            else:
-                                out.write(enhanced)
+                        self._process_and_write(frame_buffer, len(frame_buffer), out)
 
                         frame_time = time.time() - frame_start
                         log_info(
@@ -464,6 +396,49 @@ class VideoEnhancementEngine:
                     os.remove(temp_video)
                 if _deint_dir is not None:
                     shutil.rmtree(_deint_dir, ignore_errors=True)
+
+    def _process_and_write(
+        self,
+        frame_buffer: list[tuple[np.ndarray, np.ndarray]],
+        batch_size: int,
+        out: cv2.VideoWriter,
+    ) -> None:
+        """缓冲区批处理管线：去噪→超分→人脸修复→时序平滑写出（就地清空 buffer）。
+
+        主循环与尾批共用（此前两处近逐行复制，P0 加人脸修复时被迫改两处）。
+        """
+        denoiser = self._denoiser
+        sr_enhancer = self._sr_enhancer
+        temporal_smoother = self._temporal_smoother
+        face_restorer = self._face_restorer
+
+        # 批量去噪
+        if denoiser is not None:
+            frames_to_denoise = [f[0] for f in frame_buffer]
+            denoised_frames = denoiser.enhance_batch(
+                frames_to_denoise, batch_size=batch_size
+            )
+        else:
+            denoised_frames = [f[0] for f in frame_buffer]
+
+        # 批量超分辨率
+        enhanced_frames = sr_enhancer.enhance_batch(
+            denoised_frames, batch_size=batch_size
+        )
+
+        # 批量人脸修复（超分之后、时序平滑之前，spec §3.2）
+        if face_restorer is not None:
+            enhanced_frames, _faced = face_restorer.restore_batch(enhanced_frames)
+
+        # 逐帧写入（时序平滑需要原始帧）
+        for (orig, _), enhanced in zip(frame_buffer, enhanced_frames):
+            if temporal_smoother is not None:
+                output_frame = temporal_smoother.add_frame(orig, enhanced)
+                if output_frame is not None:
+                    out.write(output_frame)
+            else:
+                out.write(enhanced)
+        frame_buffer.clear()
 
     def _build_merge_cmd(
         self, source_video: str, temp_video: str, output_path: str, film_grain: bool
