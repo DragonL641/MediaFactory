@@ -57,7 +57,6 @@ dependencies = [
     "sqlalchemy[asyncio]>=2.0.52,<3.0.0",
     "aiosqlite>=0.22.1",
     "httpx>=0.28.1",
-    "facexlib>=0.3.0",
 ]
 requires-python = ">=3.11,<3.14"
 
@@ -138,6 +137,7 @@ core = [
     "torchaudio>=2.5.0",           # PyTorch Audio（CUDA 12.8）
     "faster-whisper>=1.0.0,<2.0.0",  # Whisper（使用 faster-whisper）
     "spandrel>=0.4.0",              # 统一模型加载库（视频增强）
+    "facexlib>=0.3.0",              # 人脸检测/解析（CodeFormer 修复链）
     "stable-ts>=2.17.0",                 # Whisper 后处理（regroup、分句）
 ]
 

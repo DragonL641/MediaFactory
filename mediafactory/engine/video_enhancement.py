@@ -181,6 +181,7 @@ class VideoEnhancementEngine:
 
             # 阶段0: deinterlace 前置 (0-9%)
             progress.update(0, t("progress.checkingInterlace"))
+            original_path = video_path  # 音轨等元数据始终从原始源取
             effective_path = pre_deinterlace(video_path, progress)
             _deint_dir: str | None = (
                 os.path.dirname(effective_path)
@@ -404,10 +405,13 @@ class VideoEnhancementEngine:
                         context={"frame_processed": frame_idx},
                     )
 
-                # 阶段4: 合并音频 (90-100%)
+                # 阶段4: 合并音频 (90-100%)——音轨从原始源取（deint 中间产物 -an 无音轨）
                 progress.update(90, t("progress.mergingAudio"))
                 self._merge_audio(
-                    video_path, temp_video, output_path, film_grain=self.config.film_grain
+                    original_path,
+                    temp_video,
+                    output_path,
+                    film_grain=self.config.film_grain,
                 )
 
                 # 清理临时文件

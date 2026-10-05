@@ -19,6 +19,8 @@
     "loadingWeights": "Loading model weights...",
     "modelLoaded": "{{model}} loaded successfully",
     "readingVideo": "Reading video...",
+    "checkingInterlace": "Checking interlace...",
+    "deinterlacing": "Deinterlacing...",
     "preparingOutput": "Preparing output file...",
     "loadingEnhancementModel": "Loading model...",
     "processingFrames": "Processing frame {{current}}/{{total}}",

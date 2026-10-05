@@ -1679,7 +1679,6 @@ version = "0.4.0"
 source = { editable = "." }
 dependencies = [
     { name = "aiosqlite" },
-    { name = "facexlib" },
     { name = "fastapi" },
     { name = "httpx" },
     { name = "huggingface-hub" },
@@ -1723,6 +1722,7 @@ bundle = [
 ]
 core = [
     { name = "aiosqlite" },
+    { name = "facexlib" },
     { name = "fastapi" },
     { name = "faster-whisper" },
     { name = "huggingface-hub" },
@@ -1788,7 +1788,6 @@ runtime = [
 [package.metadata]
 requires-dist = [
     { name = "aiosqlite", specifier = ">=0.22.1" },
-    { name = "facexlib", specifier = ">=0.3.0" },
     { name = "fastapi", specifier = ">=0.141.0" },
     { name = "httpx", specifier = ">=0.28.1" },
     { name = "huggingface-hub", specifier = ">=0.36.0,<1.0.0" },
@@ -1830,6 +1829,7 @@ bundle = [
 ]
 core = [
     { name = "aiosqlite", specifier = ">=0.22.1" },
+    { name = "facexlib", specifier = ">=0.3.0" },
     { name = "fastapi", specifier = ">=0.141.0" },
     { name = "faster-whisper", specifier = ">=1.0.0,<2.0.0" },
     { name = "huggingface-hub", specifier = ">=0.36.0,<1.0.0" },

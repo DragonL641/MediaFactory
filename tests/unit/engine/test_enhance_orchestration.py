@@ -99,7 +99,7 @@ class TestEnhanceOrchestration:
             def is_cancelled(self):
                 return True
 
-        fake_dir = tmp_path / ".mf_deint_1"
+        fake_dir = tmp_path / "deint_1"
         fake_dir.mkdir()
         (fake_dir / "deinterlaced.mp4").write_bytes(b"x")
         monkeypatch.setattr(
@@ -114,3 +114,41 @@ class TestEnhanceOrchestration:
                 tiny_video, str(tmp_path / "out.mp4"), progress=CancelledProgress()
             )
         assert not fake_dir.exists()
+
+    def test_interlaced_merge_takes_audio_from_original(
+        self, tiny_video, fake_enhancers, tmp_path, monkeypatch
+    ):
+        """C2 回归：隔行路径下音频合并必须用原始源（deint 中间产物 -an 无音轨）。"""
+        import mediafactory.engine.video_enhancement as ve
+        from mediafactory.engine.video_enhancement import (
+            EnhancementConfig,
+            VideoEnhancementEngine,
+        )
+
+        deint_out = tmp_path / "deinterlaced.mp4"
+        monkeypatch.setattr(
+            ve, "pre_deinterlace", lambda p, progress=None: str(deint_out)
+        )
+        # 帧管线读 deint 中间产物：造一个同尺寸可读视频文件
+        import cv2 as _cv2
+
+        w = _cv2.VideoWriter(
+            str(deint_out), _cv2.VideoWriter_fourcc(*"mp4v"), 5, (64, 48)
+        )
+        for i in range(10):
+            w.write(np.full((48, 64, 3), i * 20, dtype=np.uint8))
+        w.release()
+
+        merge_sources: list[str] = []
+        real_build = VideoEnhancementEngine._build_merge_cmd
+
+        def spy_build(self, source_video, temp_video, output_path, film_grain):
+            merge_sources.append(source_video)
+            return real_build(self, source_video, temp_video, output_path, film_grain)
+
+        monkeypatch.setattr(VideoEnhancementEngine, "_build_merge_cmd", spy_build)
+
+        engine = VideoEnhancementEngine(EnhancementConfig(scale=2))
+        engine.enhance(tiny_video, str(tmp_path / "out.mp4"))
+
+        assert merge_sources == [tiny_video]  # 音频源是原始视频，非 deint 产物

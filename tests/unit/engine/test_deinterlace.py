@@ -4,15 +4,18 @@ import pytest
 
 pytestmark = [pytest.mark.unit]
 
+# 逐字取自真实 ffmpeg（imageio-ffmpeg 二进制）的 idet stderr——数字按宽度右对齐多空格
 IDET_PROGRESSIVE = (
-    "[Parsed_idet_0 @ 0x7f] Multi frame detection: TFF: 0 BFF: 0 Progressive: 250 Undetermined: 0 | "
-    "Multi frame detection: TFF: 0 BFF: 0 Progressive: 250 Undetermined: 0"
+    "[Parsed_idet_0 @ 0x7f] Multi frame detection: TFF:     0 BFF:     0 "
+    "Progressive:   250 Undetermined:     0"
 )
 IDET_INTERLACED = (
-    "[Parsed_idet_0 @ 0x7f] Multi frame detection: TFF: 1520 BFF: 96 Progressive: 384 Undetermined: 0"
+    "[Parsed_idet_0 @ 0x7f] Multi frame detection: TFF:  1520 BFF:    96 "
+    "Progressive:   384 Undetermined:     0"
 )
 IDET_UNRELIABLE = (
-    "[Parsed_idet_0 @ 0x7f] Multi frame detection: TFF: 0 BFF: 0 Progressive: 10 Undetermined: 990"
+    "[Parsed_idet_0 @ 0x7f] Multi frame detection: TFF:     0 BFF:     0 "
+    "Progressive:    10 Undetermined:   990"
 )
 
 

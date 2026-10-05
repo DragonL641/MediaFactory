@@ -5,6 +5,7 @@ import re
 import subprocess
 from dataclasses import dataclass
 
+from mediafactory.config import get_data_root_dir
 from mediafactory.core.progress_protocol import ProgressCallback
 from mediafactory.i18n import t
 from mediafactory.logging import log_info, log_warning
@@ -27,7 +28,8 @@ class DeinterlaceVerdict:
 
 
 _MULTI_RE = re.compile(
-    r"Multi frame detection: TFF: (\d+) BFF: (\d+) Progressive: (\d+) Undetermined: (\d+)"
+    r"Multi frame detection:\s*TFF:\s*(\d+)\s+BFF:\s*(\d+)\s+"
+    r"Progressive:\s*(\d+)\s+Undetermined:\s*(\d+)"
 )
 
 
@@ -104,6 +106,7 @@ def build_bwdif_cmd(video_path: str, out_path: str) -> list[str]:
 def pre_deinterlace(video_path: str, progress: ProgressCallback | None = None) -> str:
     """隔行源写临时去隔行文件并返回其路径；非隔行/检测失败原样返回。
 
+    临时文件落 data/tmp/（frozen 数据目录，不污染源视频所在位置）；
     检测异常按非隔行降级（宁可跳过不阻断，spec §5）。"""
     try:
         verdict = detect_interlaced(video_path)
@@ -114,12 +117,10 @@ def pre_deinterlace(video_path: str, progress: ProgressCallback | None = None) -
         return video_path
     if progress is not None:
         progress.update(4, t("progress.deinterlacing"))
-    out_dir = os.path.join(
-        os.path.dirname(video_path) or ".", f".mf_deint_{os.getpid()}"
-    )
-    os.makedirs(out_dir, exist_ok=True)
-    out_path = os.path.join(out_dir, "deinterlaced.mp4")
     try:
+        out_dir = get_data_root_dir() / "tmp" / f"deint_{os.getpid()}"
+        out_dir.mkdir(parents=True, exist_ok=True)
+        out_path = str(out_dir / "deinterlaced.mp4")
         result = subprocess.run(
             build_bwdif_cmd(video_path, out_path),
             capture_output=True,

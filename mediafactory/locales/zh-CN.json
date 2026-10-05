@@ -19,6 +19,8 @@
     "loadingWeights": "正在加载模型权重...",
     "modelLoaded": "{{model}} 加载成功",
     "readingVideo": "正在读取视频...",
+    "checkingInterlace": "检测隔行扫描...",
+    "deinterlacing": "反隔行处理中...",
     "preparingOutput": "正在准备输出文件...",
     "loadingEnhancementModel": "正在加载模型...",
     "processingFrames": "正在处理帧 {{current}}/{{total}}",
