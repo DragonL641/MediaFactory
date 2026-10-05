@@ -4,7 +4,6 @@
 默认值直接定义在 Field 中，便于维护。
 """
 
-from pathlib import Path
 from typing import Any
 
 from pydantic import BaseModel, Field
@@ -123,19 +122,9 @@ class PostProcessConfig(BaseModel):
 class ModelConfig(BaseModel):
     """模型存储和发现配置"""
 
-    local_model_path: Path = Field(
-        default=Path("./models"),
-        description="本地模型存储目录",
-    )
     download_source: str = Field(
         default="https://hf-mirror.com",
         description="模型下载源 URL",
-    )
-    download_timeout: int = Field(
-        default=30,
-        ge=10,
-        le=600,
-        description="模型下载 HTTP 请求超时（秒）",
     )
     whisper_models: list[str] = Field(
         default_factory=list,
@@ -363,13 +352,6 @@ class AppConfig(BaseModel):
                 section_dict = section.model_dump(mode="json", exclude_none=True)
             else:
                 section_dict = section
-
-            # Path 转字符串
-            for key, value in (
-                section_dict.items() if isinstance(section_dict, dict) else []
-            ):
-                if isinstance(value, Path):
-                    section_dict[key] = str(value)
 
             if section_dict:
                 result[section_name] = section_dict

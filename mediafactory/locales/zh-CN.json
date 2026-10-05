@@ -52,7 +52,6 @@
     "transcriptionAudioError": "转录因音频文件错误失败",
     "sourceLanguageNotDetected": "未指定或检测到源语言。跳过翻译。",
     "llmTranslationFailed": "LLM API 翻译失败: {{backend}}",
-    "translationModelLoadFailed": "翻译模型加载失败: {{src}} -> {{tgt}}",
     "translationCancelled": "用户取消了翻译",
     "apiConnectionFailed": "API 连接测试失败: {{backend}}",
     "cannotOpenVideo": "无法打开视频文件: {{path}}",
@@ -65,7 +64,6 @@
     "cannotRemoveRunningTask": "无法删除正在运行的任务",
     "canOnlyEditPending": "只能编辑等待中的任务，当前状态: {{status}}",
     "updateFailed": "更新失败",
-    "configSectionNotExist": "配置分区不存在: {{section}}",
     "configUpdateFailed": "更新配置失败",
     "configSaveFailed": "保存配置失败",
     "configReloadFailed": "重新加载配置失败",
@@ -106,15 +104,5 @@
     "modelDeleted": "模型已删除: {{modelId}}",
     "workerCrashed": "任务进程意外崩溃",
     "interruptedByRestart": "任务因服务重启而中断"
-  },
-  "info": {
-    "translationModelNotFound": "未找到本地翻译模型 ({{model}})。",
-    "downloadModelHint": "请运行: python scripts/utils/download_model.py facebook/m2m100_1.2B",
-    "translationModelNotSupported": "翻译模型可能不支持该语言对",
-    "transcriptionProgress": "进度: {{percent}}%, 已处理 {{processed}}s/{{total}}s, 分段数: {{segments}}",
-    "userCancelledEnhancement": "用户取消了视频增强"
-  },
-  "history": {
-    "notFound": "历史记录不存在"
   }
 }

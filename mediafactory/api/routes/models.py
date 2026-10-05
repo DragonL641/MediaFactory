@@ -159,32 +159,6 @@ def _get_denoise_model_statuses() -> list[dict[str, Any]]:
     return _get_model_statuses_by_type(ModelType.DENOISE)
 
 
-@router.get("/whisper")
-async def get_whisper_status() -> dict[str, Any]:
-    """获取 Whisper 模型状态"""
-    status = _status_service.get_whisper_status()
-    return {
-        "name": status.name,
-        "loaded": status.loaded,
-        "available": status.available,
-        "enabled": status.enabled,
-    }
-
-
-@router.get("/llm")
-async def get_llm_status() -> dict[str, Any]:
-    """获取 LLM 状态"""
-    status = _status_service.get_llm_status()
-    config = _status_service.get_llm_config()
-    return {
-        "name": status.name,
-        "loaded": status.loaded,
-        "available": status.available,
-        "enabled": status.enabled,
-        "config": config,
-    }
-
-
 @router.get("/readiness")
 async def get_readiness() -> dict[str, Any]:
     """获取任务前置条件就绪状态"""

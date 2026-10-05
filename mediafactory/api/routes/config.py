@@ -48,24 +48,6 @@ async def get_full_config():
     return config.to_toml_dict()
 
 
-@router.get("/{section}")
-async def get_config_section(section: str):
-    """
-    获取配置分区
-
-    支持的分区：whisper, model, openai_compatible, llm_api
-    """
-    config = get_config()
-    config_dict = config.to_toml_dict()
-
-    if section not in config_dict:
-        raise HTTPException(
-            status_code=404, detail=t("error.configSectionNotExist", section=section)
-        )
-
-    return {section: config_dict[section]}
-
-
 @router.put("/")
 async def update_full_config(request: PartialConfigUpdate):
     """

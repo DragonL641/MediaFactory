@@ -188,9 +188,6 @@ async def run_translate(
     config: TaskConfig, progress: ProgressCallback
 ) -> ProcessingResult:
     """翻译：SRT/ASS/VTT 文件走 Pipeline，纯文本直调翻译引擎"""
-    if not config.use_llm:
-        _require_ready("translation_local")
-
     if config.input_path.lower().endswith((".srt", ".ass", ".vtt")):
         return await _translate_file(config, progress)
     if config.input_text:

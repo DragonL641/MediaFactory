@@ -9,7 +9,6 @@ from pydantic import ValidationError
 from mediafactory.api.schemas import (
     ProcessingStage,
     TaskConfig,
-    TaskProgress,
     TaskResult,
     TaskStatus,
     TaskType,
@@ -168,64 +167,7 @@ class TestTaskConfig:
 
 
 # ============================================================================
-# 5. TaskProgress 创建
-# ============================================================================
-
-
-class TestTaskProgress:
-    """TaskProgress 模型测试"""
-
-    def test_create_with_required_fields(self):
-        progress = TaskProgress(
-            task_id="task-1",
-            status=TaskStatus.RUNNING,
-            progress=50.0,
-        )
-        assert progress.task_id == "task-1"
-        assert progress.status == TaskStatus.RUNNING
-        assert progress.progress == 50.0
-
-    def test_default_values(self):
-        progress = TaskProgress(
-            task_id="task-1",
-            status=TaskStatus.PENDING,
-            progress=0.0,
-        )
-        assert progress.message == ""
-        assert progress.stage is None
-
-    def test_with_all_fields(self):
-        progress = TaskProgress(
-            task_id="task-2",
-            status=TaskStatus.RUNNING,
-            progress=75.5,
-            message="Transcribing...",
-            stage=ProcessingStage.TRANSCRIPTION,
-        )
-        assert progress.message == "Transcribing..."
-        assert progress.stage == ProcessingStage.TRANSCRIPTION
-
-    def test_progress_boundary_zero(self):
-        progress = TaskProgress(task_id="t", status=TaskStatus.RUNNING, progress=0.0)
-        assert progress.progress == 0.0
-
-    def test_progress_boundary_hundred(self):
-        progress = TaskProgress(
-            task_id="t", status=TaskStatus.COMPLETED, progress=100.0
-        )
-        assert progress.progress == 100.0
-
-    def test_progress_out_of_range_raises(self):
-        with pytest.raises(ValidationError):
-            TaskProgress(task_id="t", status=TaskStatus.RUNNING, progress=101.0)
-
-    def test_progress_negative_raises(self):
-        with pytest.raises(ValidationError):
-            TaskProgress(task_id="t", status=TaskStatus.RUNNING, progress=-1.0)
-
-
-# ============================================================================
-# 6. TaskResult 创建
+# 5. TaskResult 创建
 # ============================================================================
 
 

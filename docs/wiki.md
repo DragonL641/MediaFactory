@@ -586,14 +586,14 @@ class TransformerEncoderLayer(nn.Module):
 
 ```python
 # 层次关系示例
-from transformers import AutoModel  # HuggingFace (应用层)
+from faster_whisper import WhisperModel  # faster-whisper (应用层)
 import torch  # PyTorch (框架层)
 
-# 加载 Transformer 架构的模型
-model = AutoModel.from_pretrained("facebook/m2m100_1.2B")
+# 加载语音识别模型（MediaFactory 固定使用 large-v3）
+model = WhisperModel("Systran/faster-whisper-large-v3", device="cpu", compute_type="int8")
 
-# 模型运行在 PyTorch 框架上
-# PyTorch 负责张量运算、GPU 调度、梯度计算等
+# 模型运行在 PyTorch / CTranslate2 运行时上
+# 底层负责张量运算、GPU 调度等
 ```
 
 ---
@@ -700,22 +700,23 @@ b = torch.randn(3072)       # 3,072 个参数
 
 MediaFactory 使用的都是预训练模型:
 ─────────────────────────────
-- Whisper: OpenAI 预训练的语音识别模型
-- M2M100: Facebook 预训练的翻译模型
+- Whisper (faster-whisper): OpenAI 预训练的语音识别模型
+- Real-ESRGAN / NAFNet: 预训练的超分 / 降噪模型
 - 直接加载权重使用，无需训练
+（翻译不使用本地模型——走云端 / 本地 Ollama 的 LLM API）
 ```
 
 **在 MediaFactory 中**：
 
 ```python
 # 下载模型时，实际下载的就是权重文件
-python scripts/utils/download_model.py facebook/m2m100_1.2B
+python scripts/utils/download_model.py Systran/faster-whisper-large-v3
 
 # 下载的文件结构：
 models/
-└── facebook/
-    └── m2m100_1.2B/
-        ├── model.safetensors  # ← 模型权重 (~9.9 GB)
+└── Systran/
+    └── faster-whisper-large-v3/
+        ├── model.bin          # ← 模型权重 (~3 GB, CTranslate2 格式)
         │   包含所有训练好的参数
         │
         ├── config.json        # 模型架构配置
@@ -725,12 +726,11 @@ models/
             定义文本如何转换为 token
 
 # 加载过程
-from transformers import AutoModelForSeq2SeqLM
+from faster_whisper import WhisperModel
 
-# 1. 读取 config.json → 知道要构建什么结构
-# 2. 创建模型架构 → 空的模型（随机权重）
-# 3. 加载 model.safetensors → 填充权重值
-model = AutoModelForSeq2SeqLM.from_pretrained("./models/facebook/m2m100_1.2B")
+# WhisperModel 读取 config.json 构建网络结构，
+# 再把 model.bin 中的权重填充进去
+model = WhisperModel("./models/Systran/faster-whisper-large-v3")
 ```
 
 **权重文件格式**：
@@ -978,8 +978,8 @@ from transformers import (
 # 1. 文本生成 (Decoder-only)
 causal_model = AutoModelForCausalLM.from_pretrained("meta-llama/Llama-3-8B")
 
-# 2. 翻译/摘要 (Encoder-Decoder) - MediaFactory 使用
-seq2seq_model = AutoModelForSeq2SeqLM.from_pretrained("facebook/m2m100_1.2B")
+# 2. 翻译/摘要 (Encoder-Decoder)
+seq2seq_model = AutoModelForSeq2SeqLM.from_pretrained("t5-small")
 
 # 3. 文本理解 (Encoder-only)
 masked_model = AutoModelForMaskedLM.from_pretrained("bert-base-uncased")

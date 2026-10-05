@@ -245,10 +245,6 @@ class AppConfigManager:
 
             if section_name == "model":
                 config_data[section_name] = self._parse_model_section(section_data)
-            elif section_name == "local_models":
-                if "model" not in config_data:
-                    config_data["model"] = {}
-                self._merge_local_models_section(config_data["model"], section_data)
             else:
                 config_data[section_name] = section_data
 
@@ -268,26 +264,6 @@ class AppConfigManager:
                     result[field] = []
 
         return result
-
-    def _merge_local_models_section(
-        self, model_section: dict[str, Any], local_models_data: dict[str, Any]
-    ) -> None:
-        """合并 local_models 配置节到 model"""
-        field_mapping = {
-            "whisper_models": "whisper_models",
-        }
-
-        for old_name, new_name in field_mapping.items():
-            if old_name in local_models_data:
-                value = local_models_data[old_name]
-                if isinstance(value, str):
-                    model_section[new_name] = [
-                        v.strip() for v in value.split(",") if v.strip()
-                    ]
-                elif isinstance(value, list):
-                    model_section[new_name] = value
-                else:
-                    model_section[new_name] = []
 
 
 # ==================== 单例管理 ====================

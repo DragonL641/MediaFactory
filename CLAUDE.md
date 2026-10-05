@@ -179,10 +179,10 @@ python scripts/utils/sync_version.py 0.3.0       # 更新所有文件版本号
 
 ### 模型管理（运行前必需）
 ```bash
-python scripts/utils/download_model.py --list                    # 列出已下载模型
-python scripts/utils/download_model.py facebook/m2m100_1.2B     # 下载模型
-python scripts/utils/download_model.py facebook/m2m100_1.2B --delete  # 删除模型
-python scripts/utils/download_model.py facebook/m2m100_1.2B --source=https://hf-mirror.com  # 中国镜像
+python scripts/utils/download_model.py --list                                    # 列出注册表模型与下载状态
+python scripts/utils/download_model.py Systran/faster-whisper-large-v3           # 下载 Whisper 模型
+python scripts/utils/download_model.py Systran/faster-whisper-large-v3 --delete  # 删除模型
+python scripts/utils/download_model.py Systran/faster-whisper-large-v3 --source=https://hf-mirror.com  # 中国镜像
 ```
 
 ### 运行应用程序
@@ -335,7 +335,7 @@ save_config()
 - 框架：pytest 带覆盖率
 - 结构：`tests/unit/`（按模块分子目录：api、config、core、engine、llm、pipeline、services、utils）+ `tests/integration/`
 - 标记：`unit`、`integration`、`slow`、`requires_ml`、`requires_network`（无 `e2e`）
-- **契约测试安全网**（共 160 个，精简重构 Phase 1-3、持久化队列 Phase 1、Electron 移除 Phase 2 与 Tauri 壳 Phase 3 的回归防线——**改动 runner/task_manager/task_store/worker/pipeline/download_task/daemon_lock/system 路由/local_models 路由/翻译降级链/SPA 伺服/config 数据目录前先确认这些测试全绿**）：`tests/unit/services/test_runner_contract.py`（22 个：5 个 runner 全覆盖、LLM 三分支、字段改名映射、失败透传）、`tests/unit/api/test_task_manager_contract.py`（9 个：状态机/CANCELLED 不变量/串行队列/取消出队）、`tests/unit/api/test_download_task.py`（3 个：成功/失败/节流）、`tests/unit/pipeline/test_progress_mapping.py`（8 个：区间归一化/防叠加/恢复）、`tests/unit/api/test_task_store.py`（11 个：任务 CRUD/白名单更新/队列标记/崩溃恢复）、`tests/unit/api/test_worker_executor.py`（10 个：子进程执行往返/崩溃隔离 respawn/取消 IPC/进度回传）、`tests/unit/api/test_task_manager_persistence.py`（14 个：write-through 落库/重启恢复/corrupt-row 跳过/lifespan 启动恢复/生产装配/manager+worker+SQLite 端到端链路）、`tests/unit/api/test_daemon_lock.py`（11 个：PID 锁获取/双开拒绝/死锁接管/入口装配/server 注册）、`tests/unit/api/test_system_routes.py`（15 个：browse 目录浏览排序与过滤/dotfile 跳过/reveal 平台命令/shutdown 端点）、`tests/unit/config/test_defaults.py`（7 个：frozen 数据目录迁移——Application Support/%APPDATA% 落点、config 路径随数据根、webui 仍从 exe 旁解析）、`tests/unit/api/test_spa_serving.py`（6 个：index 伺服/客户端路由回退/静态资源/API 路径不受影响/缺 webui 优雅降级）、`tests/unit/api/test_models_local.py`（10 个：Ollama 列表/拉取/删除路由 + pull 任务终态防覆盖取消态）、`tests/unit/llm/test_ollama_client.py`（10 个：tags/ps/pull 流/卸载/delete 与异常路径）、`tests/unit/llm/test_translate_detailed.py`（6 个：detailed 契约/单文本标量归一/失败索引映射）、`tests/unit/engine/test_translation_fallback.py`（11 个：兜底编排/术语共享/单向门/用后卸载）、`tests/unit/services/test_runner_fallback.py`（1 个：engine 选择透传 fallback_model）、`tests/unit/api/test_schemas_fallback.py`（6 个：TaskConfig/SubtitleRequest/TranslateRequest 的 fallback_model 校验）
+- **契约测试安全网**（共 170 个，精简重构 Phase 1-3、持久化队列 Phase 1、Electron 移除 Phase 2 与 Tauri 壳 Phase 3 的回归防线——**改动 runner/task_manager/task_store/worker/pipeline/download_task/daemon_lock/system 路由/local_models 路由/翻译降级链/SPA 伺服/config 数据目录前先确认这些测试全绿**）：`tests/unit/services/test_runner_contract.py`（23 个：5 个 runner 全覆盖、LLM 三分支、字段改名映射、失败透传）、`tests/unit/api/test_task_manager_contract.py`（9 个：状态机/CANCELLED 不变量/串行队列/取消出队）、`tests/unit/api/test_download_task.py`（3 个：成功/失败/节流）、`tests/unit/pipeline/test_progress_mapping.py`（8 个：区间归一化/防叠加/恢复）、`tests/unit/api/test_task_store.py`（11 个：任务 CRUD/白名单更新/队列标记/崩溃恢复）、`tests/unit/api/test_worker_executor.py`（10 个：子进程执行往返/崩溃隔离 respawn/取消 IPC/进度回传）、`tests/unit/api/test_task_manager_persistence.py`（14 个：write-through 落库/重启恢复/corrupt-row 跳过/lifespan 启动恢复/生产装配/manager+worker+SQLite 端到端链路）、`tests/unit/api/test_daemon_lock.py`（11 个：PID 锁获取/双开拒绝/死锁接管/入口装配/server 注册）、`tests/unit/api/test_system_routes.py`（15 个：browse 目录浏览排序与过滤/dotfile 跳过/reveal 平台命令/shutdown 端点）、`tests/unit/config/test_defaults.py`（7 个：frozen 数据目录迁移——Application Support/%APPDATA% 落点、config 路径随数据根、webui 仍从 exe 旁解析）、`tests/unit/api/test_spa_serving.py`（6 个：index 伺服/客户端路由回退/静态资源/API 路径不受影响/缺 webui 优雅降级）、`tests/unit/api/test_models_local.py`（16 个：Ollama 列表/拉取/删除路由 + pull 任务终态防覆盖取消态）、`tests/unit/llm/test_ollama_client.py`（10 个：tags/ps/pull 流/卸载/delete 与异常路径）、`tests/unit/llm/test_translate_detailed.py`（8 个：detailed 契约/单文本标量归一/失败索引映射）、`tests/unit/engine/test_translation_fallback.py`（12 个：兜底编排/术语共享/单向门/用后卸载）、`tests/unit/services/test_runner_fallback.py`（1 个：engine 选择透传 fallback_model）、`tests/unit/api/test_schemas_fallback.py`（6 个：TaskConfig/SubtitleRequest/TranslateRequest 的 fallback_model 校验）
 
 ## 重要实现细节
 

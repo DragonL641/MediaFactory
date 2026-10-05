@@ -1,7 +1,5 @@
 """SRT 引擎测试（使用 Mock）。"""
 
-from pathlib import Path
-from unittest.mock import patch
 
 import pytest
 
@@ -16,57 +14,6 @@ class TestSRTEngine:
 
         engine = SRTEngine()
         assert engine is not None
-
-    @pytest.mark.unit
-    def test_engine_has_generate_method(self):
-        """测试引擎有 generate 方法。"""
-        from mediafactory.engine import SRTEngine
-
-        engine = SRTEngine()
-        assert hasattr(engine, "generate") or hasattr(engine, "write_srt")
-
-    @pytest.mark.unit
-    def test_generate_srt_with_segments(self, tmp_path: Path):
-        """测试生成 SRT 文件（Mock）。"""
-        from mediafactory.engine import SRTEngine
-
-        segments = [
-            {"start": 0.0, "end": 2.0, "text": "Hello, world!"},
-            {"start": 2.0, "end": 4.0, "text": "This is a test."},
-            {"start": 4.0, "end": 6.0, "text": "Goodbye!"},
-        ]
-
-        output_path = tmp_path / "output.srt"
-        engine = SRTEngine()
-
-        # Mock generate 方法
-        with patch.object(engine, "generate") as mock_generate:
-            mock_generate.return_value = str(output_path)
-
-            result = engine.generate(segments, str(output_path))
-
-            assert result == str(output_path)
-            mock_generate.assert_called_once()
-
-    @pytest.mark.unit
-    def test_generate_vtt_with_segments(self, tmp_path: Path):
-        """测试生成 VTT 文件（Mock）。"""
-        from mediafactory.engine import SRTEngine
-
-        segments = [
-            {"start": 0.0, "end": 2.0, "text": "Hello, world!"},
-        ]
-
-        output_path = tmp_path / "output.vtt"
-        engine = SRTEngine()
-
-        # Mock generate 方法
-        with patch.object(engine, "generate") as mock_generate:
-            mock_generate.return_value = str(output_path)
-
-            result = engine.generate(segments, str(output_path), format="vtt")
-
-            assert result == str(output_path)
 
     @pytest.mark.unit
     def test_srt_timestamp_formatting(self):

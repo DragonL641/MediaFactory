@@ -108,7 +108,9 @@ def test_llm_response_log_reflects_real_success():
         logger.remove(sink_id)
 
     responses = [
-        r for r in records if "LLM Response" in (r.record["message"] if hasattr(r, "record") else str(r))
+        r
+        for r in records
+        if "LLM Response" in (r.record["message"] if hasattr(r, "record") else str(r))
     ]
     assert responses, "expected an LLM Response log line"
     assert "FAILED" in str(responses[-1])
@@ -127,7 +129,9 @@ def test_llm_response_log_success_on_clean_run():
         logger.remove(sink_id)
 
     responses = [
-        r for r in records if "LLM Response" in (r.record["message"] if hasattr(r, "record") else str(r))
+        r
+        for r in records
+        if "LLM Response" in (r.record["message"] if hasattr(r, "record") else str(r))
     ]
     assert responses, "expected an LLM Response log line"
     assert "SUCCESS" in str(responses[-1])

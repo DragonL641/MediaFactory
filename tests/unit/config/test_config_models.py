@@ -3,8 +3,6 @@
 覆盖各配置模型的默认值、字段约束、预设配置和 TOML 序列化。
 """
 
-from pathlib import Path
-
 import pytest
 
 from mediafactory.config.models import (
@@ -81,22 +79,8 @@ class TestWhisperConfig:
 class TestModelConfig:
     def test_defaults(self):
         cfg = ModelConfig()
-        assert cfg.local_model_path == Path("./models")
         assert cfg.download_source == "https://hf-mirror.com"
-        assert cfg.download_timeout == 30
         assert cfg.whisper_models == []
-
-    def test_download_timeout_constraint(self):
-        with pytest.raises(Exception):
-            ModelConfig(download_timeout=5)
-        with pytest.raises(Exception):
-            ModelConfig(download_timeout=601)
-
-    def test_download_timeout_valid_boundary(self):
-        cfg = ModelConfig(download_timeout=10)
-        assert cfg.download_timeout == 10
-        cfg = ModelConfig(download_timeout=600)
-        assert cfg.download_timeout == 600
 
 
 # ============================================================================
@@ -246,13 +230,6 @@ class TestAppConfig:
         whisper = d["whisper"]
         assert whisper["beam_size"] == 5
         assert whisper["word_timestamps"] is True
-
-    def test_to_toml_dict_path_converted_to_string(self):
-        """Path 类型字段应被转为字符串"""
-        cfg = AppConfig()
-        d = cfg.to_toml_dict()
-        model = d["model"]
-        assert isinstance(model["local_model_path"], str)
 
     def test_to_toml_dict_round_trip(self):
         """to_toml_dict 输出应可用于重建 AppConfig"""

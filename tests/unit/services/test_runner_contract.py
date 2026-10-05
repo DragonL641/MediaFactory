@@ -32,6 +32,10 @@ from mediafactory.services.runner import (
 
 pytestmark = [pytest.mark.unit]
 
+# autouse fixture bypass_readiness 会在每个测试前把 _require_ready 换成 no-op；
+# 模块导入时保存原始函数，供需要真实 readiness 路径的测试还原。
+_ORIGINAL_REQUIRE_READY = runner_module._require_ready
+
 
 def run(coro):
     return asyncio.run(coro)
@@ -577,6 +581,23 @@ class TestRunTranslate:
 
     def test_local_mode_raises_configuration_error(self):
         """契约：use_llm=False 的翻译任务直接报 ConfigurationError（本地模型已移除）。"""
+
+        with pytest.raises(ConfigurationError, match="LLM translation is required"):
+            run(
+                run_translate(
+                    make_config(
+                        task_type=TaskType.TRANSLATE, input_text="hello", use_llm=False
+                    ),
+                    NO_OP_PROGRESS,
+                )
+            )
+
+    def test_local_mode_raises_configuration_error_real_path(self, monkeypatch):
+        """契约（还原真实 _require_ready）：use_llm=False 也必须报 ConfigurationError。
+
+        run_translate 不得对翻译任务调用 readiness 门（translation_local 不是合法
+        readiness 键，真实路径会 KeyError 而非 ConfigurationError）。"""
+        monkeypatch.setattr(runner_module, "_require_ready", _ORIGINAL_REQUIRE_READY)
 
         with pytest.raises(ConfigurationError, match="LLM translation is required"):
             run(

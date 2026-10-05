@@ -195,16 +195,6 @@ Get status of all models (Whisper, Translation, LLM).
     "available": true,
     "name": "large-v3"
   },
-  "translation": {
-    "models": [
-      {
-        "id": "facebook/m2m100_1.2B",
-        "name": "M2M100 1.2B",
-        "tier": "standard",
-        "downloaded": true
-      }
-    ]
-  },
   "llm": {
     "available": true,
     "current_preset": "openai"
@@ -276,12 +266,6 @@ Get the complete application configuration.
   }
 }
 ```
-
-### Get Config Section
-
-#### `GET /api/config/{section}`
-
-Get a specific configuration section.
 
 ### Update Configuration
 

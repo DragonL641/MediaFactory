@@ -7,8 +7,7 @@ Pydantic 数据模型
 from enum import StrEnum
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
-from pydantic.alias_generators import to_camel
+from pydantic import BaseModel, Field, field_validator
 
 # ==================== 枚举类型 ====================
 
@@ -131,16 +130,6 @@ class TaskConfig(BaseModel):
     enhancement_config: EnhancementConfig | None = None
 
 
-class TaskProgress(BaseModel):
-    """任务进度"""
-
-    task_id: str
-    status: TaskStatus
-    progress: float = Field(ge=0, le=100)
-    message: str = ""
-    stage: ProcessingStage | None = None
-
-
 class TaskResult(BaseModel):
     """任务结果"""
 
@@ -150,81 +139,6 @@ class TaskResult(BaseModel):
     error: str | None = None
     error_type: str | None = None
     metadata: dict[str, Any] = Field(default_factory=dict)
-
-
-# ==================== 模型相关 ====================
-
-
-class ModelType(StrEnum):
-    """模型类型"""
-
-    WHISPER = "whisper"
-    TRANSLATION = "translation"
-    LLM = "llm"
-
-
-class ModelStatus(BaseModel):
-    """模型状态"""
-
-    model_type: ModelType
-    name: str
-    loaded: bool = False
-    available: bool = False
-    enabled: bool = True
-
-    # LLM 特有
-    preset: str | None = None
-    connection_available: bool | None = None
-
-
-class TranslationModelInfo(BaseModel):
-    """翻译模型信息"""
-
-    id: str
-    name: str
-    tier: str  # Small, Medium, Large
-    memory: str
-    downloaded: bool = False
-
-
-class LLMTestResult(BaseModel):
-    """LLM 连接测试结果"""
-
-    preset: str
-    success: bool
-    latency_ms: int | None = None
-    error: str | None = None
-
-
-# ==================== 配置相关 ====================
-
-
-class WhisperConfigUpdate(BaseModel):
-    """Whisper 配置更新"""
-
-    beam_size: int | None = Field(None, ge=1, le=10)
-    patience: float | None = Field(None, ge=0.0, le=10.0)
-    length_penalty: float | None = None
-    no_speech_threshold: float | None = Field(None, ge=0.0, le=1.0)
-    condition_on_previous_text: bool | None = None
-    word_timestamps: bool | None = None
-    vad_filter: bool | None = None
-    vad_threshold: float | None = Field(None, ge=0.0, le=1.0)
-
-
-class LLMApiConfigUpdate(BaseModel):
-    """LLM API 配置更新"""
-
-    current_preset: str | None = None
-    timeout: int | None = Field(None, ge=1, le=300)
-    max_retries: int | None = Field(None, ge=0, le=10)
-
-
-class ConfigUpdate(BaseModel):
-    """配置更新请求"""
-
-    whisper: WhisperConfigUpdate | None = None
-    llm_api: LLMApiConfigUpdate | None = None
 
 
 # ==================== API 请求/响应 ====================
@@ -375,68 +289,3 @@ class CancelResponse(BaseModel):
     task_id: str
     status: str
     message: str = "Cancellation requested"
-
-
-# ==================== WebSocket 消息 ====================
-
-
-class WSMessage(BaseModel):
-    """WebSocket 消息基类"""
-
-    type: str
-
-
-class WSSubscribe(WSMessage):
-    """订阅任务进度"""
-
-    type: str = "subscribe"
-    task_id: str
-
-
-class WSProgress(WSMessage):
-    """进度推送"""
-
-    type: str = "progress"
-    task_id: str
-    data: TaskProgress
-
-
-class WSTaskComplete(WSMessage):
-    """任务完成"""
-
-    type: str = "task_complete"
-    task_id: str
-    data: TaskResult
-
-
-# ==================== 任务历史 ====================
-
-
-class TaskHistoryItem(BaseModel):
-    """任务历史条目（camelCase 输出，与前端 Task 契约一致）"""
-
-    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
-
-    id: int
-    task_id: str
-    name: str
-    type: str
-    status: str
-    input_path: str | None = None
-    output_path: str | None = None
-    error: str | None = None
-    error_type: str | None = None
-    metadata: dict[str, Any] = Field(default_factory=dict)
-    # ISO 8601 UTC 字符串
-    created_at: str
-    completed_at: str
-    started_at: str | None = None
-    # 毫秒；started_at 缺失时为 None
-    duration_ms: int | None = None
-
-
-class HistoryListResponse(BaseModel):
-    """历史列表（completed_at 降序）"""
-
-    total: int
-    items: list[TaskHistoryItem]

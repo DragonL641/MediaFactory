@@ -76,7 +76,7 @@ async def lifespan(app: FastAPI):
 
 
 # SPA 客户端路由（BrowserRouter history 模式）——新页面在此追加
-_SPA_PATHS = ("/tasks", "/settings", "/history")
+_SPA_PATHS = ("/tasks", "/settings")
 
 
 def _webui_dir() -> Path:

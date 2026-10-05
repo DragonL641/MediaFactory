@@ -39,13 +39,6 @@ def reset_singletons():
     except ImportError:
         pass
 
-    try:
-        from mediafactory.models.local_models import reset_local_model_manager
-
-        reset_local_model_manager()
-    except ImportError:
-        pass
-
 
 # ========== Temporary Directory Fixtures ==========
 

@@ -52,7 +52,6 @@
     "transcriptionAudioError": "Transcription failed due to audio file error",
     "sourceLanguageNotDetected": "Source language not specified or detected. Skipping translation.",
     "llmTranslationFailed": "LLM API translation failed: {{backend}}",
-    "translationModelLoadFailed": "Translation model loading failed for {{src}} -> {{tgt}}",
     "translationCancelled": "Translation cancelled by user",
     "apiConnectionFailed": "API connection test failed: {{backend}}",
     "cannotOpenVideo": "Cannot open video file: {{path}}",
@@ -65,7 +64,6 @@
     "cannotRemoveRunningTask": "Cannot remove a running task",
     "canOnlyEditPending": "Can only edit PENDING tasks, current status: {{status}}",
     "updateFailed": "Update failed",
-    "configSectionNotExist": "Config section not found: {{section}}",
     "configUpdateFailed": "Config update failed",
     "configSaveFailed": "Save failed",
     "configReloadFailed": "Reload failed",
@@ -106,15 +104,5 @@
     "modelDeleted": "Model deleted: {{modelId}}",
     "workerCrashed": "Task process crashed unexpectedly",
     "interruptedByRestart": "Task was interrupted by a service restart"
-  },
-  "info": {
-    "translationModelNotFound": "Translation model ({{model}}) not found locally.",
-    "downloadModelHint": "Please run: python scripts/utils/download_model.py facebook/m2m100_1.2B",
-    "translationModelNotSupported": "Translation model may not support this language pair",
-    "transcriptionProgress": "Progress: {{percent}}%, processed {{processed}}s/{{total}}s, segments: {{segments}}",
-    "userCancelledEnhancement": "User cancelled video enhancement"
-  },
-  "history": {
-    "notFound": "History record not found"
   }
 }

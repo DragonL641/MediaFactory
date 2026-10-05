@@ -168,10 +168,6 @@ class SRTEngine:
             + int(millis) / SubtitleFormatConstants.MILLISECONDS_PER_SECOND
         )
 
-    def generate(self, result: dict[str, Any], output_path: str) -> None:
-        """生成字幕文件（兼容旧接口）"""
-        self.generate_to_path(output_path, result.get("segments", []))
-
     def generate_to_path(
         self,
         output_path: str,
