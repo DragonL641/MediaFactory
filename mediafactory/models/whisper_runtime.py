@@ -5,15 +5,11 @@ ML dependencies (torch, faster_whisper) are lazily loaded.
 """
 
 import warnings
-from pathlib import Path
-from typing import Optional
 
-from .model_registry import WHISPER_MODEL_ID, get_whisper_model_info
-from .model_download import get_models_dir
-from .model_registry import is_model_complete
-from ..logging import log_error, log_info, log_warning
 from ..exceptions import ProcessingError
-
+from ..logging import log_error, log_info, log_warning
+from .model_download import get_models_dir
+from .model_registry import WHISPER_MODEL_ID, get_whisper_model_info, is_model_complete
 
 # Valid computing devices for Faster Whisper
 # - cpu: Always available, uses int8 quantization
@@ -138,8 +134,8 @@ def get_compute_type(device: str) -> str:
 
 
 def load_model(
-    device: Optional[str] = None,
-    compute_type: Optional[str] = None,
+    device: str | None = None,
+    compute_type: str | None = None,
 ):
     """Load the Faster Whisper Large V3 model.
 

@@ -178,6 +178,8 @@ async def create_enhance_task(request: EnhanceRequest):
             model=request.model_type,
             denoise=request.denoise,
             temporal=request.temporal,
+            face_restore=request.face_restore,
+            film_grain=request.film_grain,
         ),
     )
 

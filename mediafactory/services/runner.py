@@ -90,6 +90,28 @@ def _require_ready(key: str) -> None:
         raise ConfigurationError(message=_READINESS_MESSAGES[key])
 
 
+def _ensure_face_models_ready() -> None:
+    """face_restore 开关的任务级权重检查（不进 enhancement_ready 全量门）。"""
+    from mediafactory.models.model_registry import (
+        FACE_MODEL_IDS,
+        MODEL_REGISTRY,
+        is_model_complete,
+        is_model_downloaded,
+    )
+
+    missing = [
+        MODEL_REGISTRY[mid].display_name
+        for mid in FACE_MODEL_IDS
+        if not (is_model_downloaded(mid) and is_model_complete(mid))
+    ]
+    if missing:
+        raise ConfigurationError(
+            message="Face restoration models not downloaded: "
+            + ", ".join(missing)
+            + ". Please go to Settings to download them."
+        )
+
+
 def _select_translation_engine(config: TaskConfig) -> TranslationEngine:
     """构建 LLM 翻译引擎。翻译任务必须启用 LLM；初始化失败即报错。"""
     if not config.use_llm:
@@ -269,6 +291,9 @@ async def run_enhance(
 ) -> ProcessingResult:
     """视频增强：直调 VideoEnhancementEngine（单动作流程不走 Pipeline）"""
     _require_ready("enhancement")
+    enh = config.enhancement_config or EnhancementConfig()
+    if enh.face_restore:
+        _ensure_face_models_ready()
     # 延迟导入以避免启动时加载 ML 依赖
     from mediafactory.engine.video_enhancement import (
         EnhancementConfig as EngineEnhancementConfig,
@@ -277,12 +302,13 @@ async def run_enhance(
         VideoEnhancementEngine,
     )
 
-    enh = config.enhancement_config or EnhancementConfig()
     engine_config = EngineEnhancementConfig(
         scale=enh.scale,
         model_type=enh.model,
         denoise=enh.denoise,
         temporal=enh.temporal,
+        face_restore=enh.face_restore,
+        film_grain=enh.film_grain,
     )
     src = Path(config.input_path)
     output_path = config.output_path or str(src.with_stem(f"{src.stem}_enhanced"))
@@ -302,6 +328,8 @@ async def run_enhance(
             "scale": enh.scale,
             "denoise": enh.denoise,
             "temporal": enh.temporal,
+            "face_restore": enh.face_restore,
+            "film_grain": enh.film_grain,
         },
     )
 

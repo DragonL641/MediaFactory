@@ -6,14 +6,14 @@
 
 import shutil
 import time
+from collections.abc import Callable
 from pathlib import Path
-from typing import Optional, Callable, Tuple
+
+from ..logging import log_error, log_exception, log_info
 
 # Lazy import for huggingface_hub - only needed for download operations
 # This allows the module to be imported without ML dependencies
-
 from .model_registry import (
-    MODEL_REGISTRY,
     DownloadMode,
     ModelType,
     get_enhancement_models_dir,
@@ -21,7 +21,6 @@ from .model_registry import (
     get_model_local_path,
     get_models_base_dir,  # 使用 model_registry 中的统一路径函数
 )
-from ..logging import log_error, log_exception, log_info
 
 # 重试配置
 MAX_RETRIES = 3  # 最大重试次数
@@ -48,9 +47,10 @@ def _patch_hf_tqdm(callback):
     if callback is None:
         return nullcontext()
 
+    import io as _io
+
     import huggingface_hub.file_download as _fd
     from huggingface_hub.utils.tqdm import tqdm as _hf_tqdm
-    import io as _io
 
     _original_fn = _fd._get_progress_bar_context
 
@@ -101,12 +101,50 @@ def _patch_hf_tqdm(callback):
     return _Patcher()
 
 
+def _download_file_via_get(
+    repo_id: str,
+    filename: str,
+    local_path: Path,
+    endpoint: str | None,
+    progress_callback: Callable | None = None,
+) -> None:
+    """GET 流式下载单文件到 local_path（.part 临时文件原子落盘）。
+
+    hf-mirror 对 HEAD 元数据请求行为不可靠（实测会 308 回 huggingface.co，
+    该域名在国内不可达），而 GET 全程可达——因此 FILE 模式不经
+    huggingface_hub，直接流式拉取。
+    """
+    import requests
+
+    base = (endpoint or "https://huggingface.co").rstrip("/")
+    url = f"{base}/{repo_id}/resolve/main/{filename}"
+    tmp_path = local_path.with_name(local_path.name + ".part")
+    try:
+        with requests.get(
+            url, stream=True, timeout=(10, 60), headers={"Accept-Encoding": "identity"}
+        ) as resp:
+            resp.raise_for_status()
+            total = int(resp.headers.get("content-length") or 0)
+            done = 0
+            with open(tmp_path, "wb") as f:
+                for chunk in resp.iter_content(chunk_size=1024 * 1024):
+                    if chunk:
+                        f.write(chunk)
+                        done += len(chunk)
+                        if progress_callback and total:
+                            progress_callback(min(done / total, 0.999), "Downloading")
+        tmp_path.replace(local_path)
+    except Exception:
+        tmp_path.unlink(missing_ok=True)
+        raise
+
+
 def download_model(
     huggingface_id: str,
-    custom_path: Optional[str] = None,
-    download_source: Optional[str] = None,
-    progress_callback: Optional[Callable] = None,
-    hf_token: Optional[str] = None,
+    custom_path: str | None = None,
+    download_source: str | None = None,
+    progress_callback: Callable | None = None,
+    hf_token: str | None = None,
 ) -> Path:
     """从注册表下载模型（带重试机制）。
 
@@ -167,15 +205,14 @@ def download_model(
 
             try:
                 if is_file_mode:
-                    # 单文件模型：使用 hf_hub_download 下载指定文件
-                    from huggingface_hub import hf_hub_download
-
-                    hf_hub_download(
+                    # 单文件模型：GET 流式下载（hf-mirror 对 HEAD 元数据不可靠，
+                    # huggingface_hub 的 HEAD 路径在镜像下会 308 → huggingface.co）
+                    _download_file_via_get(
                         repo_id=model_info.huggingface_repo,
-                        filename=model_info.huggingface_filename,
-                        local_dir=str(get_enhancement_models_dir()),
+                        filename=model_info.huggingface_filename or huggingface_id,
+                        local_path=local_path,
                         endpoint=endpoint,
-                        token=hf_token or None,
+                        progress_callback=progress_callback,
                     )
                 else:
                     # 仓库模型：使用 snapshot_download 下载整个仓库
@@ -218,7 +255,7 @@ def download_model(
                         f"1) Accept terms at https://huggingface.co/{huggingface_id} ; "
                         f"2) if this model has dependencies (e.g. stable-ts segmentation-3.0), accept their terms"
                         f"3) Ensure HuggingFace Token is configured in Settings > HuggingFace Hub"
-                    )
+                    ) from ex
 
                 # 非最后一次重试，继续尝试
                 if attempt < MAX_RETRIES - 1:
@@ -256,7 +293,7 @@ def _cleanup_failed_download(model_path: Path, is_file_mode: bool) -> None:
         log_error(f"Failed to clean up download artifacts: {e}")
 
 
-def delete_model(huggingface_id: str) -> Tuple[bool, str]:
+def delete_model(huggingface_id: str) -> tuple[bool, str]:
     """删除已下载的模型。
 
     Args:

@@ -649,6 +649,8 @@ class TestRunEnhance:
             "model_type": "anime",
             "denoise": True,
             "temporal": True,
+            "face_restore": False,
+            "film_grain": False,
         }
         # 契约：引擎构造收到该配置，enhance 收到路径三元组
         assert FakeEnhancementEngine.instances[0].config is not None
@@ -680,6 +682,80 @@ class TestRunEnhance:
 
         # 契约：enhance 任务必须过 enhancement readiness 门
         assert calls == ["enhancement"]
+
+    def test_enhance_maps_face_restore_and_film_grain(self, monkeypatch):
+        """契约：face_restore/film_grain 透传引擎配置。"""
+        self._patch_engine(monkeypatch)
+        # 隔离真实下载状态：权重门在映射用例中不参与
+        monkeypatch.setattr(runner_module, "_ensure_face_models_ready", lambda: None)
+
+        run(
+            run_enhance(
+                make_config(
+                    task_type=TaskType.ENHANCE,
+                    enhancement_config=EnhancementConfig(
+                        scale=4,
+                        model="anime",
+                        denoise=True,
+                        temporal=True,
+                        face_restore=True,
+                        film_grain=True,
+                    ),
+                ),
+                NO_OP_PROGRESS,
+            )
+        )
+
+        kwargs = FakeEngineEnhancementConfig.init_kwargs[0]
+        assert kwargs["face_restore"] is True
+        assert kwargs["film_grain"] is True
+        assert FakeEnhancementEngine.instances[0].config is not None
+
+    def test_face_restore_on_missing_weights_raises(self, monkeypatch):
+        """契约：face_restore 开且权重缺失 → ConfigurationError 指名缺失项。"""
+        from mediafactory.exceptions import ConfigurationError
+
+        self._patch_engine(monkeypatch)
+
+        def _missing():
+            raise ConfigurationError(
+                message="Face restoration models not downloaded: CodeFormer"
+            )
+
+        monkeypatch.setattr(runner_module, "_ensure_face_models_ready", _missing)
+
+        with pytest.raises(ConfigurationError, match="CodeFormer"):
+            run(
+                run_enhance(
+                    make_config(
+                        task_type=TaskType.ENHANCE,
+                        enhancement_config=EnhancementConfig(face_restore=True),
+                    ),
+                    NO_OP_PROGRESS,
+                )
+            )
+
+    def test_face_restore_off_skips_gate(self, monkeypatch):
+        """契约：face_restore 关 → 权重门不被调用。"""
+        self._patch_engine(monkeypatch)
+
+        def _must_not_call():
+            raise AssertionError("权重门不应在 face_restore=False 时被调用")
+
+        monkeypatch.setattr(runner_module, "_ensure_face_models_ready", _must_not_call)
+        run(run_enhance(make_config(task_type=TaskType.ENHANCE), NO_OP_PROGRESS))
+
+    def test_ensure_face_models_ready_missing_names(self, monkeypatch):
+        """_ensure_face_models_ready：缺哪个权重指名哪个（runner 内延迟 import，patch 源模块生效）。"""
+        import mediafactory.models.model_registry as reg_module
+
+        monkeypatch.setattr(
+            reg_module, "is_model_downloaded", lambda mid: mid != "CodeFormer"
+        )
+        monkeypatch.setattr(reg_module, "is_model_complete", lambda mid: True)
+
+        with pytest.raises(ConfigurationError, match="CodeFormer"):
+            runner_module._ensure_face_models_ready()
 
 
 class TestRunnersRegistry:

@@ -75,6 +75,8 @@ class EnhancementConfig(BaseModel):
     model: str = "general"
     denoise: bool = False
     temporal: bool = False
+    face_restore: bool = False  # 老片增强 P0：CodeFormer 人脸修复
+    film_grain: bool = False  # 老片增强 P0：胶片颗粒后处理
 
 
 class TaskConfig(BaseModel):
@@ -258,6 +260,8 @@ class EnhanceRequest(BaseModel):
     model_type: str = "general"
     denoise: bool = False
     temporal: bool = False
+    face_restore: bool = False
+    film_grain: bool = False
 
 
 class TaskConfigUpdateRequest(BaseModel):

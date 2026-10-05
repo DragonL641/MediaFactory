@@ -211,3 +211,24 @@ class TestTaskResult:
         )
         assert result.metadata["duration"] == 120
         assert result.metadata["segments"] == 45
+
+
+# ============================================================================
+# 6. EnhancementConfig P0 新字段
+# ============================================================================
+
+
+class TestEnhancementConfigNewFields:
+    def test_defaults_off(self):
+        from mediafactory.api.schemas import EnhancementConfig
+
+        cfg = EnhancementConfig()
+        assert cfg.face_restore is False
+        assert cfg.film_grain is False
+
+    def test_enhance_request_defaults(self):
+        from mediafactory.api.schemas import EnhanceRequest
+
+        req = EnhanceRequest(video_path="/v.mp4")
+        assert req.face_restore is False
+        assert req.film_grain is False

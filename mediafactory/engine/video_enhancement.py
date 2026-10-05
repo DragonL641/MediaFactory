@@ -43,6 +43,13 @@ class EnhancementConfig:
     temporal: bool = False
     temporal_strength: float = 0.5
 
+    # 人脸修复参数（老片增强 P0）
+    face_restore: bool = False
+    face_fidelity_weight: float = 0.7  # 官方默认保真度，不暴露 UI
+
+    # 胶片颗粒（老片增强 P0）
+    film_grain: bool = False
+
     # 设备配置
     device: str | None = None  # cuda, mps, cpu, None=auto
     half_precision: bool = True  # 默认启用半精度以提升性能
