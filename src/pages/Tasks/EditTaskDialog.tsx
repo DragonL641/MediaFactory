@@ -83,7 +83,7 @@ const EditTaskDialog: React.FC<EditTaskDialogProps> = ({
       const nested: Record<string, unknown> = {};
       const _audioKeys = ["sample_rate", "channels", "filter_enabled", "highpass_freq", "lowpass_freq", "volume", "output_format"];
       const subtitleKeys = ["output_format", "bilingual", "bilingual_layout", "style_preset"];
-      const _enhancementKeys = ["scale", "model_type", "denoise", "temporal"];
+      const _enhancementKeys = ["scale", "model_type", "denoise", "temporal", "face_restore", "film_grain"];
 
       Object.entries(values).forEach(([key, value]) => {
         if (key.startsWith("audio_")) {

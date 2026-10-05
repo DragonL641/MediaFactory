@@ -177,6 +177,8 @@ export function useCreateEnhanceTaskMutation() {
       model_type: string;
       denoise?: boolean;
       temporal?: boolean;
+      face_restore?: boolean;
+      film_grain?: boolean;
     }) => {
       const client = getApiClient();
       const response = await client.post("/api/processing/enhance", params);

@@ -97,7 +97,9 @@
     "general": "General (Recommended)",
     "anime": "Anime",
     "enableDenoising": "Enable Denoising",
-    "enableTemporalSmoothing": "Enable Temporal Smoothing"
+    "enableTemporalSmoothing": "Enable Temporal Smoothing",
+    "enableFaceRestoration": "Enable Face Restoration",
+    "enableFilmGrain": "Enable Film Grain"
   },
   "validation": {
     "fileRequired": "Please select a file",

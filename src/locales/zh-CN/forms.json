@@ -97,7 +97,9 @@
     "general": "通用（推荐）",
     "anime": "动漫",
     "enableDenoising": "启用降噪",
-    "enableTemporalSmoothing": "启用时序平滑"
+    "enableTemporalSmoothing": "启用时序平滑",
+    "enableFaceRestoration": "启用人脸修复",
+    "enableFilmGrain": "启用胶片颗粒"
   },
   "validation": {
     "fileRequired": "请选择文件",

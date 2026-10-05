@@ -25,6 +25,8 @@ const EnhanceForm: React.FC<EnhanceFormProps> = ({ form }) => {
         model_type: "general",
         denoise: false,
         temporal: false,
+        face_restore: false,
+        film_grain: false,
       }}
       fileInput={{
         name: "video_path",

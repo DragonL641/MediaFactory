@@ -41,6 +41,14 @@ const EnhanceFormFields: React.FC<EnhanceFormFieldsProps> = ({ fieldPrefix = "" 
       <Form.Item name={`${fieldPrefix}temporal`} label={t("forms:enhanceLabels.enableTemporalSmoothing")} valuePropName="checked">
         <Switch />
       </Form.Item>
+
+      <Form.Item name={`${fieldPrefix}face_restore`} label={t("forms:enhanceLabels.enableFaceRestoration")} valuePropName="checked">
+        <Switch />
+      </Form.Item>
+
+      <Form.Item name={`${fieldPrefix}film_grain`} label={t("forms:enhanceLabels.enableFilmGrain")} valuePropName="checked">
+        <Switch />
+      </Form.Item>
     </>
   );
 };
