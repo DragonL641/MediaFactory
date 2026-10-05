@@ -10,7 +10,7 @@ Supports memory-aware selection and license tracking for commercial use complian
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import psutil
 
@@ -39,6 +39,7 @@ class ModelType(Enum):
     WHISPER = "whisper"
     SUPER_RESOLUTION = "super_resolution"  # Real-ESRGAN
     DENOISE = "denoise"  # NAFNet
+    FACE_RESTORATION = "face_restoration"  # CodeFormer + facexlib
 
 
 class DownloadMode(Enum):
@@ -53,6 +54,7 @@ class LicenseType(Enum):
 
     APACHE_2_0 = "apache_2_0"  # Commercial use allowed
     MIT = "mit"  # Commercial use allowed
+    S_LAB_1_0 = "s_lab_1_0"  # 限非商用（CodeFormer 权重/网络）
 
 
 @dataclass
@@ -95,8 +97,8 @@ class ModelInfo:
     # 下载配置
     download_mode: DownloadMode = DownloadMode.REPO
     huggingface_repo: str = ""  # 默认与 huggingface_id 相同
-    huggingface_filename: Optional[str] = None  # 单文件下载时的文件名
-    local_filename: Optional[str] = None  # 本地保存的文件名
+    huggingface_filename: str | None = None  # 单文件下载时的文件名
+    local_filename: str | None = None  # 本地保存的文件名
 
     # 可选字段
     language_support: str = ""
@@ -105,10 +107,10 @@ class ModelInfo:
     requires_prompt: bool = False
     description: str = ""
     purpose: str = ""  # 功能描述，用于 UI 卡片标题
-    gguf_file: Optional[str] = None  # GGUF filename for quantized models
+    gguf_file: str | None = None  # GGUF filename for quantized models
     runtime_vram_mb: int = 0  # GPU runtime VRAM
     recommended_vram_mb: int = 0  # Recommended VRAM
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
     def __post_init__(self):
         """Calculate defaults and validate."""
@@ -224,7 +226,57 @@ MODEL_REGISTRY: dict[str, ModelInfo] = {
         purpose="Video Denoising",
         metadata={"type": "denoise"},
     ),
+    # ========== Enhancement Models: Face Restoration (CodeFormer + facexlib) ==========
+    "CodeFormer": ModelInfo(
+        huggingface_id="CodeFormer",
+        display_name="CodeFormer",
+        model_type=ModelType.FACE_RESTORATION,
+        model_size_mb=359,
+        runtime_memory_mb=2048,
+        license=LicenseType.S_LAB_1_0,
+        download_mode=DownloadMode.FILE,
+        huggingface_repo="ziixzz/codeformer-v0.1.0.pth",
+        huggingface_filename="codeformer-v0.1.0.pth",
+        description="Face restoration for old/degraded videos (non-commercial license)",
+        purpose="Face Restoration",
+        metadata={"type": "face_restore"},
+    ),
+    "facexlib-detection": ModelInfo(
+        huggingface_id="facexlib-detection",
+        display_name="Face Detection (RetinaFace)",
+        model_type=ModelType.FACE_RESTORATION,
+        model_size_mb=104,
+        runtime_memory_mb=512,
+        license=LicenseType.APACHE_2_0,
+        download_mode=DownloadMode.FILE,
+        huggingface_repo="leonelhs/facexlib",
+        huggingface_filename="detection_Resnet50_Final.pth",
+        description="Face detection model for restoration pipeline",
+        purpose="Face Detection",
+        metadata={"type": "face_restore"},
+    ),
+    "facexlib-parsing": ModelInfo(
+        huggingface_id="facexlib-parsing",
+        display_name="Face Parsing (ParseNet)",
+        model_type=ModelType.FACE_RESTORATION,
+        model_size_mb=81,
+        runtime_memory_mb=512,
+        license=LicenseType.APACHE_2_0,
+        download_mode=DownloadMode.FILE,
+        huggingface_repo="leonelhs/facexlib",
+        huggingface_filename="parsing_parsenet.pth",
+        description="Face parsing model for restoration pipeline",
+        purpose="Face Parsing",
+        metadata={"type": "face_restore"},
+    ),
 }
+
+# Face restoration 权重清单（任务级就绪检查用；不进 enhancement_ready 全量门）
+FACE_MODEL_IDS: tuple[str, str, str] = (
+    "CodeFormer",
+    "facexlib-detection",
+    "facexlib-parsing",
+)
 
 # Fixed Whisper model ID (huggingface_id)
 WHISPER_MODEL_ID = "Systran/faster-whisper-large-v3"
@@ -297,7 +349,7 @@ def get_whisper_model_info() -> ModelInfo:
     return MODEL_REGISTRY[WHISPER_MODEL_ID]
 
 
-def get_model_info(huggingface_id: str) -> Optional[ModelInfo]:
+def get_model_info(huggingface_id: str) -> ModelInfo | None:
     """Get model information by HuggingFace ID.
 
     Args:
@@ -330,7 +382,7 @@ def get_display_name(huggingface_id: str) -> str:
 
 def get_enhancement_model_by_scale_and_type(
     scale: int, model_subtype: str = "general"
-) -> Optional[str]:
+) -> str | None:
     """根据放大倍数和类型获取超分辨率模型名称。
 
     Args:
@@ -365,7 +417,7 @@ def get_enhancement_models_dir() -> Path:
     return get_models_base_dir() / "enhancement"
 
 
-def get_model_local_path(model_id: str) -> Optional[Path]:
+def get_model_local_path(model_id: str) -> Path | None:
     """获取模型的本地存储路径。
 
     Args:
@@ -441,20 +493,28 @@ def is_model_complete(model_id: str) -> bool:
         # 检查模型权重文件（>= 1MB）
         valid_suffixes = {".bin", ".safetensors", ".gguf", ".onnx", ".pt", ".ckpt"}
         for entry in path.iterdir():
-            if entry.is_file() and entry.suffix in valid_suffixes and entry.stat().st_size >= 1_000_000:
+            if (
+                entry.is_file()
+                and entry.suffix in valid_suffixes
+                and entry.stat().st_size >= 1_000_000
+            ):
                 return True
 
         # 递归检查子目录（某些模型权重在子目录中）
         for entry in path.iterdir():
             if entry.is_dir() and not entry.name.startswith("."):
                 for sub in entry.iterdir():
-                    if sub.is_file() and sub.suffix in valid_suffixes and sub.stat().st_size >= 1_000_000:
+                    if (
+                        sub.is_file()
+                        and sub.suffix in valid_suffixes
+                        and sub.stat().st_size >= 1_000_000
+                    ):
                         return True
 
         return False
 
 
-def get_all_model_statuses() -> Dict[str, bool]:
+def get_all_model_statuses() -> dict[str, bool]:
     """获取所有模型的下载状态。
 
     Returns:
