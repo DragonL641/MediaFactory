@@ -1691,6 +1691,7 @@ dependencies = [
     { name = "opencv-python" },
     { name = "psutil" },
     { name = "pydantic" },
+    { name = "requests" },
     { name = "sqlalchemy", extra = ["asyncio"] },
     { name = "tomli" },
     { name = "tomli-w" },
@@ -1763,6 +1764,7 @@ dev = [
     { name = "ruff" },
     { name = "safety" },
     { name = "twine" },
+    { name = "types-requests" },
 ]
 runtime = [
     { name = "aiosqlite" },
@@ -1799,6 +1801,7 @@ requires-dist = [
     { name = "opencv-python", specifier = ">=4.13.0,<5.0.0" },
     { name = "psutil", specifier = ">=7.2.0" },
     { name = "pydantic", specifier = ">=2.13.0,<3.0.0" },
+    { name = "requests", specifier = ">=2.32.0" },
     { name = "sqlalchemy", extras = ["asyncio"], specifier = ">=2.0.52,<3.0.0" },
     { name = "tomli", specifier = ">=2.4.0" },
     { name = "tomli-w", specifier = ">=1.2.0" },
@@ -1869,6 +1872,7 @@ dev = [
     { name = "ruff", specifier = ">=0.16.0" },
     { name = "safety", specifier = ">=2.0.0" },
     { name = "twine", specifier = ">=4.0.0" },
+    { name = "types-requests", specifier = ">=2.33.0.20260906" },
 ]
 runtime = [
     { name = "aiosqlite", specifier = ">=0.22.1" },
@@ -3890,6 +3894,18 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/f5/24/cb09efec5cc954f7f9b930bf8279447d24618bb6758d4f6adf2574c41780/typer-0.24.1.tar.gz", hash = "sha256:e39b4732d65fbdcde189ae76cf7cd48aeae72919dea1fdfc16593be016256b45", size = 118613, upload-time = "2026-02-21T16:54:40.609Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/4a/91/48db081e7a63bb37284f9fbcefda7c44c277b18b0e13fbc36ea2335b71e6/typer-0.24.1-py3-none-any.whl", hash = "sha256:112c1f0ce578bfb4cab9ffdabc68f031416ebcc216536611ba21f04e9aa84c9e", size = 56085, upload-time = "2026-02-21T16:54:41.616Z" },
+]
+
+[[package]]
+name = "types-requests"
+version = "2.33.0.20260906"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "urllib3" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/c0/18/4c2c0290953f8b3b9612adfcb07b57f144ade3ad32a76764fca42b77c5f3/types_requests-2.33.0.20260906.tar.gz", hash = "sha256:76ab8a0fb736744a0c3deee7aa57b2927e301f078d9e61f5391b3e92002416b9", size = 25263, upload-time = "2026-09-06T06:35:47.707Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/60/4c/51ec821d22a45b4162fa3f3e9e94ea4c0f8c49e82363b10955baa5438391/types_requests-2.33.0.20260906-py3-none-any.whl", hash = "sha256:9f53622652bd921ead7a54d665be1b8d518165c8b51cc9d68d944cd6b6bfa8fb", size = 21461, upload-time = "2026-09-06T06:35:45.856Z" },
 ]
 
 [[package]]

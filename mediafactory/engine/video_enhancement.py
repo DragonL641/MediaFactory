@@ -504,13 +504,24 @@ class VideoEnhancementEngine:
                 text=True,
                 timeout=timeout,
             )
+            if result.returncode != 0 and film_grain:
+                # grain 重编码失败：降级为无 grain 合并（音轨仍从源取），非裸 copy
+                log_error(
+                    f"Film grain 重编码失败，降级为无 grain 合并: {result.stderr}"
+                )
+                plain_cmd, plain_timeout = self._build_merge_cmd(
+                    source_video, temp_video, output_path, film_grain=False
+                )
+                plain = subprocess.run(
+                    plain_cmd, capture_output=True, text=True, timeout=plain_timeout
+                )
+                if plain.returncode != 0:
+                    log_error(f"FFmpeg 音频合并失败: {plain.stderr}")
+                    self._copy_without_audio(temp_video, output_path)
+                return
             if result.returncode != 0:
                 log_error(f"FFmpeg 音频合并失败: {result.stderr}")
-                # 如果音频合并失败，直接复制视频
-                import shutil
-
-                shutil.copy(temp_video, output_path)
-                log_info("已保存无音频的视频")
+                self._copy_without_audio(temp_video, output_path)
         except subprocess.TimeoutExpired as e:
             raise ProcessingError(
                 message="FFmpeg 音频合并超时",
@@ -518,11 +529,15 @@ class VideoEnhancementEngine:
             ) from e
         except Exception as e:
             log_error(f"音频合并失败: {e}")
-            # 如果音频合并失败，直接复制视频
-            import shutil
+            self._copy_without_audio(temp_video, output_path)
 
-            shutil.copy(temp_video, output_path)
-            log_info("已保存无音频的视频")
+    @staticmethod
+    def _copy_without_audio(temp_video: str, output_path: str) -> None:
+        """最后兜底：直接复制增强后的视频（丢音轨，任务仍成功）"""
+        import shutil
+
+        shutil.copy(temp_video, output_path)
+        log_info("已保存无音频的视频")
 
     def cleanup(self) -> None:
         """清理资源"""

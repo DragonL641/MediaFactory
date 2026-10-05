@@ -99,6 +99,8 @@ class ModelInfo:
     huggingface_repo: str = ""  # 默认与 huggingface_id 相同
     huggingface_filename: str | None = None  # 单文件下载时的文件名
     local_filename: str | None = None  # 本地保存的文件名
+    huggingface_revision: str = "main"  # 下载分支/tag（默认分支非 main 的仓库需显式指定）
+    sha256: str | None = None  # 权重 sha256 锁定（FILE 模式下载后校验；第三方镜像源的完整性防线）
 
     # 可选字段
     language_support: str = ""
@@ -237,6 +239,7 @@ MODEL_REGISTRY: dict[str, ModelInfo] = {
         download_mode=DownloadMode.FILE,
         huggingface_repo="ziixzz/codeformer-v0.1.0.pth",
         huggingface_filename="codeformer-v0.1.0.pth",
+        sha256="1009e537e0c2a07d4cabce6355f53cb66767cd4b4297ec7a4a64ca4b8a5684b7",
         description="Face restoration for old/degraded videos (non-commercial license)",
         purpose="Face Restoration",
         metadata={"type": "face_restore"},
@@ -251,6 +254,7 @@ MODEL_REGISTRY: dict[str, ModelInfo] = {
         download_mode=DownloadMode.FILE,
         huggingface_repo="leonelhs/facexlib",
         huggingface_filename="detection_Resnet50_Final.pth",
+        sha256="6d1de9c2944f2ccddca5f5e010ea5ae64a39845a86311af6fdf30841b0a5a16d",
         description="Face detection model for restoration pipeline",
         purpose="Face Detection",
         metadata={"type": "face_restore"},
@@ -265,6 +269,7 @@ MODEL_REGISTRY: dict[str, ModelInfo] = {
         download_mode=DownloadMode.FILE,
         huggingface_repo="leonelhs/facexlib",
         huggingface_filename="parsing_parsenet.pth",
+        sha256="3d558d8d0e42c20224f13cf5a29c79eba2d59913419f945545d8cf7b72920de2",
         description="Face parsing model for restoration pipeline",
         purpose="Face Parsing",
         metadata={"type": "face_restore"},

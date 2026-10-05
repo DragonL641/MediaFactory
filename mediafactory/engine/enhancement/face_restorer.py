@@ -51,6 +51,7 @@ class FaceRestoreManager:
         self._fidelity = fidelity_weight
         self.device = self._requested
         self.faces_found = 0
+        self._batches_with_faces = 0  # 日志节流：每 25 个含脸批打一条摘要
         try:
             self._init_chain()
         except RuntimeError as e:
@@ -114,7 +115,13 @@ class FaceRestoreManager:
             self._helper.get_inverse_affine()
             out.append(self._helper.paste_faces_to_input_image())
         self.faces_found += faced
-        log_info(f"face_restore: {faced}/{len(frames)} 帧含脸（累计 {self.faces_found}）")
+        if faced:
+            self._batches_with_faces += 1
+            if self._batches_with_faces % 25 == 1:
+                log_info(
+                    f"face_restore: 已修复 {self.faces_found} 帧含脸"
+                    f"（第 {self._batches_with_faces} 个含脸批）"
+                )
         return out, faced
 
     @staticmethod

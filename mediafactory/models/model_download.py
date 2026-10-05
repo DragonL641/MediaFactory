@@ -107,32 +107,56 @@ def _download_file_via_get(
     local_path: Path,
     endpoint: str | None,
     progress_callback: Callable | None = None,
+    hf_token: str | None = None,
+    revision: str = "main",
+    expected_sha256: str | None = None,
 ) -> None:
-    """GET 流式下载单文件到 local_path（.part 临时文件原子落盘）。
+    """GET 流式下载单文件到 local_path（.part 临时文件原子落盘，可选 sha256 校验）。
 
     hf-mirror 对 HEAD 元数据请求行为不可靠（实测会 308 回 huggingface.co，
     该域名在国内不可达），而 GET 全程可达——因此 FILE 模式不经
     huggingface_hub，直接流式拉取。
     """
+    import hashlib
+
     import requests
 
     base = (endpoint or "https://huggingface.co").rstrip("/")
-    url = f"{base}/{repo_id}/resolve/main/{filename}"
+    url = f"{base}/{repo_id}/resolve/{revision}/{filename}"
+    headers = {"Accept-Encoding": "identity"}
+    if hf_token:
+        headers["Authorization"] = f"Bearer {hf_token}"
     tmp_path = local_path.with_name(local_path.name + ".part")
     try:
         with requests.get(
-            url, stream=True, timeout=(10, 60), headers={"Accept-Encoding": "identity"}
+            url, stream=True, timeout=(10, 60), headers=headers
         ) as resp:
             resp.raise_for_status()
             total = int(resp.headers.get("content-length") or 0)
             done = 0
+            hasher = hashlib.sha256() if expected_sha256 else None
             with open(tmp_path, "wb") as f:
                 for chunk in resp.iter_content(chunk_size=1024 * 1024):
                     if chunk:
                         f.write(chunk)
+                        if hasher:
+                            hasher.update(chunk)
                         done += len(chunk)
-                        if progress_callback and total:
-                            progress_callback(min(done / total, 0.999), "Downloading")
+                        if progress_callback:
+                            if total:
+                                progress_callback(
+                                    min(done / total, 0.999), "Downloading"
+                                )
+                            else:
+                                # 无 total 时进度未知不虚报，消息携带已下载量
+                                progress_callback(
+                                    0.0, f"Downloading ({done // 1048576} MB)"
+                                )
+        if hasher and hasher.hexdigest() != expected_sha256:
+            raise ValueError(
+                f"checksum mismatch for {filename}: expected {expected_sha256}, "
+                f"got {hasher.hexdigest()}"
+            )
         tmp_path.replace(local_path)
     except Exception:
         tmp_path.unlink(missing_ok=True)
@@ -213,6 +237,9 @@ def download_model(
                         local_path=local_path,
                         endpoint=endpoint,
                         progress_callback=progress_callback,
+                        hf_token=hf_token or None,
+                        revision=model_info.huggingface_revision,
+                        expected_sha256=model_info.sha256,
                     )
                 else:
                     # 仓库模型：使用 snapshot_download 下载整个仓库

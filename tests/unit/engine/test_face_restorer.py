@@ -83,6 +83,34 @@ class TestFaceRestoreManager:
         with pytest.raises(ProcessingError):
             fr.FaceRestoreManager(device="mps")
 
+    def test_logging_throttled_for_long_videos(self, seams, monkeypatch):
+        """契约：无脸批静默；有脸批每 25 批仅打一次（长片防日志洪泛）。"""
+        import mediafactory.engine.enhancement.face_restorer as fr
+
+        logs: list[str] = []
+        monkeypatch.setattr(fr, "log_info", lambda m, **k: logs.append(m))
+        helper = seams[2]
+        helper.cropped_faces = [np.zeros((512, 512, 3), np.uint8)]
+
+        mgr = fr.FaceRestoreManager(device="cpu")
+        for _ in range(60):
+            mgr.restore_batch([np.zeros((4, 4, 3), np.uint8)])
+
+        # 60 个含脸批 → 第 1 批 + 第 26 批 + 第 51 批 = 3 条
+        assert len(logs) == 3
+
+    def test_no_face_batch_is_silent(self, seams, monkeypatch):
+        import mediafactory.engine.enhancement.face_restorer as fr
+
+        logs: list[str] = []
+        monkeypatch.setattr(fr, "log_info", lambda m, **k: logs.append(m))
+
+        mgr = fr.FaceRestoreManager(device="cpu")
+        for _ in range(40):
+            mgr.restore_batch([np.zeros((4, 4, 3), np.uint8)])
+
+        assert logs == []  # 全程无脸 → 零日志
+
     def test_runtime_failure_mid_batch_falls_back(self, seams):
         """契约：mps 推理中途 RuntimeError → 重建后整批重跑。"""
         fr, net, helper = seams
