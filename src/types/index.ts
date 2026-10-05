@@ -130,6 +130,10 @@ export interface AllModelsStatus {
     name: string;
     models: DenoiseModelInfo[];
   };
+  face_restoration: {
+    name: string;
+    models: EnhancementModelInfo[];
+  };
 }
 
 export interface LocalModelInfo {

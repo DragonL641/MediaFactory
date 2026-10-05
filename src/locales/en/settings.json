@@ -12,7 +12,8 @@
   },
   "subSections": {
     "superResolution": "Super Resolution Models",
-    "videoDenoising": "Video Denoising"
+    "videoDenoising": "Video Denoising",
+    "faceRestoration": "Face Restoration"
   },
   "whisper": {
     "title": "Whisper Transcription",

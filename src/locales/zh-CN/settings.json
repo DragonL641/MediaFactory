@@ -12,7 +12,8 @@
   },
   "subSections": {
     "superResolution": "超分辨率模型",
-    "videoDenoising": "视频降噪"
+    "videoDenoising": "视频降噪",
+    "faceRestoration": "人脸修复模型"
   },
   "whisper": {
     "title": "Whisper 转录",

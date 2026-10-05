@@ -222,6 +222,7 @@ const SettingsPage: React.FC = () => {
   const whisperModels = modelsStatus?.whisper?.models || [];
   const enhancementModels = modelsStatus?.enhancement?.models || [];
   const denoiseModels = modelsStatus?.denoise?.models || [];
+  const faceModels = modelsStatus?.face_restoration?.models || [];
 
   const isLoading = configLoading || modelsLoading;
   const isError = configError || modelsError;
@@ -405,6 +406,31 @@ const SettingsPage: React.FC = () => {
           <div className="sub-section-title">{t("settings:subSections.videoDenoising")}</div>
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
             {denoiseModels.map((m) => (
+              <SettingsModelCard
+                key={m.id}
+                name={m.purpose || m.name}
+                subtitle={m.vram
+                  ? t("models:card.subtitleWithVram", { name: m.name, size: m.size, memory: m.memory, vram: m.vram })
+                  : t("models:card.subtitle", { name: m.name, size: m.size, memory: m.memory })
+                }
+                downloaded={m.downloaded}
+                complete={m.complete}
+                isDownloading={downloadingId === m.id}
+                downloadProgress={downloadProgress}
+                downloadError={downloadingId === m.id ? undefined : downloadError || undefined}
+                downloadDisabled={isAnyDownloading && downloadingId !== m.id}
+                onDownload={() => handleDownload(m.id)}
+                onDelete={() => handleDeleteModel(m.id)}
+              />
+            ))}
+          </div>
+
+          {/* Face Restoration */}
+          <div className="sub-section-title" style={{ marginTop: 16 }}>
+            {t("settings:subSections.faceRestoration")}
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            {faceModels.map((m) => (
               <SettingsModelCard
                 key={m.id}
                 name={m.purpose || m.name}
