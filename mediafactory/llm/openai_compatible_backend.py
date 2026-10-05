@@ -843,20 +843,24 @@ class OpenAICompatibleBackend(TranslationBackend):
         return None
 
     def _validate_keys(self, result: dict[str, str], batch: list[str]) -> bool:
-        """验证结果键是否包含所有期望的键。
+        """验证结果键是否包含所有期望的键，且值均为字符串。
 
         宽容匹配：LLM 可能返回额外的键，只要包含所有期望键即可。
+        值类型校验：null/数字等非字符串值（str(None) 会产出字面量 "None"
+        混入译文）判验证失败，走既有二分/失败降级链。
 
         Args:
             result: 解析后的结果字典
             batch: 原始输入批次
 
         Returns:
-            True 如果包含所有期望键，False 否则
+            True 如果包含所有期望键且值均为 str，False 否则
         """
         expected_keys = {str(i) for i in range(len(batch))}
         result_keys = set(result.keys())
-        return expected_keys.issubset(result_keys)
+        if not expected_keys.issubset(result_keys):
+            return False
+        return all(isinstance(result.get(k), str) for k in expected_keys)
 
     def _get_batch_prompt(
         self,

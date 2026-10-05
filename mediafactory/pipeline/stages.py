@@ -292,7 +292,7 @@ class SRTGenerationStage(ProcessingStage):
 
         # 里程碑进度：开始生成文件
         progress.update(
-            30, t("progress.generatingSubtitleFile", format=output_format.upper())
+            30, t("progress.subtitleGenerating", format=output_format.upper())
         )
 
         # 根据格式生成输出
@@ -414,7 +414,7 @@ class ModelLoadingStage(ProcessingStage):
             ctx.whisper_model_instance = model_instance.__enter__()
 
             # 里程碑进度：模型加载中
-            progress.update(60, t("progress.loadingModelWeights"))
+            progress.update(60, t("progress.loadingWeights"))
 
             log_success(f"Faster Whisper model {ctx.whisper_model} loaded successfully")
             progress.update(100.0, t("progress.modelLoaded", model=ctx.whisper_model))

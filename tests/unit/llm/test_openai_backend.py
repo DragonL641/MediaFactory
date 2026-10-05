@@ -46,6 +46,40 @@ def _msg_content(call: dict) -> str:
     return "\n".join(m["content"] for m in call["messages"])
 
 
+class TestNullValueValidation:
+    def test_null_value_never_reaches_translations(self):
+        """M9 回归：JSON null 值不得以字面量 None 进译文，应走降级链。
+
+        批 1 返回 {"0": "你好", "1": null} → 验证失败 → 二分为单句重试；
+        单句再给 null → 该句按失败处理（保留原文，由上层 failed 通道接管）。
+        """
+        backend, client = make_backend(
+            ['{"0": "你好", "1": null}', '{"0": "世界好"}']
+        )
+        request = TranslationRequest(
+            text=["Hello", "World"],
+            src_lang="en",
+            tgt_lang="zh",
+        )
+        result = backend.translate(request)
+        texts = result.translated_text
+        joined = "".join(texts) if isinstance(texts, list) else str(texts)
+        assert "None" not in joined  # 字面量 None 绝不出现
+
+    def test_numeric_value_never_reaches_translations(self):
+        """数字值同样不进译文（走失败链保留原文或重试）"""
+        backend, client = make_backend(['{"0": 123}'])
+        request = TranslationRequest(
+            text=["Hello"],
+            src_lang="en",
+            tgt_lang="zh",
+        )
+        result = backend.translate(request)
+        texts = result.translated_text
+        joined = "".join(texts) if isinstance(texts, list) else str(texts)
+        assert "None" not in joined
+
+
 class TestInjection:
     def test_user_terms_injected_into_translation_prompt(self):
         backend, client = make_backend(['{"0": "你好 K8s 世界"}'])

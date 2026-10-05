@@ -334,6 +334,11 @@ class WorkerProcessExecutor:
             if fut.done():
                 return
             if self._process is not None and not self._process.is_alive():
+                # 宽限半秒：worker 放完结果后、退出前死亡的场景，reader 线程
+                # 可能尚未消费——避免把已成功的任务误判为 WorkerCrashed
+                await asyncio.sleep(0.5)
+                if fut.done():
+                    return
                 if not fut.done():
                     fut.set_result(
                         {
