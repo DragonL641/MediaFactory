@@ -441,9 +441,6 @@ const SettingsPage: React.FC = () => {
                 ]}
               />
             </Form.Item>
-            <Form.Item name={["model", "download_timeout"]} label={t("settings:huggingface.downloadTimeout")} tooltip={t("settings:huggingface.downloadTimeoutTooltip")}>
-              <InputNumber min={10} max={600} style={{ width: "100%" }} suffix="s" />
-            </Form.Item>
           </div>
         </div>
 

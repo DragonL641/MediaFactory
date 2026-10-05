@@ -30,9 +30,7 @@
   },
   "huggingface": {
     "downloadSource": "Download Source",
-    "downloadSourceTooltip": "Model download mirror. Use hf-mirror.com in China, huggingface.co otherwise",
-    "downloadTimeout": "Download Timeout",
-    "downloadTimeoutTooltip": "Timeout for model download requests in seconds"
+    "downloadSourceTooltip": "Model download mirror. Use hf-mirror.com in China, huggingface.co otherwise"
   },
   "actions": {
     "reload": "Reload",

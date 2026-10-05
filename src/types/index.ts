@@ -194,10 +194,7 @@ export interface WhisperConfig {
 }
 
 export interface ModelConfig {
-  local_model_path?: string;
   download_source?: string;
-  download_timeout?: number;
-  models_dir?: string;
   whisper_models?: string[];
 }
 

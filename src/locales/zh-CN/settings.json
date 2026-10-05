@@ -30,9 +30,7 @@
   },
   "huggingface": {
     "downloadSource": "下载源",
-    "downloadSourceTooltip": "模型下载镜像。国内使用 hf-mirror.com，海外使用 huggingface.co",
-    "downloadTimeout": "下载超时",
-    "downloadTimeoutTooltip": "模型下载请求超时时间（秒）"
+    "downloadSourceTooltip": "模型下载镜像。国内使用 hf-mirror.com，海外使用 huggingface.co"
   },
   "actions": {
     "reload": "重新加载",
