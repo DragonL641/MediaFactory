@@ -359,7 +359,9 @@ class VideoEnhancementEngine:
 
             # 阶段4: 合并音频 (90-100%)
             progress.update(90, t("progress.mergingAudio"))
-            self._merge_audio(video_path, temp_video, output_path)
+            self._merge_audio(
+                video_path, temp_video, output_path, film_grain=self.config.film_grain
+            )
 
             # 清理临时文件
             if os.path.exists(temp_video):
@@ -370,57 +372,83 @@ class VideoEnhancementEngine:
 
             return output_path
 
+    def _build_merge_cmd(
+        self, source_video: str, temp_video: str, output_path: str, film_grain: bool
+    ) -> tuple[list[str], int]:
+        """构造音视频合成命令。
+
+        grain 开：视频重编码加噪点滤镜（加在修干净的成品上，spec §3.3）。
+        返回 (完整命令, 超时秒数)——重编码长视频，超时放宽到 3600s。
+        """
+        from imageio_ffmpeg import get_ffmpeg_exe
+
+        ffmpeg_exe = get_ffmpeg_exe()
+        inputs = ["-i", temp_video, "-i", source_video]
+        base = [
+            "-map",
+            "0:v:0",  # 使用第一个输入的视频
+            "-map",
+            "1:a:0?",  # 使用第二个输入的音频（如果存在）
+            "-c:a",
+            "aac",  # 音频编码为 AAC
+            "-y",  # 覆盖输出
+            "-loglevel",
+            "error",
+        ]
+        if film_grain:
+            video_opts = [
+                "-vf",
+                "noise=alls=7:allf=t",
+                "-c:v",
+                "libx264",
+                "-preset",
+                "fast",
+                "-crf",
+                "18",
+            ]
+            timeout = 3600
+        else:
+            video_opts = ["-c:v", "copy"]  # 视频直接复制
+            timeout = 300
+        cmd = [ffmpeg_exe] + inputs + video_opts + base + [output_path]
+        return cmd, timeout
+
     def _merge_audio(
         self,
         source_video: str,
         temp_video: str,
         output_path: str,
+        film_grain: bool = False,
     ) -> None:
         """
-        合并音频到输出视频
+        合并音频到输出视频（film_grain 开时顺带完成重编码加噪点）
 
         Args:
             source_video: 源视频路径（包含原始音频）
             temp_video: 临时视频路径（增强后的视频，无音频）
             output_path: 输出视频路径
+            film_grain: 是否加胶片颗粒（触发视频重编码）
         """
         try:
             from imageio_ffmpeg import get_ffmpeg_exe
 
-            ffmpeg_exe = get_ffmpeg_exe()
+            get_ffmpeg_exe()
         except ImportError as e:
             raise ProcessingError(
                 message="imageio-ffmpeg 未安装",
                 context={"suggestion": "pip install imageio-ffmpeg"},
             ) from e
 
-        # 使用 FFmpeg 合并音频
-        cmd = [
-            ffmpeg_exe,
-            "-i",
-            temp_video,  # 输入: 增强后的视频
-            "-i",
-            source_video,  # 输入: 原始视频（提取音频）
-            "-c:v",
-            "copy",  # 视频直接复制
-            "-c:a",
-            "aac",  # 音频编码为 AAC
-            "-map",
-            "0:v:0",  # 使用第一个输入的视频
-            "-map",
-            "1:a:0?",  # 使用第二个输入的音频（如果存在）
-            "-y",  # 覆盖输出
-            "-loglevel",
-            "error",
-            output_path,
-        ]
+        cmd, timeout = self._build_merge_cmd(
+            source_video, temp_video, output_path, film_grain
+        )
 
         try:
             result = subprocess.run(
                 cmd,
                 capture_output=True,
                 text=True,
-                timeout=300,  # 5分钟超时
+                timeout=timeout,
             )
             if result.returncode != 0:
                 log_error(f"FFmpeg 音频合并失败: {result.stderr}")
