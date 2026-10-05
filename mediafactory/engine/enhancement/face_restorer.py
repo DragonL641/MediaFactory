@@ -95,7 +95,9 @@ class FaceRestoreManager:
                 ) from e2
             return self._restore_batch_inner(frames)
 
-    def _restore_batch_inner(self, frames: list[np.ndarray]) -> tuple[list[np.ndarray], int]:
+    def _restore_batch_inner(
+        self, frames: list[np.ndarray]
+    ) -> tuple[list[np.ndarray], int]:
         out: list[np.ndarray] = []
         faced = 0
         for frame in frames:

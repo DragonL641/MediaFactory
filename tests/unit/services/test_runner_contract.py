@@ -177,6 +177,9 @@ class FakeEnhancementEngine:
         type(self).enhance_calls.append((video_path, output_path, progress))
         return "out/v_enhanced.mp4"
 
+    def cleanup(self):
+        pass
+
 
 @pytest.fixture(autouse=True)
 def reset_fake_state():

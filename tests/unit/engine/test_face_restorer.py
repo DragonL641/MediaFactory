@@ -17,7 +17,11 @@ def seams(monkeypatch):
 
     monkeypatch.setattr(fr, "_weight_path", lambda mid: Path(f"/tmp/{mid}.pth"))
     net = MagicMock()
-    net.side_effect = lambda t, w=0.7: (t, torch.zeros(1, 512, 1024), torch.zeros(1, 256, 16, 16))
+    net.side_effect = lambda t, w=0.7: (
+        t,
+        torch.zeros(1, 512, 1024),
+        torch.zeros(1, 256, 16, 16),
+    )
     monkeypatch.setattr(fr, "_load_net", lambda path, device: net)
     helper = MagicMock()
     helper.cropped_faces = []

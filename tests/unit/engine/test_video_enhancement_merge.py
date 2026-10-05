@@ -1,6 +1,5 @@
 """_merge_audio 命令构造契约（不实跑 FFmpeg）"""
 
-import subprocess
 from unittest.mock import patch
 
 import pytest
@@ -42,7 +41,6 @@ class TestBuildMergeCmd:
 class TestMergeAudioFallback:
     def test_grain_failure_falls_back_to_plain_merge(self, tmp_path):
         """契约：grain 重编码失败 → 重试一次无 grain 合并（保音轨），非裸 copy。"""
-        from mediafactory.engine.video_enhancement import VideoEnhancementEngine
 
         src = tmp_path / "src.mp4"
         src.write_bytes(b"SRC")
@@ -52,15 +50,24 @@ class TestMergeAudioFallback:
 
         calls: list[list[str]] = []
 
-        def fake_run(cmd, **kwargs):
+        class _FakeCompleted:
+            def __init__(self, code, err):
+                self.returncode = code
+                self.stderr = err
+
+        def fake_run(cmd, progress=None, timeout=None):
             calls.append(cmd)
             if "noise=" in " ".join(cmd):  # grain 重编码：失败
-                return subprocess.CompletedProcess(cmd, 1, "", "encode boom")
+                return _FakeCompleted(1, "encode boom")
             out.write_bytes(b"PLAIN_MERGE_OK")  # 无 grain 合并：成功
-            return subprocess.CompletedProcess(cmd, 0, "", "")
+            return _FakeCompleted(0, "")
 
-        with patch("mediafactory.engine.video_enhancement.subprocess.run", fake_run):
-            VideoEnhancementEngine()._merge_audio(str(src), str(tmpv), str(out), film_grain=True)
+        import mediafactory.engine.video_enhancement as ve
+
+        with patch.object(ve, "run_ffmpeg_cancellable", fake_run):
+            ve.VideoEnhancementEngine()._merge_audio(
+                str(src), str(tmpv), str(out), film_grain=True
+            )
 
         assert len(calls) == 2
         assert "noise=" in " ".join(calls[0])

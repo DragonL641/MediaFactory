@@ -314,12 +314,15 @@ async def run_enhance(
     output_path = config.output_path or str(src.with_stem(f"{src.stem}_enhanced"))
     engine = VideoEnhancementEngine(engine_config)
     loop = asyncio.get_running_loop()
-    result_path = await loop.run_in_executor(
-        None,
-        functools.partial(
-            engine.enhance, config.input_path, output_path, progress=progress
-        ),
-    )
+    try:
+        result_path = await loop.run_in_executor(
+            None,
+            functools.partial(
+                engine.enhance, config.input_path, output_path, progress=progress
+            ),
+        )
+    finally:
+        engine.cleanup()  # 显式卸载模型（CUDA 显存归还）；异常路径同样覆盖
     return ProcessingResult(
         success=True,
         output_path=result_path,

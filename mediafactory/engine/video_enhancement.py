@@ -4,7 +4,6 @@
 
 import os
 import shutil
-import subprocess
 import tempfile
 import time
 from dataclasses import dataclass
@@ -22,6 +21,7 @@ from mediafactory.engine.enhancement import (
     TemporalSmoother,
     TemporalSmootherConfig,
 )
+from mediafactory.engine.ffmpeg_runner import CancelledError, run_ffmpeg_cancellable
 from mediafactory.exceptions import ProcessingError
 from mediafactory.i18n import t
 from mediafactory.logging import log_error, log_info, log_step
@@ -166,6 +166,13 @@ class VideoEnhancementEngine:
             )
         output_path = os.path.abspath(output_path)
 
+        # 守卫：输出与输入同路径会让 FFmpeg -y 边读边截断源文件（源片永久损毁）
+        if output_path == video_path:
+            raise ProcessingError(
+                message="Output path must differ from the input video path",
+                context={"video_path": video_path},
+            )
+
         with wrap_exceptions(
             context={
                 "video_path": video_path,
@@ -188,8 +195,9 @@ class VideoEnhancementEngine:
                 if effective_path != video_path
                 else None
             )
+            temp_video: str | None = None
             try:
-                # 前置 pass 内无法响应取消（subprocess 阻塞），完成后立即检查
+                # 前置 pass 内取消已在 run_ffmpeg_cancellable 响应；此处兜底复查
                 if progress.is_cancelled():
                     raise ProcessingError(
                         message=t("error.userCancelled"),
@@ -212,6 +220,19 @@ class VideoEnhancementEngine:
                 width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
                 height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
                 total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+
+                # 坏元数据守卫：frames/fps 读不到时，后续要么除零崩溃、要么
+                # 写出空文件经兜底 copy 变"假成功"（产物不可播放）
+                if total_frames <= 0 or fps <= 0:
+                    cap.release()
+                    raise ProcessingError(
+                        message=(
+                            f"Video metadata unreadable (frames={total_frames}, "
+                            f"fps={fps}). The file may be corrupted or use an "
+                            "unsupported container."
+                        ),
+                        context={"video_path": video_path},
+                    )
 
                 log_info(f"视频信息: {width}x{height}, {fps}fps, {total_frames}帧")
 
@@ -239,16 +260,15 @@ class VideoEnhancementEngine:
                 # 阶段3: 处理帧 (11-90%)
                 progress.update(11, t("progress.loadingEnhancementModel"))
 
-                # 预加载增强器
-                sr_enhancer = self._get_sr_enhancer()
-                denoiser = self._get_denoiser()
-                temporal_smoother = self._get_temporal_smoother()
-                face_restorer = self._get_face_restorer()
-
-                log_info(f"设备信息: {sr_enhancer.get_device_info()}")
-                log_info(f"批处理大小: {self.config.batch_size}")
-
                 try:
+                    # 预加载增强器（try 内：加载抛错时 cap/out 由 finally 释放）
+                    sr_enhancer = self._get_sr_enhancer()
+                    denoiser = self._get_denoiser()
+                    temporal_smoother = self._get_temporal_smoother()
+                    face_restorer = self._get_face_restorer()
+
+                    log_info(f"设备信息: {sr_enhancer.get_device_info()}")
+                    log_info(f"批处理大小: {self.config.batch_size}")
                     frame_idx = 0
                     batch_size = self.config.batch_size
                     # 帧缓冲区：存储 (原始帧, 增强后的帧)
@@ -367,7 +387,9 @@ class VideoEnhancementEngine:
                         # 逐帧写入
                         for orig, enhanced in frame_buffer:
                             if temporal_smoother is not None:
-                                output_frame = temporal_smoother.add_frame(orig, enhanced)
+                                output_frame = temporal_smoother.add_frame(
+                                    orig, enhanced
+                                )
                                 if output_frame is not None:
                                     out.write(output_frame)
                             else:
@@ -386,7 +408,9 @@ class VideoEnhancementEngine:
 
                     # 输出总耗时
                     total_time = time.time() - process_start_time
-                    avg_frame_time = total_time / total_frames if total_frames > 0 else 0
+                    avg_frame_time = (
+                        total_time / total_frames if total_frames > 0 else 0
+                    )
                     log_info(
                         f"处理完成: {total_frames}帧, 总耗时: {total_time:.1f}s, "
                         f"平均: {avg_frame_time:.2f}s/帧"
@@ -397,9 +421,6 @@ class VideoEnhancementEngine:
                     out.release()
 
                 if progress.is_cancelled():
-                    # 清理临时文件
-                    if os.path.exists(temp_video):
-                        os.remove(temp_video)
                     raise ProcessingError(
                         message=t("error.userCancelled"),
                         context={"frame_processed": frame_idx},
@@ -407,22 +428,40 @@ class VideoEnhancementEngine:
 
                 # 阶段4: 合并音频 (90-100%)——音轨从原始源取（deint 中间产物 -an 无音轨）
                 progress.update(90, t("progress.mergingAudio"))
-                self._merge_audio(
-                    original_path,
-                    temp_video,
-                    output_path,
-                    film_grain=self.config.film_grain,
-                )
+                try:
+                    self._merge_audio(
+                        original_path,
+                        temp_video,
+                        output_path,
+                        film_grain=self.config.film_grain,
+                        progress=progress,
+                    )
+                except CancelledError:
+                    # 合并被用户取消：产物不落盘
+                    if os.path.exists(output_path):
+                        os.remove(output_path)
+                    raise ProcessingError(
+                        message=t("error.userCancelled"),
+                        context={"stage": "merge"},
+                    ) from None
 
-                # 清理临时文件
-                if os.path.exists(temp_video):
-                    os.remove(temp_video)
+                # 合并完成后取消复查：宁可丢弃成品也不让已取消任务产出文件
+                if progress.is_cancelled():
+                    if os.path.exists(output_path):
+                        os.remove(output_path)
+                    raise ProcessingError(
+                        message=t("error.userCancelled"),
+                        context={"stage": "post_merge"},
+                    )
 
                 progress.update(100, t("progress.videoEnhancementCompleted"))
                 log_step(f"视频增强完成: {output_path}")
 
                 return output_path
             finally:
+                # 统一收口：任何失败/取消/成功路径都不留 GB 级半成品
+                if temp_video is not None and os.path.exists(temp_video):
+                    os.remove(temp_video)
                 if _deint_dir is not None:
                     shutil.rmtree(_deint_dir, ignore_errors=True)
 
@@ -473,6 +512,7 @@ class VideoEnhancementEngine:
         temp_video: str,
         output_path: str,
         film_grain: bool = False,
+        progress: ProgressCallback | None = None,
     ) -> None:
         """
         合并音频到输出视频（film_grain 开时顺带完成重编码加噪点）
@@ -482,6 +522,7 @@ class VideoEnhancementEngine:
             temp_video: 临时视频路径（增强后的视频，无音频）
             output_path: 输出视频路径
             film_grain: 是否加胶片颗粒（触发视频重编码）
+            progress: 进度句柄（FFmpeg 长阻塞段内响应取消）
         """
         try:
             from imageio_ffmpeg import get_ffmpeg_exe
@@ -497,38 +538,22 @@ class VideoEnhancementEngine:
             source_video, temp_video, output_path, film_grain
         )
 
-        try:
-            result = subprocess.run(
-                cmd,
-                capture_output=True,
-                text=True,
-                timeout=timeout,
+        result = run_ffmpeg_cancellable(cmd, progress=progress, timeout=timeout)
+        if result.returncode != 0 and film_grain:
+            # grain 重编码失败：降级为无 grain 合并（音轨仍从源取），非裸 copy
+            log_error(f"Film grain 重编码失败，降级为无 grain 合并: {result.stderr}")
+            plain_cmd, plain_timeout = self._build_merge_cmd(
+                source_video, temp_video, output_path, film_grain=False
             )
-            if result.returncode != 0 and film_grain:
-                # grain 重编码失败：降级为无 grain 合并（音轨仍从源取），非裸 copy
-                log_error(
-                    f"Film grain 重编码失败，降级为无 grain 合并: {result.stderr}"
-                )
-                plain_cmd, plain_timeout = self._build_merge_cmd(
-                    source_video, temp_video, output_path, film_grain=False
-                )
-                plain = subprocess.run(
-                    plain_cmd, capture_output=True, text=True, timeout=plain_timeout
-                )
-                if plain.returncode != 0:
-                    log_error(f"FFmpeg 音频合并失败: {plain.stderr}")
-                    self._copy_without_audio(temp_video, output_path)
-                return
-            if result.returncode != 0:
-                log_error(f"FFmpeg 音频合并失败: {result.stderr}")
+            plain = run_ffmpeg_cancellable(
+                plain_cmd, progress=progress, timeout=plain_timeout
+            )
+            if plain.returncode != 0:
+                log_error(f"FFmpeg 音频合并失败: {plain.stderr}")
                 self._copy_without_audio(temp_video, output_path)
-        except subprocess.TimeoutExpired as e:
-            raise ProcessingError(
-                message="FFmpeg 音频合并超时",
-                context={"temp_video": temp_video, "output_path": output_path},
-            ) from e
-        except Exception as e:
-            log_error(f"音频合并失败: {e}")
+            return
+        if result.returncode != 0:
+            log_error(f"FFmpeg 音频合并失败: {result.stderr}")
             self._copy_without_audio(temp_video, output_path)
 
     @staticmethod

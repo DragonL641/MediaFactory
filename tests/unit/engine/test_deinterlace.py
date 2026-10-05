@@ -82,7 +82,9 @@ class TestPreDeinterlaceFallback:
 
         video = str(tmp_path / "src.mp4")
         monkeypatch.setattr(
-            di, "detect_interlaced", lambda *a, **k: (_ for _ in ()).throw(RuntimeError("boom"))
+            di,
+            "detect_interlaced",
+            lambda *a, **k: (_ for _ in ()).throw(RuntimeError("boom")),
         )
         assert di.pre_deinterlace(video) == video
 
