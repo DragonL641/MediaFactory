@@ -9,15 +9,6 @@
 （在做的工作包——附 spec / plan 路径回链）
 
 ## Next
-- 来源：2026-10-05 冒烟测试（pull 全程无进度反馈；流挂起数分钟后自愈、空流假成功均实测复现，根因=框架层流式读竞态，不再深挖、以看门狗+校验兜底）
-- 验收要点：
-  - [ ] pull 进度在 Local Models 卡片内可见（当前 toast 引导去的任务队列按设计不显示 DOWNLOAD 任务）
-  - [ ] 流看门狗：无事件超时判失败，消灭无限挂起
-  - [ ] 完成后校验 is_model_installed，假完成改标 FAILED
-  - [ ] `LLM Response` 日志按真实成败打印（openai_compatible_backend.py 尾部无条件 SUCCESS）
-  - [ ] 顺带清算：同名并发 pull 409 竞态、取消逐事件轮询
-- 依赖：无
-- 估算：1 天
 
 ## Later
 
