@@ -118,10 +118,6 @@ Enhance video quality (super-resolution, denoise).
 }
 ```
 
-### Get Task Status
-
-#### `GET /api/processing/status/{task_id}`
-
 Get the current status of a task.
 
 **Response:**
@@ -367,12 +363,13 @@ response = requests.post(f"{BASE_URL}/processing/subtitle", json={
 })
 task_id = response.json()["task_id"]
 
-# Poll for status
+# Poll the task list (per-task status endpoint removed; the SPA itself goes through the list + WebSocket)
 import time
 while True:
-    status = requests.get(f"{BASE_URL}/processing/status/{task_id}").json()
-    print(f"Progress: {status['progress']}% - {status['message']}")
-    if status["status"] in ["completed", "failed", "cancelled"]:
+    tasks = requests.get(f"{BASE_URL}/processing/tasks").json()
+    task = next(t for t in tasks if t["id"] == task_id)
+    print(f"Progress: {task['progress']}% - {task['message']}")
+    if task["status"] in ["completed", "failed", "cancelled"]:
         break
     time.sleep(2)
 ```
