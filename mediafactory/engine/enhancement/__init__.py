@@ -9,6 +9,7 @@
 
 from .base_enhancer import BaseEnhancer
 from .denoiser import Denoiser
+from .face_restorer import FaceRestoreManager
 from .realesrgan_enhancer import RealESRGANEnhancer
 from .temporal_smoother import TemporalSmoother, TemporalSmootherConfig
 
@@ -16,6 +17,7 @@ __all__ = [
     "BaseEnhancer",
     "RealESRGANEnhancer",
     "Denoiser",
+    "FaceRestoreManager",
     "TemporalSmoother",
     "TemporalSmootherConfig",
 ]
