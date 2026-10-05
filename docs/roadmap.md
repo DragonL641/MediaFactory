@@ -6,17 +6,7 @@
 
 ## Now
 
-### Ollama pull 可靠性与进度收尾 + 表单/队列卫生批（合并实施，bounded 直改）
-- 来源：2026-10-05 冒烟测试 + R2/R3 评审 deferred minors；用户批准合并实施
-- 验收要点：
-  - [ ] pull 进度在 Local Models 卡片内可见（替代误导性 toast 文案）
-  - [ ] 流看门狗：无事件超时判 FAILED，消灭无限挂起
-  - [ ] 完成后校验 is_model_installed，假完成改标 FAILED
-  - [ ] `LLM Response` 日志按真实成败打印
-  - [ ] 同名并发 pull 409 竞态、取消逐事件轮询清算
-  - [ ] use_llm 复选框移除；localModels 随 task_complete 失效；单向门归一化判定；content-filter 降级批过术语提取
-- 依赖：无
-- spec / plan：bounded 直改（根因与修法已在会话中对齐），TDD 逐项落
+（在做的工作包——附 spec / plan 路径回链）
 
 ## Next
 - 来源：2026-10-05 冒烟测试（pull 全程无进度反馈；流挂起数分钟后自愈、空流假成功均实测复现，根因=框架层流式读竞态，不再深挖、以看门狗+校验兜底）
