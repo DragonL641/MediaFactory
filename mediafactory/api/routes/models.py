@@ -93,6 +93,10 @@ async def get_models_status() -> dict[str, Any]:
             "name": "NAFNet",
             "models": denoise_models,
         },
+        "face_restoration": {
+            "name": "CodeFormer",
+            "models": _get_face_restoration_model_statuses(),
+        },
     }
 
     # 更新缓存
@@ -157,6 +161,13 @@ def _get_denoise_model_statuses() -> list[dict[str, Any]]:
     from mediafactory.models.model_registry import ModelType
 
     return _get_model_statuses_by_type(ModelType.DENOISE)
+
+
+def _get_face_restoration_model_statuses() -> list[dict[str, Any]]:
+    """获取人脸修复模型状态"""
+    from mediafactory.models.model_registry import ModelType
+
+    return _get_model_statuses_by_type(ModelType.FACE_RESTORATION)
 
 
 @router.get("/readiness")
