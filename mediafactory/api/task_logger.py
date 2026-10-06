@@ -81,6 +81,7 @@ def cleanup_task_log(task_id: str) -> None:
     except Exception as e:  # noqa: BLE001
         logger.warning(f"Failed to remove task log for {task_id}: {e}")
 
+
 def write_result_summary(result: dict) -> None:
     """任务终态摘要写进任务日志（worker 收尾、sink 挂载期内调用）。
 
@@ -100,6 +101,7 @@ def write_result_summary(result: dict) -> None:
             f"Task failed: {result.get('error_type')}: {result.get('error_message')}"
         )
 
+
 def append_terminal_line(task_id: str, line: str) -> None:
     """daemon 侧终态补写（worker 崩溃时 watchdog 用；直写文件，不经 loguru）。
 
@@ -111,8 +113,6 @@ def append_terminal_line(task_id: str, line: str) -> None:
     try:
         p = task_log_path(task_id)
         with open(p, "a", encoding="utf-8") as f:
-            f.write(
-                f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} | {line}\n"
-            )
+            f.write(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} | {line}\n")
     except Exception as e:  # noqa: BLE001
         logger.warning(f"Failed to append terminal line for {task_id}: {e}")

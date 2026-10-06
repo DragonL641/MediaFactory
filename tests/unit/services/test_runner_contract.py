@@ -518,8 +518,8 @@ class TestRunTranslate:
         # 契约：parse 出的 segments 注入 transcription_result
         assert ctx.transcription_result == {"segments": FakeSRTEngine.stub_segments}
         assert ctx.tgt_lang == "ja"
-        # 契约：输出路径语义 .{target_lang}{ext}
-        assert ctx.requested_output_path == "in/sub.ja.ass"
+        # 契约：输出路径语义 .{target_lang}{ext}（用 Path 比较，兼容 Windows 分隔符）
+        assert Path(ctx.requested_output_path) == Path("in") / "sub.ja.ass"
         assert ctx.output_format == "ass"
 
     def test_srt_file_explicit_output_path_takes_priority(self, monkeypatch):

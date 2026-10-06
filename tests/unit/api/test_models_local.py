@@ -9,6 +9,8 @@ from fastapi.testclient import TestClient
 from mediafactory.api.main import get_app
 from mediafactory.api.schemas import TaskStatus
 
+pytestmark = pytest.mark.unit
+
 
 @pytest.fixture
 def client():
@@ -61,12 +63,17 @@ def test_pull_returns_task_id(client, monkeypatch):
     import mediafactory.api.local_pull_task as pull_task
 
     fake = MagicMock()
+    fake.is_available = AsyncMock(return_value=True)
 
     async def _empty_stream(name):
         return
         yield  # pragma: no cover
 
     fake.pull_stream = _empty_stream
+    # 路由层预检与 pull 任务两层都要 mock，否则依赖本机真实 Ollama
+    monkeypatch.setattr(
+        "mediafactory.api.routes.local_models.get_ollama_client", lambda: fake
+    )
     monkeypatch.setattr(pull_task, "get_ollama_client", lambda: fake)
 
     resp = client.post("/api/models/local/pull", json={"name": "qwen2.5:0.5b"})
