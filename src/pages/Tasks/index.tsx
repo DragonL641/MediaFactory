@@ -323,11 +323,14 @@ const TasksPage: React.FC = () => {
         />
       ) : (
         <>
-          <div style={{ display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap" }}>
+          <div style={{ display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap", alignItems: "center" }}>
+            <span style={{ color: "var(--mf-text-secondary, #999)", fontSize: 13 }}>
+              {t("tasks:filters.type")}
+            </span>
             <Select
               value={typeFilter}
               onChange={setTypeFilter}
-              style={{ width: 140 }}
+              style={{ width: 130 }}
               options={[
                 { value: "all", label: t("tasks:filters.all") },
                 ...TASK_TYPE_KEYS.map((k) => ({
@@ -336,10 +339,13 @@ const TasksPage: React.FC = () => {
                 })),
               ]}
             />
+            <span style={{ color: "var(--mf-text-secondary, #999)", fontSize: 13 }}>
+              {t("tasks:filters.status")}
+            </span>
             <Select
               value={statusFilter}
               onChange={setStatusFilter}
-              style={{ width: 140 }}
+              style={{ width: 130 }}
               options={[
                 { value: "all", label: t("tasks:filters.all") },
                 ...Object.keys(STATUS_KEY).map((s) => ({

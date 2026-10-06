@@ -45,6 +45,7 @@
     "type": "类型",
     "name": "名称",
     "createdAt": "创建时间",
+    "status": "状态",
     "progress": "进度",
     "actions": "操作"
   },
