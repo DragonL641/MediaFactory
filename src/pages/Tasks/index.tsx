@@ -266,16 +266,7 @@ const TasksPage: React.FC = () => {
         description={t("tasks:pageHeader.description")}
       />
 
-      {taskList.length === 0 ? (
-        <EmptyState
-          icon={<FileTextOutlined />}
-          title={t("tasks:empty.title")}
-          description={t("tasks:empty.description")}
-          actionText={t("tasks:empty.actionText")}
-          onAction={() => setDialogOpen(true)}
-        />
-      ) : (
-        <>
+      <>
           <div style={{ display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap", alignItems: "center" }}>
             <span style={{ color: "var(--mf-text-secondary, #999)", fontSize: 13 }}>
               {t("tasks:filters.type")}
@@ -369,7 +360,19 @@ const TasksPage: React.FC = () => {
             pagination={false}
             scroll={{ x: "max-content" }}
             locale={{
-              emptyText: t("tasks:filters.noMatch"),
+              // 列表为空（含无任务）时保留完整表格骨架，空态卡片嵌在表格空态区
+              emptyText:
+                taskList.length === 0 ? (
+                  <EmptyState
+                    icon={<FileTextOutlined />}
+                    title={t("tasks:empty.title")}
+                    description={t("tasks:empty.description")}
+                    actionText={t("tasks:empty.actionText")}
+                    onAction={() => setDialogOpen(true)}
+                  />
+                ) : (
+                  t("tasks:filters.noMatch")
+                ),
             }}
           >
             <Table.Column
@@ -449,8 +452,7 @@ const TasksPage: React.FC = () => {
               render={(_unused, record: Task) => renderActions(record)}
             />
           </Table>
-        </>
-      )}
+      </>
 
       {readinessWarnings.length > 0 && (
         <Alert
