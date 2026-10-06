@@ -80,3 +80,22 @@ def cleanup_task_log(task_id: str) -> None:
             p.unlink()
     except Exception as e:  # noqa: BLE001
         logger.warning(f"Failed to remove task log for {task_id}: {e}")
+
+def write_result_summary(result: dict) -> None:
+    """任务终态摘要写进任务日志（worker 收尾、sink 挂载期内调用）。
+
+    详情归日志（spec §3.2）：错误全文与 translation_stats 以此为唯一入口。
+    """
+    import json
+
+    from mediafactory.logging import log_error, log_info
+
+    if result.get("success"):
+        log_info(f"Task completed: {result.get('output_path') or 'no output'}")
+        stats = (result.get("metadata") or {}).get("translation_stats")
+        if stats:
+            log_info(f"translation_stats: {json.dumps(stats)}")
+    else:
+        log_error(
+            f"Task failed: {result.get('error_type')}: {result.get('error_message')}"
+        )

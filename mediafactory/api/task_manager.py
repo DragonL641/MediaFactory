@@ -542,6 +542,7 @@ class TaskManager:
             "id": task.id,
             "name": task.name,
             "type": task.config.task_type.value,
+            "createdAt": task.created_at,
             "inputPath": task.config.input_path,
             "outputPath": task.result.output_path if task.result else None,
             "status": task.status.value,

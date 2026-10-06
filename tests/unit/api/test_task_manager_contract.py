@@ -353,3 +353,16 @@ class TestUpdateTaskConfigStates:
             return ok
 
         assert asyncio.run(scenario()) is True
+
+
+class TestTaskToDict:
+    def test_created_at_in_payload(self):
+        """契约：任务下发含 createdAt（epoch float，表格时间列数据源）"""
+
+        async def scenario():
+            manager = TaskManager()
+            task_id = await manager.create_task(make_config())
+            return await manager.get_task_status(task_id)
+
+        info = asyncio.run(scenario())
+        assert "createdAt" in info and isinstance(info["createdAt"], float)

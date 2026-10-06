@@ -86,3 +86,52 @@ class TestTaskLogSink:
 
         cleanup_task_log("never-ran")
         assert not (tmp_path / "logs" / "tasks").exists()
+
+    def test_result_summary_success_with_stats(self, isolated_data_root):
+        from mediafactory.api.task_logger import (
+            attach_task_log_sink,
+            detach_task_log_sink,
+            task_log_path,
+            write_result_summary,
+        )
+
+        s = attach_task_log_sink("t5", "cfg")
+        write_result_summary(
+            {
+                "success": True,
+                "output_path": "/tmp/out.srt",
+                "metadata": {
+                    "translation_stats": {
+                        "total": 9,
+                        "remote": 0,
+                        "fallback": 9,
+                        "failed": 0,
+                    }
+                },
+            }
+        )
+        detach_task_log_sink(s)
+        content = task_log_path("t5").read_text(encoding="utf-8")
+        assert "Task completed: /tmp/out.srt" in content
+        assert "translation_stats:" in content and '"fallback": 9' in content
+
+    def test_result_summary_failure(self, isolated_data_root):
+        from mediafactory.api.task_logger import (
+            attach_task_log_sink,
+            detach_task_log_sink,
+            task_log_path,
+            write_result_summary,
+        )
+
+        s = attach_task_log_sink("t6", "cfg")
+        write_result_summary(
+            {
+                "success": False,
+                "error_message": "boom",
+                "error_type": "ProcessingError",
+                "metadata": {},
+            }
+        )
+        detach_task_log_sink(s)
+        content = task_log_path("t6").read_text(encoding="utf-8")
+        assert "Task failed: ProcessingError: boom" in content

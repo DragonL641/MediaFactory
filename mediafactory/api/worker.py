@@ -100,7 +100,7 @@ def _run_task_in_worker(
 
         try:
             result = asyncio.run(_run())
-            return {
+            projected = {
                 "success": result.success,
                 "output_path": result.output_path,
                 "error_message": result.error_message or "",
@@ -113,13 +113,17 @@ def _run_task_in_worker(
             # sanitize_error 内部的 stdlib logging 不落 logs/，完整 traceback 在此补记
             log_exception(f"Worker task failed: {task_id}")
 
-            return {
+            projected = {
                 "success": False,
                 "output_path": None,
                 "error_message": sanitize_error(e),
                 "error_type": type(e).__name__,
                 "metadata": {},
             }
+        from mediafactory.api.task_logger import write_result_summary
+
+        write_result_summary(projected)  # 终态摘要进任务日志（sink 仍挂载）
+        return projected
     finally:
         if _sink is not None:
             detach_task_log_sink(_sink)
