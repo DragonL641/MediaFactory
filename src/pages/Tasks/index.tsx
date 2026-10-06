@@ -431,7 +431,6 @@ const TasksPage: React.FC = () => {
               title={t("tasks:columns.log")}
               key="log"
               width={64}
-              fixed="right"
               render={(_unused, record: Task) => (
                 <Tooltip title={t("card.viewLog")}>
                   <Button
