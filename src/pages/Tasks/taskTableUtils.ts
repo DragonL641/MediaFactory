@@ -4,14 +4,13 @@
 
 import type { Task } from "../../types";
 
-export function formatRelativeTime(epochSeconds?: number): string {
+/** 统一时间格式：2026-09-12 14:36（本地时区） */
+export function formatDateTime(epochSeconds?: number): string {
   if (!epochSeconds) return "—";
-  const diff = Date.now() / 1000 - epochSeconds;
-  if (diff < 60) return "just now";
-  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
-  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
-  if (diff < 7 * 86400) return `${Math.floor(diff / 86400)}d ago`;
-  return new Date(epochSeconds * 1000).toISOString().slice(0, 10);
+  const d = new Date(epochSeconds * 1000);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ` +
+    `${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
 export function filterTasks(

@@ -55,7 +55,7 @@ import { EmptyState, PageSkeleton, ErrorPage } from "../../components/common";
 import LogModal from "./LogModal";
 import CreateTaskDialog from "./CreateTaskDialog";
 import EditTaskDialog from "./EditTaskDialog";
-import { filterTasks, formatRelativeTime, TYPE_TAG_COLORS } from "./taskTableUtils";
+import { filterTasks, formatDateTime, TYPE_TAG_COLORS } from "./taskTableUtils";
 import { getApiClient, getErrorDetail } from "../../api/client";
 
 const TASK_TYPE_KEYS = ["audio", "transcribe", "translate", "subtitle", "enhance"];
@@ -410,19 +410,11 @@ const TasksPage: React.FC = () => {
             <Table.Column
               title={t("tasks:columns.createdAt")}
               key="createdAt"
-              width={110}
+              width={130}
               render={(_unused, record: Task) => (
-                <Tooltip
-                  title={
-                    record.createdAt
-                      ? new Date(record.createdAt * 1000).toLocaleString()
-                      : undefined
-                  }
-                >
-                  <span style={{ color: "var(--mf-text-secondary, #999)", fontSize: 12 }}>
-                    {formatRelativeTime(record.createdAt)}
-                  </span>
-                </Tooltip>
+                <span style={{ color: "var(--mf-text-secondary, #999)", fontSize: 12 }}>
+                  {formatDateTime(record.createdAt)}
+                </span>
               )}
             />
             <Table.Column
