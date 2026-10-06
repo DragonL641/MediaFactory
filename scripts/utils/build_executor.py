@@ -148,7 +148,8 @@ def collect_windows_portable() -> bool:
     （tauri 在 Windows 的 resource_dir = exe 所在目录）。
     """
     root = get_project_root()
-    exe = root / "src-tauri" / "target" / "release" / f"{PROJECT_NAME}.exe"
+    # --no-bundle 跳过了 bundler 的改名步骤，产物名 = Cargo 包名（mediafactory-shell.exe）
+    exe = root / "src-tauri" / "target" / "release" / "mediafactory-shell.exe"
     backend_dir = root / "src-tauri" / "python-backend"
     if not exe.is_file():
         log_error(f"未找到壳可执行文件: {exe}")
@@ -161,7 +162,8 @@ def collect_windows_portable() -> bool:
     release_dir.mkdir(exist_ok=True)
     zip_path = release_dir / f"{PROJECT_NAME}_{get_project_version()}_x64_portable.zip"
     with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
-        zf.write(exe, exe.name)
+        # 用户入口统一叫 MediaFactory.exe（壳以自身所在目录定位资源，改名无副作用）
+        zf.write(exe, f"{PROJECT_NAME}.exe")
         for f in sorted(backend_dir.rglob("*")):
             zf.write(f, Path("python-backend") / f.relative_to(backend_dir))
     log_info(f"便携包: {zip_path}")
