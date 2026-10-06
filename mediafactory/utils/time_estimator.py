@@ -31,3 +31,30 @@ class TimeEstimator:
             * TimeEstimationConstants.FFMPEG_BASE_TIME_PER_MB
             * TimeEstimationConstants.FFMPEG_SAFETY_FACTOR
         )
+
+    @staticmethod
+    def get_video_duration(video_path: str) -> float | None:
+        """探测媒体时长（转录进度跟踪依赖），失败返回 None。
+
+        imageio-ffmpeg 只捆绑 ffmpeg 不带 ffprobe，故解析 `ffmpeg -i`
+        stderr 里的 Duration 行（ffmpeg 无输出文件时本就以 1 退出）。
+        """
+        try:
+            import re
+            import subprocess
+
+            import imageio_ffmpeg
+
+            result = subprocess.run(
+                [imageio_ffmpeg.get_ffmpeg_exe(), "-i", video_path],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            m = re.search(r"Duration:\s*(\d+):(\d+):(\d+(?:\.\d+)?)", result.stderr)
+            if m:
+                h, mn, s = (float(g) for g in m.groups())
+                return h * 3600 + mn * 60 + s
+        except Exception:  # noqa: BLE001 — 探测失败静默降级，进度退化为不确定模式
+            pass
+        return None
