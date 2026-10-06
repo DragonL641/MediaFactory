@@ -45,6 +45,7 @@
     "type": "Type",
     "name": "Name",
     "createdAt": "Created",
+    "status": "Status",
     "progress": "Progress",
     "actions": "Actions"
   },

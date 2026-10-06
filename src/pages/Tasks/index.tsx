@@ -37,6 +37,13 @@ import {
   RedoOutlined,
 } from "@ant-design/icons";
 import { useTranslation } from "react-i18next";
+import {
+  AppstoreOutlined,
+  CalendarOutlined,
+  FlagOutlined,
+  BarChartOutlined,
+  ToolOutlined,
+} from "@ant-design/icons";
 import { useNavigate } from "react-router-dom";
 import {
   useTasksQuery,
@@ -164,6 +171,12 @@ const TasksPage: React.FC = () => {
   const hasRunningTasks = taskList.some((t: Task) => t.status === TaskStatus.RUNNING);
   const hasClearedTasks = taskList.some((t: Task) =>
     [TaskStatus.COMPLETED, TaskStatus.FAILED, TaskStatus.CANCELLED].includes(t.status)
+  );
+
+  const columnHeader = (icon: React.ReactNode, key: string) => (
+    <Tooltip title={t(`tasks:columns.${key}`)}>
+      <span style={{ display: "inline-flex", alignItems: "center" }}>{icon}</span>
+    </Tooltip>
   );
 
   const statusConfig: Record<string, { color: string; icon: React.ReactNode; text: string }> = {
@@ -367,7 +380,7 @@ const TasksPage: React.FC = () => {
             }}
           >
             <Table.Column
-              title={t("tasks:columns.type")}
+              title={columnHeader(<AppstoreOutlined />, "type")}
               dataIndex="type"
               key="type"
               width={110}
@@ -378,7 +391,7 @@ const TasksPage: React.FC = () => {
               )}
             />
             <Table.Column
-              title={t("tasks:columns.name")}
+              title={columnHeader(<FileTextOutlined />, "name")}
               key="name"
               render={(_unused, record: Task) => (
                 <Tooltip title={record.name}>
@@ -399,7 +412,7 @@ const TasksPage: React.FC = () => {
               )}
             />
             <Table.Column
-              title={t("tasks:columns.createdAt")}
+              title={columnHeader(<CalendarOutlined />, "createdAt")}
               key="createdAt"
               width={110}
               render={(_unused, record: Task) => (
@@ -417,7 +430,7 @@ const TasksPage: React.FC = () => {
               )}
             />
             <Table.Column
-              title={t("tasks:columns.status")}
+              title={columnHeader(<FlagOutlined />, "status")}
               key="status"
               width={120}
               render={(_unused, record: Task) => {
@@ -430,7 +443,7 @@ const TasksPage: React.FC = () => {
               }}
             />
             <Table.Column
-              title={t("tasks:columns.progress")}
+              title={columnHeader(<BarChartOutlined />, "progress")}
               key="progress"
               width={140}
               render={(_unused, record: Task) =>
@@ -442,7 +455,7 @@ const TasksPage: React.FC = () => {
               }
             />
             <Table.Column
-              title={t("tasks:columns.actions")}
+              title={columnHeader(<ToolOutlined />, "actions")}
               key="actions"
               width={200}
               fixed="right"
