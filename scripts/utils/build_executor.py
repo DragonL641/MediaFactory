@@ -110,7 +110,13 @@ def run_tauri_build(skip_bundle: bool = False) -> bool:
     log_info("运行 tauri build（Rust 编译 + bundle，首次较慢）...")
     args = [npm, "run", "tauri", "build"]
     if skip_bundle:
-        args += ["--", "--no-bundle"]
+        # npm 对裸 `--` 的转发在 Windows 批处理下不可靠，直接以 node 调 CLI 入口
+        node = shutil.which("node")
+        cli_js = root / "node_modules" / "@tauri-apps" / "cli" / "tauri.js"
+        if node is None or not cli_js.is_file():
+            log_error("未找到 node 或 @tauri-apps/cli（--no-bundle 路径需要）")
+            return False
+        args = [node, str(cli_js), "build", "--no-bundle"]
     result = subprocess.run(args, cwd=root)
     return result.returncode == 0
 
