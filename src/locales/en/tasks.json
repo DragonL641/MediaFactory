@@ -51,6 +51,12 @@
     "retried": "Task retried",
     "retryFailed": "Failed to retry task",
     "confirmDelete": "Are you sure you want to delete this task?",
+    "reveal": "Show in Folder",
+    "viewLog": "View Log",
+    "delete": "Delete",
+    "noLogs": "No logs yet — the task has not produced any output.",
+    "logStreaming": "Streaming (refreshes every second)",
+    "logFinal": "Final log",
     "translationStats": "Translated {{remote}} · Fallback {{fallback}} · Failed {{failed}}"
   },
   "revealFailed": "Failed to open file location",

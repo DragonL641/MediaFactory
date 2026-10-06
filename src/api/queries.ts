@@ -193,6 +193,22 @@ export function useStartTaskMutation() {
 }
 
 /**
+ * 任务执行日志（打开弹框期间 1s 轮询；调用方 enabled 控制启停）
+ */
+export function useTaskLogsQuery(taskId: string, enabled: boolean) {
+  return useQuery({
+    queryKey: ["tasks", taskId, "logs"],
+    queryFn: async () => {
+      const client = getApiClient();
+      const response = await client.get(`/api/processing/tasks/${taskId}/logs`);
+      return response.data as { taskId: string; running: boolean; lines: string[] };
+    },
+    enabled,
+    refetchInterval: 1000,
+  });
+}
+
+/**
  * 获取任务配置（用于编辑回显）
  */
 export function useTaskConfigQuery(taskId: string) {

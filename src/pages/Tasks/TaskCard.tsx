@@ -17,10 +17,13 @@ import {
   PlayCircleOutlined,
   EditOutlined,
   RedoOutlined,
+  StopOutlined,
+  FileTextOutlined,
 } from "@ant-design/icons";
 import { useTranslation } from "react-i18next";
 import { Task, TaskStatus } from "../../types";
 import { useStartTaskMutation } from "../../api/queries";
+import LogModal from "./LogModal";
 import { getApiClient, getErrorDetail } from "../../api/client";
 
 const { Text } = Typography;
@@ -34,6 +37,7 @@ interface TaskCardProps {
 }
 
 const TaskCard: React.FC<TaskCardProps> = ({ task, onCancel, onDelete, onRetry, onEdit }) => {
+  const [logOpen, setLogOpen] = React.useState(false);
   const status = task.status;
   const startMutation = useStartTaskMutation();
   const { message } = App.useApp();
@@ -72,7 +76,7 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, onCancel, onDelete, onRetry, 
     | { remote: number; fallback: number; failed: number }
     | undefined;
   const canStart = status === TaskStatus.PENDING;
-  const canEdit = status === TaskStatus.PENDING;
+  const canEdit = ["pending", "failed", "cancelled"].includes(status);
   const canCancel = status === TaskStatus.RUNNING;
   const canDelete = status !== TaskStatus.RUNNING;
   const canRetry = (status === TaskStatus.FAILED || status === TaskStatus.CANCELLED) && onRetry;
@@ -91,39 +95,44 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, onCancel, onDelete, onRetry, 
         </div>
         <Space size={4}>
           {canStart && (
-            <Button size="small" type="primary" icon={<PlayCircleOutlined />} onClick={handleStart} loading={startMutation.isPending}>
-              {t("card.start")}
-            </Button>
+            <Tooltip title={t("card.start")}>
+              <Button size="small" type="primary" icon={<PlayCircleOutlined />} onClick={handleStart} loading={startMutation.isPending} />
+            </Tooltip>
           )}
           {canEdit && onEdit && (
-            <Button size="small" icon={<EditOutlined />} onClick={onEdit}>
-              {t("card.edit")}
-            </Button>
+            <Tooltip title={t("card.edit")}>
+              <Button size="small" icon={<EditOutlined />} onClick={onEdit} />
+            </Tooltip>
           )}
           {canCancel && (
-            <Button size="small" danger onClick={onCancel}>
-              {t("card.cancel")}
-            </Button>
+            <Tooltip title={t("card.cancel")}>
+              <Button size="small" danger icon={<StopOutlined />} onClick={onCancel} />
+            </Tooltip>
           )}
           {isCompleted && outputPath && (
-            <Tooltip title={outputPath}>
+            <Tooltip title={t("card.reveal")}>
               <Button size="small" icon={<FolderOpenOutlined />} onClick={handleOpenLocation} />
             </Tooltip>
           )}
+          <Tooltip title={t("card.viewLog")}>
+            <Button size="small" icon={<FileTextOutlined />} onClick={() => setLogOpen(true)} />
+          </Tooltip>
           {canRetry && (
-            <Button size="small" icon={<RedoOutlined />} onClick={onRetry}>
-              {t("card.retry")}
-            </Button>
+            <Tooltip title={t("card.retry")}>
+              <Button size="small" icon={<RedoOutlined />} onClick={onRetry} />
+            </Tooltip>
           )}
           {canDelete && (
-            <Popconfirm
-              title={t("card.confirmDelete")}
-              onConfirm={onDelete}
-              okText={t("actions.confirm", { ns: "common" })}
-              cancelText={t("card.cancel")}
-            >
-              <Button size="small" danger icon={<DeleteOutlined />} />
-            </Popconfirm>
+            <Tooltip title={t("card.delete")}>
+              <Popconfirm
+                title={t("card.confirmDelete")}
+                onConfirm={onDelete}
+                okText={t("actions.confirm", { ns: "common" })}
+                cancelText={t("actions.cancel", { ns: "common" })}
+              >
+                <Button size="small" danger icon={<DeleteOutlined />} />
+              </Popconfirm>
+            </Tooltip>
           )}
         </Space>
       </div>
@@ -168,6 +177,8 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, onCancel, onDelete, onRetry, 
           </Text>
         </Tooltip>
       )}
+
+      <LogModal open={logOpen} onClose={() => setLogOpen(false)} task={task} />
     </div>
   );
 };
