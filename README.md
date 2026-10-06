@@ -29,14 +29,6 @@ Support for 5 task types: Audio Extraction, Speech-to-Text, Subtitle Generation,
   <img src="docs/images/TaskTypes.png" alt="Task Types" width="500"/>
 </p>
 
-### 📦 Batch Add Tasks
-
-Drag and drop multiple files or entire folders. Set source/target languages and LLM settings once, then process all files in one go.
-
-<p align="center">
-  <img src="docs/images/TaskBatchAdd.png" alt="Batch Add Tasks" width="500"/>
-</p>
-
 ### 🤖 Unified Model Management
 
 Manage all models in one place — the Settings page. Download local Whisper models for fully offline speech recognition, or connect to 7 LLM provider presets (OpenAI, DeepSeek, GLM, Qwen, Moonshot, Ollama, or custom endpoints) for translation. Your choice, your privacy.
@@ -80,7 +72,7 @@ AI video tools often force you to choose between quality and speed, or between c
 - **Smart segmentation** — Intelligent sentence segmentation via stable-ts for natural subtitle boundaries
 - **Local or cloud** — Use local models for privacy, or LLM APIs for convenience — your choice
 - **Multiple subtitle formats** — SRT, ASS, and WebVTT output support
-- **Batch processing done right** — Real progress tracking, not a black box
+- **Persistent task queue** — Serial execution with live progress, per-task logs, and edit-and-retry for failed tasks
 - **Clean uninstall** — All data stays in one folder, delete it and it's gone
 
 ### How we compare
