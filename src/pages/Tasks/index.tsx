@@ -424,7 +424,11 @@ const TasksPage: React.FC = () => {
               width={140}
               render={(_unused, record: Task) =>
                 record.status === TaskStatus.RUNNING ? (
-                  <Progress percent={Math.round(record.progress)} size="small" />
+                  <Tooltip title={record.message || undefined}>
+                    <div>
+                      <Progress percent={Math.round(record.progress)} size="small" />
+                    </div>
+                  </Tooltip>
                 ) : (
                   <span style={{ color: "var(--mf-text-secondary, #999)" }}>—</span>
                 )
