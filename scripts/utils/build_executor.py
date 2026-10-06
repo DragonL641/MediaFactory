@@ -11,6 +11,7 @@ import os
 import shutil
 import subprocess
 import sys
+import zipfile
 
 from datetime import datetime
 from pathlib import Path
@@ -94,8 +95,12 @@ def assemble_tauri_backend() -> bool:
     return True
 
 
-def run_tauri_build() -> bool:
-    """运行 tauri build（产物在 src-tauri/target/release/bundle/）"""
+def run_tauri_build(skip_bundle: bool = False) -> bool:
+    """运行 tauri build（产物在 src-tauri/target/release/bundle/）
+
+    skip_bundle：只编译壳可执行文件、跳过安装包 bundle（Windows 便携 ZIP 路径用，
+    绕开 NSIS 2GB 载荷硬限制）。
+    """
     root = get_project_root()
     npm = shutil.which("npm.cmd") or shutil.which("npm")
     if npm is None:
@@ -103,31 +108,57 @@ def run_tauri_build() -> bool:
         return False
 
     log_info("运行 tauri build（Rust 编译 + bundle，首次较慢）...")
-    result = subprocess.run([npm, "run", "tauri", "build"], cwd=root)
+    args = [npm, "run", "tauri", "build"]
+    if skip_bundle:
+        args += ["--", "--no-bundle"]
+    result = subprocess.run(args, cwd=root)
     return result.returncode == 0
 
 
 def collect_bundle_artifacts() -> bool:
-    """复制 Tauri bundle 产物（dmg/nsis 安装包）到统一 release/ 目录"""
+    """复制 macOS Tauri bundle 产物（dmg）到统一 release/ 目录"""
     root = get_project_root()
     bundle_dir = root / "src-tauri" / "target" / "release" / "bundle"
     release_dir = root / "release"
     release_dir.mkdir(exist_ok=True)
 
-    # 各平台只找自己会产出的安装包（macOS dmg / Windows NSIS exe）
-    patterns = ["dmg/*.dmg"] if sys.platform == "darwin" else ["nsis/*.exe"]
-    found = []
-    for pattern in patterns:
-        found.extend(glob.glob(str(bundle_dir / pattern)))
-
+    found = glob.glob(str(bundle_dir / "dmg" / "*.dmg"))
     if not found:
-        log_error(f"未在 {bundle_dir} 找到 dmg/nsis 安装包")
+        log_error(f"未在 {bundle_dir} 找到 dmg 安装包")
         return False
 
     for path in found:
         dest = release_dir / Path(path).name
         shutil.copy2(path, dest)
         log_info(f"安装包: {dest}")
+    return True
+
+
+def collect_windows_portable() -> bool:
+    """组装 Windows 便携 ZIP（壳 exe + python-backend 同级打包）。
+
+    NSIS 受 2GB 载荷硬限制（makensis 报 Internal compiler error #12345），
+    Windows 改发便携包：解压后 exe 与 python-backend/ 同级即可运行
+    （tauri 在 Windows 的 resource_dir = exe 所在目录）。
+    """
+    root = get_project_root()
+    exe = root / "src-tauri" / "target" / "release" / f"{PROJECT_NAME}.exe"
+    backend_dir = root / "src-tauri" / "python-backend"
+    if not exe.is_file():
+        log_error(f"未找到壳可执行文件: {exe}")
+        return False
+    if not backend_dir.is_dir():
+        log_error(f"python-backend 缺失: {backend_dir}")
+        return False
+
+    release_dir = root / "release"
+    release_dir.mkdir(exist_ok=True)
+    zip_path = release_dir / f"{PROJECT_NAME}_{get_project_version()}_x64_portable.zip"
+    with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
+        zf.write(exe, exe.name)
+        for f in sorted(backend_dir.rglob("*")):
+            zf.write(f, Path("python-backend") / f.relative_to(backend_dir))
+    log_info(f"便携包: {zip_path}")
     return True
 
 
@@ -153,11 +184,19 @@ def build_desktop(platform_name: str, version: Optional[str] = None) -> int:
         return 1
     if not assemble_tauri_backend():
         return 1
-    if not run_tauri_build():
-        log_error("tauri build 失败")
-        return 1
-    if not collect_bundle_artifacts():
-        return 1
+    if sys.platform == "darwin":
+        if not run_tauri_build():
+            log_error("tauri build 失败")
+            return 1
+        if not collect_bundle_artifacts():
+            return 1
+    else:
+        # Windows：NSIS 有 2GB 载荷硬限制，跳过 bundle 改发便携 ZIP
+        if not run_tauri_build(skip_bundle=True):
+            log_error("tauri build 失败")
+            return 1
+        if not collect_windows_portable():
+            return 1
 
     elapsed = (datetime.now() - start).total_seconds()
     log_success(f"构建完成! 耗时: {elapsed:.1f}秒")
