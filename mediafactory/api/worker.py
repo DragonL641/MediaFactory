@@ -80,11 +80,12 @@ def _run_task_in_worker(
     from mediafactory.services import runner as runner_module
 
     config = TaskConfig.model_validate(config_dict)
-    _sink = attach_task_log_sink(
-        task_id,
-        f"type={config.task_type.value} input={config.input_path}",
-    )
+    _sink = None
     try:
+        _sink = attach_task_log_sink(
+            task_id,
+            f"type={config.task_type.value} input={config.input_path}",
+        )
         fn = runner_module.RUNNERS.get(config.task_type)
         progress = _WorkerProgress(task_id, res_q, cancel_event)
 
@@ -120,7 +121,8 @@ def _run_task_in_worker(
                 "metadata": {},
             }
     finally:
-        detach_task_log_sink(_sink)
+        if _sink is not None:
+            detach_task_log_sink(_sink)
 
 
 # ==================== 执行器接缝 ====================

@@ -25,6 +25,12 @@ class FakeManager:
             )()
         }
 
+    async def get_task_status(self, task_id):
+        task = self._tasks.get(task_id)
+        if task is None:
+            return None
+        return {"id": task_id, "status": task.status.value}
+
 
 @pytest.fixture
 def client(tmp_path, monkeypatch):

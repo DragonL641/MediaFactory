@@ -67,9 +67,15 @@ def read_task_log_tail(task_id: str, max_lines: int = 1000) -> list[str]:
 
 
 def cleanup_task_log(task_id: str) -> None:
-    """删除任务时清理其日志文件（幂等，失败仅告警不阻断删除）。"""
+    """删除任务时清理其日志文件（幂等，失败仅告警不阻断删除）。
+
+    纯路径拼接不走 task_log_path——后者有 mkdir 副作用，删除一个
+    从未执行过的任务不应反而创建空目录。
+    """
+    from mediafactory.config import get_data_root_dir
+
     try:
-        p = task_log_path(task_id)
+        p = get_data_root_dir() / "logs" / "tasks" / f"{task_id}.log"
         if p.exists():
             p.unlink()
     except Exception as e:  # noqa: BLE001

@@ -273,14 +273,14 @@ async def list_tasks():
 async def get_task_logs(task_id: str):
     """任务执行日志（尾部 1000 行；worker per-task sink 落盘）"""
     task_manager = _get_task_manager()
-    task = task_manager._tasks.get(task_id)
-    if task is None:
+    status_info = await task_manager.get_task_status(task_id)
+    if status_info is None:
         raise HTTPException(status_code=404, detail=t("error.taskNotFound"))
     from mediafactory.api.task_logger import read_task_log_tail
 
     return {
         "taskId": task_id,
-        "running": task.status == TaskStatus.RUNNING,
+        "running": status_info["status"] == TaskStatus.RUNNING.value,
         "lines": read_task_log_tail(task_id),
     }
 

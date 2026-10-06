@@ -78,3 +78,11 @@ class TestTaskLogSink:
         cleanup_task_log("t4")
         assert not task_log_path("t4").exists()
         cleanup_task_log("t4")  # 幂等
+
+    def test_cleanup_does_not_create_directories(self, tmp_path, monkeypatch):
+        """cleanup 无 mkdir 副作用：删从未执行过的任务不建空目录"""
+        monkeypatch.setattr("mediafactory.config.get_data_root_dir", lambda: tmp_path)
+        from mediafactory.api.task_logger import cleanup_task_log
+
+        cleanup_task_log("never-ran")
+        assert not (tmp_path / "logs" / "tasks").exists()

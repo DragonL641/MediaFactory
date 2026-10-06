@@ -552,6 +552,10 @@ class TaskManager:
             "metadata": task.result.metadata if task.result else {},
         }
 
+    def has_task(self, task_id: str) -> bool:
+        """轻量存在性查询（路由层用，替代直接访问 _tasks 私有结构）"""
+        return task_id in self._tasks
+
     async def get_task_status(self, task_id: str) -> dict[str, Any] | None:
         """获取任务状态（包含前端需要的完整字段）"""
         task = self._tasks.get(task_id)
