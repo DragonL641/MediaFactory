@@ -599,6 +599,10 @@ class TaskManager:
             logger.info(f"Removing task {task_id} (status={task.status.value})")
             self._store.delete(task_id)
             del self._tasks[task_id]
+            # 清理任务日志文件（不留孤儿；幂等，失败仅告警）
+            from mediafactory.api.task_logger import cleanup_task_log
+
+            cleanup_task_log(task_id)
             return "removed"
 
     async def shutdown(self):

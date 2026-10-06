@@ -269,6 +269,22 @@ async def list_tasks():
     return await task_manager.get_all_tasks(exclude_types=[TaskType.DOWNLOAD])
 
 
+@router.get("/tasks/{task_id}/logs")
+async def get_task_logs(task_id: str):
+    """任务执行日志（尾部 1000 行；worker per-task sink 落盘）"""
+    task_manager = _get_task_manager()
+    task = task_manager._tasks.get(task_id)
+    if task is None:
+        raise HTTPException(status_code=404, detail=t("error.taskNotFound"))
+    from mediafactory.api.task_logger import read_task_log_tail
+
+    return {
+        "taskId": task_id,
+        "running": task.status == TaskStatus.RUNNING,
+        "lines": read_task_log_tail(task_id),
+    }
+
+
 @router.delete("/tasks/{task_id}")
 async def remove_task(task_id: str):
     """移除任务"""
