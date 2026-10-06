@@ -71,6 +71,7 @@
     "noLogs": "暂无日志——任务尚未产生输出。",
     "logStreaming": "实时刷新中（每秒）",
     "logFinal": "最终日志",
+    "levelAll": "全部",
     "translationStats": "翻译 {{remote}} · 兜底 {{fallback}} · 失败 {{failed}}"
   },
   "revealFailed": "打开文件位置失败",

@@ -3,9 +3,10 @@
  */
 
 import React, { useEffect, useRef, useState } from "react";
-import { Modal, Typography } from "antd";
+import { Modal, Typography, Segmented } from "antd";
 import { useTranslation } from "react-i18next";
 import { useTaskLogsQuery } from "../../api/queries";
+import { parseLogLevel } from "./taskTableUtils";
 import type { Task } from "../../types";
 
 interface LogModalProps {
@@ -18,16 +19,24 @@ const LogModal: React.FC<LogModalProps> = ({ open, onClose, task }) => {
   const { t } = useTranslation("tasks");
   const terminal = ["completed", "failed", "cancelled"].includes(task.status);
   const { data } = useTaskLogsQuery(task.id, open && !terminal);
+  const [levelFilter, setLevelFilter] = useState<string>("all");
   const scrollRef = useRef<HTMLDivElement>(null);
   const [stickBottom, setStickBottom] = useState(true);
 
   const lines = data?.lines ?? [];
 
+  const visibleLines = lines.filter((l) => {
+    if (levelFilter === "all") return true;
+    const level = parseLogLevel(l);
+    // 结构行（分隔头/config/畸形行）恒显；级别行按所选级别过滤
+    return level === null ? true : level === levelFilter.toUpperCase();
+  });
+
   useEffect(() => {
     if (stickBottom && scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
-  }, [lines.length, stickBottom]);
+  }, [visibleLines.length, stickBottom]);
 
   const handleScroll = () => {
     const el = scrollRef.current;
@@ -44,6 +53,18 @@ const LogModal: React.FC<LogModalProps> = ({ open, onClose, task }) => {
       width={720}
       title={`${t("card.viewLog")} — ${task.name}`}
     >
+      <Segmented
+        value={levelFilter}
+        onChange={(v) => setLevelFilter(v as string)}
+        options={[
+          { value: "all", label: t("card.levelAll") },
+          { value: "info", label: "Info" },
+          { value: "warning", label: "Warning" },
+          { value: "error", label: "Error" },
+        ]}
+        size="small"
+        style={{ marginBottom: 8 }}
+      />
       <div
         ref={scrollRef}
         onScroll={handleScroll}
@@ -61,10 +82,10 @@ const LogModal: React.FC<LogModalProps> = ({ open, onClose, task }) => {
           wordBreak: "break-all",
         }}
       >
-        {lines.length === 0 ? (
+        {visibleLines.length === 0 ? (
           <Typography.Text type="secondary">{t("card.noLogs")}</Typography.Text>
         ) : (
-          lines.map((l, i) => <div key={i}>{l}</div>)
+          visibleLines.map((l, i) => <div key={i}>{l}</div>)
         )}
       </div>
       <Typography.Text type="secondary" style={{ fontSize: 12 }}>

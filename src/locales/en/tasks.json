@@ -71,6 +71,7 @@
     "noLogs": "No logs yet — the task has not produced any output.",
     "logStreaming": "Streaming (refreshes every second)",
     "logFinal": "Final log",
+    "levelAll": "All",
     "translationStats": "Translated {{remote}} · Fallback {{fallback}} · Failed {{failed}}"
   },
   "revealFailed": "Failed to open file location",
