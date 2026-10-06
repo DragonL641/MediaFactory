@@ -34,6 +34,20 @@
   "error": {
     "loadFailed": "加载任务失败"
   },
+  "filters": {
+    "type": "类型",
+    "status": "状态",
+    "searchPlaceholder": "搜索任务名称",
+    "all": "全部",
+    "noMatch": "没有符合过滤条件的任务"
+  },
+  "columns": {
+    "type": "类型",
+    "name": "名称",
+    "createdAt": "创建时间",
+    "progress": "进度",
+    "actions": "操作"
+  },
   "card": {
     "status": {
       "pending": "等待中",

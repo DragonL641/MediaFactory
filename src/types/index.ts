@@ -31,6 +31,7 @@ export interface Task {
   stage?: string;
   error?: string; // 后端直接返回 error 字段
   metadata?: Record<string, unknown>; // 结果附加数据（如 translation_stats）
+  createdAt?: number; // epoch 秒（表格时间列；旧任务可能缺失）
 }
 
 export interface ModelStatus {

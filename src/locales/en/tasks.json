@@ -34,6 +34,20 @@
   "error": {
     "loadFailed": "Failed to load tasks"
   },
+  "filters": {
+    "type": "Type",
+    "status": "Status",
+    "searchPlaceholder": "Search task name",
+    "all": "All",
+    "noMatch": "No tasks match the filters"
+  },
+  "columns": {
+    "type": "Type",
+    "name": "Name",
+    "createdAt": "Created",
+    "progress": "Progress",
+    "actions": "Actions"
+  },
   "card": {
     "status": {
       "pending": "Pending",
