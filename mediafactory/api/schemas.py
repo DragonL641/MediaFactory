@@ -153,7 +153,8 @@ class SubtitleRequest(BaseModel):
     output_path: str | None = None
     source_lang: str = "auto"
     target_lang: str = "zh"
-    use_llm: bool = False
+    # UI 已移除 use_llm 开关，payload 不再携带该字段；缺省必须=LLM-only
+    use_llm: bool = True
     llm_preset: str = "openai"
     output_format: str = "srt"
     bilingual: bool = False
@@ -220,7 +221,8 @@ class TranslateRequest(BaseModel):
     source_lang: str = "auto"
     target_lang: str = "zh"
     output_format: str = "srt"  # srt, ass, vtt, txt
-    use_llm: bool = False
+    # UI 已移除 use_llm 开关，payload 不再携带该字段；缺省必须=LLM-only
+    use_llm: bool = True
     llm_preset: str = "openai"
     terminology: dict[str, str] | None = None
 
