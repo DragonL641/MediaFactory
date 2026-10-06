@@ -258,59 +258,6 @@ const TasksPage: React.FC = () => {
       <PageHeader
         title={t("tasks:pageHeader.title")}
         description={t("tasks:pageHeader.description")}
-        actions={
-          <Space size={8}>
-            <Button
-              icon={<PlusOutlined />}
-              type="primary"
-              onClick={() => setDialogOpen(true)}
-            >
-              {t("tasks:actions.addTask")}
-            </Button>
-            <Button
-              icon={<PlayCircleOutlined />}
-              onClick={handleBatchStart}
-              loading={batchStartMutation.isPending}
-              disabled={!hasPendingTasks}
-            >
-              {t("tasks:actions.startAll")}
-            </Button>
-            <Popconfirm
-              title={t("tasks:confirm.cancelRunning.title")}
-              description={t("tasks:confirm.cancelRunning.description")}
-              onConfirm={handleBatchCancel}
-              okText={t("common:actions.cancel")}
-              cancelText={t("common:actions.back")}
-              okButtonProps={{ danger: true }}
-              disabled={!hasRunningTasks}
-            >
-              <Button
-                icon={<StopOutlined />}
-                loading={batchCancelMutation.isPending}
-                disabled={!hasRunningTasks}
-              >
-                {t("tasks:actions.cancelAll")}
-              </Button>
-            </Popconfirm>
-            <Popconfirm
-              title={t("tasks:confirm.clearFinished.title")}
-              description={t("tasks:confirm.clearFinished.description")}
-              onConfirm={handleBatchClear}
-              okText={t("common:actions.delete")}
-              cancelText={t("common:actions.cancel")}
-              okButtonProps={{ danger: true }}
-              disabled={!hasClearedTasks}
-            >
-              <Button
-                icon={<ClearOutlined />}
-                loading={batchClearMutation.isPending}
-                disabled={!hasClearedTasks}
-              >
-                {t("tasks:actions.clearAll")}
-              </Button>
-            </Popconfirm>
-          </Space>
-        }
       />
 
       {taskList.length === 0 ? (
@@ -360,6 +307,53 @@ const TasksPage: React.FC = () => {
               onChange={(e) => setSearchQuery(e.target.value)}
               style={{ width: 220 }}
             />
+            <Space size={4} style={{ marginLeft: "auto" }}>
+              <Tooltip title={t("tasks:actions.addTask")}>
+                <Button type="primary" icon={<PlusOutlined />} onClick={() => setDialogOpen(true)} />
+              </Tooltip>
+              <Tooltip title={t("tasks:actions.startAll")}>
+                <Button
+                  icon={<PlayCircleOutlined />}
+                  onClick={handleBatchStart}
+                  loading={batchStartMutation.isPending}
+                  disabled={!hasPendingTasks}
+                />
+              </Tooltip>
+              <Tooltip title={t("tasks:actions.cancelAll")}>
+                <Popconfirm
+                  title={t("tasks:confirm.cancelRunning.title")}
+                  description={t("tasks:confirm.cancelRunning.description")}
+                  onConfirm={handleBatchCancel}
+                  okText={t("common:actions.cancel")}
+                  cancelText={t("common:actions.back")}
+                  okButtonProps={{ danger: true }}
+                  disabled={!hasRunningTasks}
+                >
+                  <Button
+                    icon={<StopOutlined />}
+                    loading={batchCancelMutation.isPending}
+                    disabled={!hasRunningTasks}
+                  />
+                </Popconfirm>
+              </Tooltip>
+              <Tooltip title={t("tasks:actions.clearAll")}>
+                <Popconfirm
+                  title={t("tasks:confirm.clearFinished.title")}
+                  description={t("tasks:confirm.clearFinished.description")}
+                  onConfirm={handleBatchClear}
+                  okText={t("common:actions.delete")}
+                  cancelText={t("common:actions.cancel")}
+                  okButtonProps={{ danger: true }}
+                  disabled={!hasClearedTasks}
+                >
+                  <Button
+                    icon={<ClearOutlined />}
+                    loading={batchClearMutation.isPending}
+                    disabled={!hasClearedTasks}
+                  />
+                </Popconfirm>
+              </Tooltip>
+            </Space>
           </div>
 
           <Table
