@@ -357,7 +357,12 @@ const TasksPage: React.FC = () => {
             rowKey="id"
             dataSource={filteredTasks}
             size="middle"
-            pagination={false}
+            pagination={{
+              pageSize: 10,
+              hideOnSinglePage: true,
+              showSizeChanger: true,
+              pageSizeOptions: [10, 20, 50],
+            }}
             scroll={{ x: "max-content" }}
             locale={{
               // 列表为空（含无任务）时保留完整表格骨架，空态卡片嵌在表格空态区
