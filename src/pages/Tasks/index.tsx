@@ -417,13 +417,13 @@ const TasksPage: React.FC = () => {
             <Table.Column
               title={t("tasks:columns.status")}
               key="status"
-              width={120}
+              width={70}
               render={(_unused, record: Task) => {
                 const config = statusConfig[record.status] || statusConfig[TaskStatus.PENDING];
                 return (
-                  <Tag color={config.color} icon={config.icon}>
-                    {config.text}
-                  </Tag>
+                  <Tooltip title={config.text}>
+                    <Tag color={config.color} icon={config.icon} />
+                  </Tooltip>
                 );
               }}
             />
