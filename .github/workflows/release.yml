@@ -63,6 +63,7 @@ jobs:
           uv sync --group core
           uv pip install pyinstaller
           npm ci
+          npm run build
 
       - name: Build desktop bundle (Windows)
         if: matrix.platform == 'windows'

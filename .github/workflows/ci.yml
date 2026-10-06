@@ -19,6 +19,9 @@ jobs:
       matrix:
         os: [macos-latest, windows-latest]
         python-version: ["3.11", "3.12", "3.13"]
+    # uv 默认偏好自管解释器，会把 setup-python 装的矩阵版本架空（全部跑成 3.12）
+    env:
+      UV_PYTHON_PREFERENCE: system
 
     steps:
     - uses: actions/checkout@v4
