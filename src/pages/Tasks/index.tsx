@@ -231,9 +231,6 @@ const TasksPage: React.FC = () => {
             <Button size="small" icon={<FolderOpenOutlined />} onClick={handleOpenLocation} />
           </Tooltip>
         )}
-        <Tooltip title={t("card.viewLog")}>
-          <Button size="small" icon={<FileTextOutlined />} onClick={() => setLogTaskId(task.id)} />
-        </Tooltip>
         {canRetry && (
           <Tooltip title={t("card.retry")}>
             <Button
@@ -443,9 +440,24 @@ const TasksPage: React.FC = () => {
               }
             />
             <Table.Column
+              title={t("tasks:columns.log")}
+              key="log"
+              width={64}
+              fixed="right"
+              render={(_unused, record: Task) => (
+                <Tooltip title={t("card.viewLog")}>
+                  <Button
+                    size="small"
+                    icon={<FileTextOutlined />}
+                    onClick={() => setLogTaskId(record.id)}
+                  />
+                </Tooltip>
+              )}
+            />
+            <Table.Column
               title={t("tasks:columns.actions")}
               key="actions"
-              width={200}
+              width={150}
               fixed="right"
               render={(_unused, record: Task) => renderActions(record)}
             />

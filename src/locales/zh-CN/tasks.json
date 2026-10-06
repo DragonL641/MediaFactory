@@ -47,6 +47,7 @@
     "createdAt": "创建时间",
     "status": "状态",
     "progress": "进度",
+    "log": "日志",
     "actions": "操作"
   },
   "card": {

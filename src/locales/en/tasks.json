@@ -47,6 +47,7 @@
     "createdAt": "Created",
     "status": "Status",
     "progress": "Progress",
+    "log": "Log",
     "actions": "Actions"
   },
   "card": {
