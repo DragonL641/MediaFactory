@@ -70,7 +70,7 @@ ad-hoc 签名（`tauri.conf.json` `signingIdentity: "-"`）：本地构建可直
 - tauri-bundler 的 `bundle_dmg.sh` 对上次构建残留的 attached 镜像敏感：构建报 `failed to run bundle_dmg.sh` 时，`hdiutil detach` 挂载点 + 删除 `src-tauri/target/release/bundle/dmg/rw.*.dmg` 后重跑
 - identifier `com.mediafactory.app` 以 `.app` 结尾会触发 tauri 构建 warning（cosmetic，产物正常；未来改 identifier 会重置 webview 本地存储）
 - Windows 产物未真机验证（无本地环境，CI 出包）
-- **Windows 分发形态为便携 ZIP**（`MediaFactory_<version>_x64_portable.zip`，解压后 `MediaFactory.exe` 与 `python-backend/` 同级直接运行）：NSIS 有 2GB 载荷硬限制（32 位 makensis 寻址上限），捆入 torch 等 ML 依赖后压缩载荷超限报 `Internal compiler error #12345`，故 Windows 跳过安装包 bundle。便携包无开始菜单/卸载入口，"卸载"即删解压目录；用户数据不受影响（frozen 下固定落 `%APPDATA%\MediaFactory`）
+- **Windows 暂不出包**：NSIS 有 2GB 载荷硬限制（`Internal compiler error #12345`），便携 ZIP 方案（`build_win.py`，exe+python-backend 同级）已验证可构建，但 torch 2.10 的 CUDA 依赖栈使 zip ~3GB，超过 GitHub Release 单资产 2GB 上限——待改 CPU-only torch 或确定分发形态后恢复（release.yml 矩阵已收敛到 macOS，build_executor 的 Windows 便携路径保留）
 - frozen 下 worker 子进程（multiprocessing spawn）的完整任务执行未在冒烟覆盖内（freeze_support 机制就绪，端口/队列路径已验）——首次真机跑 ML 任务时请关注 worker 是否正常 spawn
 
 ## 构建产物
@@ -79,9 +79,8 @@ ad-hoc 签名（`tauri.conf.json` `signingIdentity: "-"`）：本地构建可直
 
 ```
 release/
-├── MediaFactory_<version>_aarch64.dmg          # macOS（本机构架）安装包
-├── MediaFactory_<version>_x64_portable.zip     # Windows 便携包（解压即用，CI 产出）
-└── MediaFactory-<version>.source.zip           # 源码归档（build_source.py）
+├── MediaFactory_<version>_aarch64.dmg      # macOS（本机构架）安装包
+└── MediaFactory-<version>.source.zip       # 源码归档（build_source.py）
 ```
 
 ### 中间产物（不入库，`.gitignore` 排除）

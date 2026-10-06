@@ -21,10 +21,10 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [windows-latest, macos-latest]
+        # Windows 暂不出包：便携 zip ~3GB（CUDA 依赖栈）超 GitHub Release 资产
+        # 2GB 上限；待改 CPU-only torch 或确定分发形态后再恢复 windows-latest
+        os: [macos-latest]
         include:
-          - os: windows-latest
-            platform: windows
           - os: macos-latest
             platform: macos
 
