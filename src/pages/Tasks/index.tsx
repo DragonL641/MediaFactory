@@ -386,22 +386,10 @@ const TasksPage: React.FC = () => {
             <Table.Column
               title={t("tasks:columns.name")}
               key="name"
+              width={320}
+              ellipsis
               render={(_unused, record: Task) => (
-                <Tooltip title={record.name}>
-                  <span
-                    style={{
-                      fontWeight: 500,
-                      display: "inline-block",
-                      maxWidth: "100%",
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
-                      whiteSpace: "nowrap",
-                      verticalAlign: "bottom",
-                    }}
-                  >
-                    {record.name || record.id}
-                  </span>
-                </Tooltip>
+                <span style={{ fontWeight: 500 }}>{record.name || record.id}</span>
               )}
             />
             <Table.Column
