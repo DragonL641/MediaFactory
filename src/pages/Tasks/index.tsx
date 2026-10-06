@@ -211,7 +211,7 @@ const TasksPage: React.FC = () => {
       <Space size={4}>
         {canStart && (
           <Tooltip title={t("card.start")}>
-            <Button size="small" type="primary" icon={<PlayCircleOutlined />} onClick={handleStart} loading={startMutation.isPending} />
+            <Button size="small" type="primary" icon={<PlayCircleOutlined />} onClick={handleStart} loading={startMutation.isPending && startMutation.variables === task.id} />
           </Tooltip>
         )}
         {canEdit && (
@@ -361,6 +361,7 @@ const TasksPage: React.FC = () => {
             dataSource={filteredTasks}
             size="middle"
             pagination={false}
+            scroll={{ x: "max-content" }}
             locale={{
               emptyText: t("tasks:filters.noMatch"),
             }}
@@ -371,7 +372,9 @@ const TasksPage: React.FC = () => {
               key="type"
               width={110}
               render={(type: string) => (
-                <Tag color={TYPE_TAG_COLORS[type] || "default"}>{type}</Tag>
+                <Tag color={TYPE_TAG_COLORS[type] || "default"}>
+                  {t(`tasks:typeOptions.${type}.title`)}
+                </Tag>
               )}
             />
             <Table.Column

@@ -135,3 +135,19 @@ class TestTaskLogSink:
         detach_task_log_sink(s)
         content = task_log_path("t6").read_text(encoding="utf-8")
         assert "Task failed: ProcessingError: boom" in content
+
+    def test_append_terminal_line_daemon_side(self, isolated_data_root):
+        """I3 回归：worker 崩溃（daemon 侧判 WorkerCrashed）时终态摘要仍可达日志"""
+        from mediafactory.api.task_logger import append_terminal_line, task_log_path
+
+        task_log_path("t7").write_text(
+            "2026-10-06 14:00:00 | INFO    | mid execution\n", encoding="utf-8"
+        )
+        append_terminal_line(
+            "t7", "ERROR | Task failed: WorkerCrashedError: worker process died"
+        )
+        content = task_log_path("t7").read_text(encoding="utf-8")
+        assert "mid execution" in content
+        assert content.rstrip().endswith(
+            "ERROR | Task failed: WorkerCrashedError: worker process died"
+        )

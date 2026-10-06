@@ -72,6 +72,7 @@
     "logStreaming": "Streaming (refreshes every second)",
     "logFinal": "Final log",
     "levelAll": "All",
+    "noLinesAtLevel": "No lines at the selected level.",
     "translationStats": "Translated {{remote}} · Fallback {{fallback}} · Failed {{failed}}"
   },
   "revealFailed": "Failed to open file location",

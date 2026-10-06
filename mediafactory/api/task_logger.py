@@ -99,3 +99,20 @@ def write_result_summary(result: dict) -> None:
         log_error(
             f"Task failed: {result.get('error_type')}: {result.get('error_message')}"
         )
+
+def append_terminal_line(task_id: str, line: str) -> None:
+    """daemon 侧终态补写（worker 崩溃时 watchdog 用；直写文件，不经 loguru）。
+
+    worker 死亡则 write_result_summary 不可达——错误详情唯一入口在任务
+    日志（spec §3.2），崩溃型失败的原因不能在 UI 上不可见。
+    """
+    from datetime import datetime
+
+    try:
+        p = task_log_path(task_id)
+        with open(p, "a", encoding="utf-8") as f:
+            f.write(
+                f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} | {line}\n"
+            )
+    except Exception as e:  # noqa: BLE001
+        logger.warning(f"Failed to append terminal line for {task_id}: {e}")

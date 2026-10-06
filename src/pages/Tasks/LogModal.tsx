@@ -18,7 +18,7 @@ interface LogModalProps {
 const LogModal: React.FC<LogModalProps> = ({ open, onClose, task }) => {
   const { t } = useTranslation("tasks");
   const terminal = ["completed", "failed", "cancelled"].includes(task.status);
-  const { data } = useTaskLogsQuery(task.id, open && !terminal);
+  const { data } = useTaskLogsQuery(task.id, open);
   const [levelFilter, setLevelFilter] = useState<string>("all");
   const scrollRef = useRef<HTMLDivElement>(null);
   const [stickBottom, setStickBottom] = useState(true);
@@ -83,7 +83,9 @@ const LogModal: React.FC<LogModalProps> = ({ open, onClose, task }) => {
         }}
       >
         {visibleLines.length === 0 ? (
-          <Typography.Text type="secondary">{t("card.noLogs")}</Typography.Text>
+          <Typography.Text type="secondary">
+            {lines.length === 0 ? t("card.noLogs") : t("card.noLinesAtLevel")}
+          </Typography.Text>
         ) : (
           visibleLines.map((l, i) => <div key={i}>{l}</div>)
         )}

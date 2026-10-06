@@ -204,7 +204,8 @@ export function useTaskLogsQuery(taskId: string, enabled: boolean) {
       return response.data as { taskId: string; running: boolean; lines: string[] };
     },
     enabled,
-    refetchInterval: 1000,
+    refetchInterval: (query) =>
+      query.state.data?.running ? 1000 : false,
   });
 }
 

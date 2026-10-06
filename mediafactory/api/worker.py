@@ -355,6 +355,14 @@ class WorkerProcessExecutor:
                 if fut.done():
                     return
                 if not fut.done():
+                    # worker 已死，其 write_result_summary 不可达——daemon 侧
+                    # 补写终态行，错误详情唯一入口（任务日志）不缺位
+                    from mediafactory.api.task_logger import append_terminal_line
+
+                    append_terminal_line(
+                        self._running_task_id or "",
+                        f"ERROR | Task failed: WorkerCrashedError: {t('task.workerCrashed')}",
+                    )
                     fut.set_result(
                         {
                             "success": False,

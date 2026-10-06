@@ -31,7 +31,7 @@ export function filterTasks(
 
 /** 提取日志行级别（`| LEVEL |` 标记）；非标准行返回 null（恒显处理） */
 export function parseLogLevel(line: string): string | null {
-  const m = line.match(/\| (INFO|WARNING|ERROR|DEBUG|SUCCESS) \|/);
+  const m = line.match(/\|\s+(INFO|WARNING|ERROR|DEBUG|SUCCESS)\s+\|/);
   return m ? m[1] : null;
 }
 
