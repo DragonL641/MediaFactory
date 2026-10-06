@@ -342,3 +342,14 @@ class TestUpdateTaskConfigStates:
             return ok
 
         assert asyncio.run(scenario()) is False
+
+    def test_pending_task_still_editable(self):
+        """旧集合成员回归：PENDING 可编辑（本次改的正是这个集合）"""
+
+        async def scenario():
+            manager = TaskManager()
+            task_id = await manager.create_task(make_config())
+            ok = await manager.update_task_config(task_id, {"source_lang": "ko"})
+            return ok
+
+        assert asyncio.run(scenario()) is True

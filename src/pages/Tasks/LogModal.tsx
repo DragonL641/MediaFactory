@@ -17,7 +17,7 @@ interface LogModalProps {
 const LogModal: React.FC<LogModalProps> = ({ open, onClose, task }) => {
   const { t } = useTranslation("tasks");
   const terminal = ["completed", "failed", "cancelled"].includes(task.status);
-  const { data } = useTaskLogsQuery(task.id, open);
+  const { data } = useTaskLogsQuery(task.id, open && !terminal);
   const scrollRef = useRef<HTMLDivElement>(null);
   const [stickBottom, setStickBottom] = useState(true);
 

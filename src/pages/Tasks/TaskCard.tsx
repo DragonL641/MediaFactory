@@ -76,7 +76,7 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, onCancel, onDelete, onRetry, 
     | { remote: number; fallback: number; failed: number }
     | undefined;
   const canStart = status === TaskStatus.PENDING;
-  const canEdit = ["pending", "failed", "cancelled"].includes(status);
+  const canEdit = [TaskStatus.PENDING, TaskStatus.FAILED, TaskStatus.CANCELLED].includes(status);
   const canCancel = status === TaskStatus.RUNNING;
   const canDelete = status !== TaskStatus.RUNNING;
   const canRetry = (status === TaskStatus.FAILED || status === TaskStatus.CANCELLED) && onRetry;
