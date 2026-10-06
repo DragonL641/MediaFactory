@@ -72,46 +72,55 @@ def _run_task_in_worker(
     """在子进程中执行单个任务，返回可跨进程传输的结果投影。
 
     ProcessingResult.context 持有 live 引用不可传输，此处只投影
-    TaskManager 消费的字段。
+    TaskManager 消费的字段。执行期挂 per-task 日志 sink（worker 存活期
+    =单任务执行期，子进程内全部日志即该任务的日志）。
     """
+    from mediafactory.api.task_logger import attach_task_log_sink, detach_task_log_sink
     from mediafactory.core.error_utils import sanitize_error
     from mediafactory.services import runner as runner_module
 
     config = TaskConfig.model_validate(config_dict)
-    fn = runner_module.RUNNERS.get(config.task_type)
-    progress = _WorkerProgress(task_id, res_q, cancel_event)
-
-    async def _run() -> ProcessingResult:
-        if fn is None:
-            return ProcessingResult(
-                success=False,
-                error_message=f"No executor for task type: {config.task_type}",
-                error_type="ConfigurationError",
-            )
-        return await fn(config, progress)
-
+    _sink = attach_task_log_sink(
+        task_id,
+        f"type={config.task_type.value} input={config.input_path}",
+    )
     try:
-        result = asyncio.run(_run())
-        return {
-            "success": result.success,
-            "output_path": result.output_path,
-            "error_message": result.error_message or "",
-            "error_type": result.error_type,
-            "metadata": result.metadata or {},
-        }
-    except Exception as e:  # 直调引擎路径异常在此兜底并转用户消息
-        from mediafactory.logging import log_exception
+        fn = runner_module.RUNNERS.get(config.task_type)
+        progress = _WorkerProgress(task_id, res_q, cancel_event)
 
-        # sanitize_error 内部的 stdlib logging 不落 logs/，完整 traceback 在此补记
-        log_exception(f"Worker task failed: {task_id}")
+        async def _run() -> ProcessingResult:
+            if fn is None:
+                return ProcessingResult(
+                    success=False,
+                    error_message=f"No executor for task type: {config.task_type}",
+                    error_type="ConfigurationError",
+                )
+            return await fn(config, progress)
 
-        return {
-            "success": False,
-            "output_path": None,
-            "error_message": sanitize_error(e),
-            "error_type": type(e).__name__,
-            "metadata": {},
-        }
+        try:
+            result = asyncio.run(_run())
+            return {
+                "success": result.success,
+                "output_path": result.output_path,
+                "error_message": result.error_message or "",
+                "error_type": result.error_type,
+                "metadata": result.metadata or {},
+            }
+        except Exception as e:  # 直调引擎路径异常在此兜底并转用户消息
+            from mediafactory.logging import log_exception
+
+            # sanitize_error 内部的 stdlib logging 不落 logs/，完整 traceback 在此补记
+            log_exception(f"Worker task failed: {task_id}")
+
+            return {
+                "success": False,
+                "output_path": None,
+                "error_message": sanitize_error(e),
+                "error_type": type(e).__name__,
+                "metadata": {},
+            }
+    finally:
+        detach_task_log_sink(_sink)
 
 
 # ==================== 执行器接缝 ====================
