@@ -64,7 +64,7 @@
     "cannotStartTask": "无法启动任务：任务未找到、非等待状态，或有其他任务正在运行",
     "taskNotFound": "任务未找到",
     "cannotRemoveRunningTask": "无法删除正在运行的任务",
-    "canOnlyEditPending": "只能编辑等待中的任务，当前状态: {{status}}",
+    "canOnlyEditNonRunning": "只能编辑等待中、失败或已取消的任务，当前状态: {{status}}",
     "updateFailed": "更新失败",
     "configUpdateFailed": "更新配置失败",
     "configSaveFailed": "保存配置失败",

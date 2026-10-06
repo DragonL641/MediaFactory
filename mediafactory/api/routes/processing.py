@@ -304,10 +304,14 @@ async def update_task_config(task_id: str, update: TaskConfigUpdateRequest):
     if not status_info:
         raise HTTPException(status_code=404, detail=t("error.taskNotFound"))
 
-    if status_info["status"] != TaskStatus.PENDING.value:
+    if status_info["status"] not in (
+        TaskStatus.PENDING.value,
+        TaskStatus.FAILED.value,
+        TaskStatus.CANCELLED.value,
+    ):
         raise HTTPException(
             status_code=400,
-            detail=t("error.canOnlyEditPending", status=status_info["status"]),
+            detail=t("error.canOnlyEditNonRunning", status=status_info["status"]),
         )
 
     update_data = update.model_dump(exclude_unset=True)

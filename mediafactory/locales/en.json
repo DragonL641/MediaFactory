@@ -64,7 +64,7 @@
     "cannotStartTask": "Cannot start task: task not found, not PENDING, or another task is running",
     "taskNotFound": "Task not found",
     "cannotRemoveRunningTask": "Cannot remove a running task",
-    "canOnlyEditPending": "Can only edit PENDING tasks, current status: {{status}}",
+    "canOnlyEditNonRunning": "Can only edit pending, failed, or cancelled tasks, current status: {{status}}",
     "updateFailed": "Update failed",
     "configUpdateFailed": "Config update failed",
     "configSaveFailed": "Save failed",

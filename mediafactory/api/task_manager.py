@@ -84,6 +84,10 @@ class SimpleProgressAdapter(ProgressCallback):
 class TaskManager:
     """任务管理器"""
 
+    # 可编辑状态：PENDING 与可重试终态（FAILED/CANCELLED）——编辑后重试以新配置执行；
+    # RUNNING 禁改：配置正被执行中的 worker 持有
+    _EDITABLE_STATUSES = {TaskStatus.PENDING, TaskStatus.FAILED, TaskStatus.CANCELLED}
+
     def __init__(
         self,
         db_path: Path | None = None,
@@ -410,12 +414,12 @@ class TaskManager:
     async def update_task_config(
         self, task_id: str, update_data: dict[str, Any]
     ) -> bool:
-        """更新 PENDING 任务的配置（仅允许修改可变参数）"""
+        """更新可编辑状态任务的配置（PENDING/FAILED/CANCELLED，仅允许修改可变参数）"""
         task = self._tasks.get(task_id)
         if not task:
             return False
 
-        if task.status != TaskStatus.PENDING:
+        if task.status not in self._EDITABLE_STATUSES:
             logger.warning(f"Cannot edit task {task_id}: status is {task.status.value}")
             return False
 

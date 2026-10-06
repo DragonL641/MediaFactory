@@ -299,3 +299,46 @@ class TestCancelAndQueue:
 
 # RUNNERS 注册表完备性断言在 tests/unit/services/test_runner_contract.py
 # （TestRunnersRegistry）——task_manager 侧与 runner 侧逐字重复，保留一份。
+
+
+class TestUpdateTaskConfigStates:
+    """契约：可编辑状态集合 = PENDING + 可重试终态（FAILED/CANCELLED）。
+
+    编辑后重试闭环的上半段：FAILED/CANCELLED 任务改配置 → retry 以新配置执行。
+    RUNNING 禁改：配置正被执行中的 worker 持有。
+    """
+
+    def test_failed_task_config_can_be_updated(self):
+        async def scenario():
+            manager = TaskManager()
+            task_id = await manager.create_task(make_config())
+            manager._tasks[task_id].status = TaskStatus.FAILED
+
+            ok = await manager.update_task_config(task_id, {"source_lang": "ja"})
+            return manager, task_id, ok
+
+        manager, task_id, ok = asyncio.run(scenario())
+        assert ok is True
+        assert manager._tasks[task_id].config.source_lang == "ja"
+
+    def test_cancelled_task_config_can_be_updated(self):
+        async def scenario():
+            manager = TaskManager()
+            task_id = await manager.create_task(make_config())
+            manager._tasks[task_id].status = TaskStatus.CANCELLED
+
+            ok = await manager.update_task_config(task_id, {"target_lang": "en"})
+            return ok
+
+        assert asyncio.run(scenario()) is True
+
+    def test_running_task_config_rejected(self):
+        async def scenario():
+            manager = TaskManager()
+            task_id = await manager.create_task(make_config())
+            manager._tasks[task_id].status = TaskStatus.RUNNING
+
+            ok = await manager.update_task_config(task_id, {"source_lang": "ja"})
+            return ok
+
+        assert asyncio.run(scenario()) is False
