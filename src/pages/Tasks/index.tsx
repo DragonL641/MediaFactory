@@ -367,8 +367,6 @@ const TasksPage: React.FC = () => {
                     icon={<FileTextOutlined />}
                     title={t("tasks:empty.title")}
                     description={t("tasks:empty.description")}
-                    actionText={t("tasks:empty.actionText")}
-                    onAction={() => setDialogOpen(true)}
                   />
                 ) : (
                   t("tasks:filters.noMatch")
