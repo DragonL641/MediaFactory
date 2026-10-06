@@ -70,6 +70,7 @@ ad-hoc 签名（`tauri.conf.json` `signingIdentity: "-"`）：本地构建可直
 - tauri-bundler 的 `bundle_dmg.sh` 对上次构建残留的 attached 镜像敏感：构建报 `failed to run bundle_dmg.sh` 时，`hdiutil detach` 挂载点 + 删除 `src-tauri/target/release/bundle/dmg/rw.*.dmg` 后重跑
 - identifier `com.mediafactory.app` 以 `.app` 结尾会触发 tauri 构建 warning（cosmetic，产物正常；未来改 identifier 会重置 webview 本地存储）
 - Windows 产物未真机验证（无本地环境，CI 出包）
+- **Windows NSIS 安装包受 NSIS 2GB 载荷硬限制**（32 位 makensis 寻址上限）：捆入 torch 等 ML 依赖后压缩载荷超限，makensis 报 `Internal compiler error #12345: error mmapping file`——v0.5.0 起暂不出 Windows 安装包，分发形态待定（便携 ZIP 为候选方案）
 - frozen 下 worker 子进程（multiprocessing spawn）的完整任务执行未在冒烟覆盖内（freeze_support 机制就绪，端口/队列路径已验）——首次真机跑 ML 任务时请关注 worker 是否正常 spawn
 
 ## 构建产物
@@ -79,7 +80,6 @@ ad-hoc 签名（`tauri.conf.json` `signingIdentity: "-"`）：本地构建可直
 ```
 release/
 ├── MediaFactory_<version>_aarch64.dmg      # macOS（本机构架）安装包
-├── MediaFactory_<version>_x64-setup.exe    # Windows NSIS 安装包（CI 产出）
 └── MediaFactory-<version>.source.zip       # 源码归档（build_source.py）
 ```
 
