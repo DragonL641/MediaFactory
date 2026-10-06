@@ -169,6 +169,12 @@ fn launch_supervisor(app: AppHandle, state: Arc<Mutex<DaemonHandle>>) {
         }
 
         if let Some(window) = app.get_webview_window("main") {
+            // 白屏修复：窗口创建于 daemon 就绪前，WebView 初次导航被拒绝（连接拒绝）
+            // 且 WKWebView 不会自动重试——就绪后必须强制重新导航再显示
+            let home: tauri::Url = format!("http://{DAEMON_HOST}:{DAEMON_PORT}")
+                .parse()
+                .expect("static daemon url");
+            let _ = window.navigate(home);
             let _ = window.show();
             let _ = window.set_focus();
         }
