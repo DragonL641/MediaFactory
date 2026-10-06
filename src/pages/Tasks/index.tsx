@@ -79,6 +79,7 @@ const STATUS_KEY: Record<string, string> = {
 const TasksPage: React.FC = () => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editTaskId, setEditTaskId] = useState<string | null>(null);
+  const [retryOnSave, setRetryOnSave] = useState(false);
   const [logTaskId, setLogTaskId] = useState<string | null>(null);
   const [typeFilter, setTypeFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -198,7 +199,8 @@ const TasksPage: React.FC = () => {
   const renderActions = (task: Task) => {
     const status = task.status;
     const canStart = status === TaskStatus.PENDING;
-    const canEdit = [TaskStatus.PENDING, TaskStatus.FAILED, TaskStatus.CANCELLED].includes(status);
+    // FAILED/CANCELLED 无独立编辑入口——Retry 直接弹编辑框，改好再重试
+    const canEdit = status === TaskStatus.PENDING;
     const canCancel = status === TaskStatus.RUNNING;
     const canDelete = status !== TaskStatus.RUNNING;
     const canRetry = status === TaskStatus.FAILED || status === TaskStatus.CANCELLED;
@@ -247,7 +249,14 @@ const TasksPage: React.FC = () => {
         </Tooltip>
         {canRetry && (
           <Tooltip title={t("card.retry")}>
-            <Button size="small" icon={<RedoOutlined />} onClick={() => handleRetry(task.id)} />
+            <Button
+              size="small"
+              icon={<RedoOutlined />}
+              onClick={() => {
+                setRetryOnSave(true);
+                setEditTaskId(task.id);
+              }}
+            />
           </Tooltip>
         )}
         {canDelete && (
@@ -500,7 +509,15 @@ const TasksPage: React.FC = () => {
         <EditTaskDialog
           taskId={editTaskId}
           open={!!editTaskId}
-          onClose={() => setEditTaskId(null)}
+          onClose={() => {
+            setEditTaskId(null);
+            setRetryOnSave(false);
+          }}
+          onSaved={
+            retryOnSave
+              ? (id) => handleRetry(id)
+              : undefined
+          }
         />
       )}
 

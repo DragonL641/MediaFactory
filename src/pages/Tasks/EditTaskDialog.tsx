@@ -30,12 +30,15 @@ interface EditTaskDialogProps {
   taskId: string;
   open: boolean;
   onClose: () => void;
+  /** 保存成功回调（重试入口用：确认后以新配置重试） */
+  onSaved?: (taskId: string) => void;
 }
 
 const EditTaskDialog: React.FC<EditTaskDialogProps> = ({
   taskId,
   open,
   onClose,
+  onSaved,
 }) => {
   const [form] = Form.useForm();
   const { message } = App.useApp();
@@ -110,6 +113,7 @@ const EditTaskDialog: React.FC<EditTaskDialogProps> = ({
 
       await updateMutation.mutateAsync({ taskId, config: nested });
       message.success(t("editDialog.saved"));
+      onSaved?.(taskId);
       close();
     } catch (error: unknown) {
       const detail = getErrorDetail(error);
