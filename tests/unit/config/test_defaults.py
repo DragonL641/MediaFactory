@@ -2,7 +2,11 @@
 
 import sys
 
+import pytest
+
 from mediafactory.config import get_app_root_dir, get_config_path, get_data_root_dir
+
+pytestmark = pytest.mark.unit
 
 
 class TestDataRootDir:

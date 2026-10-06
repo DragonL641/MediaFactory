@@ -8,6 +8,8 @@ import pytest
 
 from mediafactory.llm.ollama_client import OllamaClient, OllamaError
 
+pytestmark = pytest.mark.unit
+
 TAGS_BODY = {
     "models": [
         {
