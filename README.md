@@ -23,7 +23,7 @@ A professional multimedia processing platform for subtitle generation and video-
 
 ### 🎯 Multiple Task Types
 
-Support for 5 task types: Audio Extraction, Speech-to-Text, Subtitle Generation, Subtitle Translation, and Video Enhancement. Video enhancement includes automatic deinterlace detection, optional CodeFormer face restoration, and optional film grain for old footage. Each task card shows status, progress, and estimated time remaining.
+Support for 5 task types: Audio Extraction, Speech-to-Text, Subtitle Generation, Subtitle Translation, and Video Enhancement. Video enhancement includes automatic deinterlace detection, optional CodeFormer face restoration, and optional film grain for old footage. The task queue is a sortable table with type/status filters and name search; every task has a built-in log viewer (live refresh while running, level filtering), and failed tasks can be edited and retried with a new config.
 
 <p align="center">
   <img src="docs/images/TaskTypes.png" alt="Task Types" width="500"/>

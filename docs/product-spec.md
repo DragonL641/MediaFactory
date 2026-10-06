@@ -50,7 +50,10 @@
 #### 本地模型与本地兜底（2026-10-04，R3）
 **模型管理**：Settings「Local Models (Ollama)」卡片。状态与已装列表 `GET /api/models/local`；拉取 `POST /api/models/local/pull`（DOWNLOAD 类型任务 + WS 进度节流 0.5s；在飞任务持模块级强引用防 GC 丢终态；逐事件看门狗 30s 无事件判 stalled→FAILED；流结束后校验 `is_model_installed`，空流假成功改标 FAILED；取消=任务置 CANCELLED 后协程停止消费流，断流即中止，终态写入前复查防覆盖取消态）。进度展示在 Settings 卡片内嵌进度行：`GET /api/models/local` 响应携带 `pulling` 快照（name/progress/taskId），前端拉取中 1s 轮询；删除 `DELETE /api/models/local/{name}`（拉取中 409、Ollama 不可达 503）。Ollama 地址为常量 `OLLAMA_BASE_URL`（`constants.py`），不做用户配置。LLM 预设含 `ollama`（base_url `http://localhost:11434/v1`，免 key；ProviderDialog 的 model 字段在选中该预设时切换为已装模型下拉，API Key 字段整行不渲染）。
 
-**本地兜底**：任务级显式开启。`TaskConfig.fallback_model`（None=不兜底；≤200 字符）经 `SubtitleRequest`/`TranslateRequest` 透传。翻译强制 LLM-only，表单无 use_llm 开关（初始即 true）；「Local Fallback」开关渲染条件：LLM 已配置，且主渠道非本地 Ollama（按 host+port 归一化判定，127.0.0.1/localhost/大小写同判；单向：本地主渠道不兜底）。编排点 `TranslationEngine.translate_texts`：主链 `translate_detailed()` 的失败句（空串映射后的最终空间索引）按源文转投兜底 backend（同一 `OpenAICompatibleBackend` 指向 Ollama `/v1`），`TermDict` 跨主/兜底共享；兜底再失败保留原文（R1 终态），不二次兜底。四计数 `translation_stats {total, remote, fallback, failed}` 随 `ProcessingResult.metadata` 进任务结果（`GET /api/processing/tasks` 的 `metadata` 字段），任务队列卡片完成态展示（i18n）；句级明细只进日志。（2026-10-05：History 前端页与后端历史栈（persistence/、/api/history、write-through 钩子）一并移除，任务队列即终态记录入口。）生命周期：随用随载（Ollama 原生行为）+ 翻译步骤结束卸载（keep_alive 0，先查 `/api/ps` 未加载不触发；卸载异步生效）。backend 层 `translate_detailed()` 返回 `DetailedTranslationResult`（translations + failed_indices + term_dict），`translate()` 为其薄包装；`_translate_all_texts` 返回 `(译文, 失败索引)` 二元组，失败索引已从非空空间映射回含空串的最终空间。
+**本地兜底**：任务级显式开启。`TaskConfig.fallback_model`（None=不兜底；≤200 字符）经 `SubtitleRequest`/`TranslateRequest` 透传。翻译强制 LLM-only，表单无 use_llm 开关（初始即 true）；「Local Fallback」开关渲染条件：LLM 已配置，且主渠道非本地 Ollama（按 host+port 归一化判定，127.0.0.1/localhost/大小写同判；单向：本地主渠道不兜底）。编排点 `TranslationEngine.translate_texts`：主链 `translate_detailed()` 的失败句（空串映射后的最终空间索引）按源文转投兜底 backend（同一 `OpenAICompatibleBackend` 指向 Ollama `/v1`），`TermDict` 跨主/兜底共享；兜底再失败保留原文（R1 终态），不二次兜底。四计数 `translation_stats {total, remote, fallback, failed}` 随 `ProcessingResult.metadata` 进任务结果（`GET /api/processing/tasks` 的 `metadata` 字段），写入任务日志、在日志弹窗查看；句级明细只进日志。（2026-10-05：History 前端页与后端历史栈（persistence/、/api/history、write-through 钩子）一并移除，任务队列即终态记录入口。）生命周期：随用随载（Ollama 原生行为）+ 翻译步骤结束卸载（keep_alive 0，先查 `/api/ps` 未加载不触发；卸载异步生效）。backend 层 `translate_detailed()` 返回 `DetailedTranslationResult`（translations + failed_indices + term_dict），`translate()` 为其薄包装；`_translate_all_texts` 返回 `(译文, 失败索引)` 二元组，失败索引已从非空空间映射回含空串的最终空间。
+
+#### 任务队列（2026-10-06）
+任务页为表格视图：列 = 类型/名称/创建时间/状态/进度/日志/操作；工具栏提供类型与状态过滤、名称搜索及批量操作（新建/启动/取消/清空，仅图标 + tooltip）。日志：`GET /api/processing/tasks/{id}/logs`（worker 存活期 loguru per-task sink 落 `data/logs/tasks/{id}.log`；`==== attempt N ====` 分隔头按次递增，重试追加不覆盖，删除任务时清理）；弹窗支持级别过滤（info/warning/error）与实时刷新（运行中 1s 轮询、终态停止；结构性分隔行不受级别过滤影响）。编辑重试：PENDING/FAILED/CANCELLED 可编辑配置（路由三态前置校验，运行中 409），FAILED/CANCELLED 保存后直接重试（编辑弹窗 onSaved 链）。终态错误详情与翻译统计由 worker 写入任务日志，daemon 侧崩溃兜底追加终态行；日志列/操作列随状态给出可用动作（运行中=取消，终态=重试或新建入口）。
 
 （ship 时按 ADDED/MODIFIED/REMOVED 增量生长；五种任务类型：音频提取、转录、字幕生成、字幕翻译、视频增强——audio/enhance 单动作直调引擎不走 Pipeline）
 
@@ -59,7 +62,7 @@
 | 内容 | 真源 | 版本锚 |
 |---|---|---|
 | 架构细节与实现约定 | CLAUDE.md | 完整内嵌版 |
-| 契约测试清单（170 个） | CLAUDE.md「测试」节 | 170 |
+| 契约测试清单（213 个） | CLAUDE.md「测试」节 | 213 |
 | 打包链 | BUILD.md | — |
 | API 文档 | docs/api.md | — |
 | 版本号 | pyproject.toml `project.version` | 0.4.0 |

@@ -37,7 +37,7 @@ uv run python scripts/build/build_darwin.py   # macOS 安装包全链（需 Rust
 
 ## Gotchas
 
-- **契约测试防线**：改 runner / task_manager / task_store / worker / pipeline / download_task / daemon_lock / system 路由 / SPA 伺服 / config 数据目录前，先确认对应契约测试全绿（清单见 CLAUDE.md「测试」节，共 160 个）。
+- **契约测试防线**：改 runner / task_manager / task_store / worker / pipeline / download_task / daemon_lock / system 路由 / SPA 伺服 / config 数据目录前，先确认对应契约测试全绿（清单见 CLAUDE.md「测试」节，共 213 个）。
 - `ModelLoadingStage` 未在 `pipeline/__init__.py` 导出，需从 `stages` 导入。
 - audio / enhance 为单动作流程，runner 直调引擎，不走 Pipeline。
 - Faster Whisper：`transcribe()` 返回的生成器必须消费（`list(...)`）；不支持 MPS（macOS 走 CPU int8）。
