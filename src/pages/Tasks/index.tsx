@@ -406,8 +406,22 @@ const TasksPage: React.FC = () => {
             <Table.Column
               title={t("tasks:columns.status")}
               key="status"
-              width={70}
+              width={92}
               render={(_unused, record: Task) => {
+                if (record.status === TaskStatus.RUNNING) {
+                  // 运行中：圆环进度（内有百分比），悬停显示阶段 message
+                  return (
+                    <Tooltip title={record.message || undefined}>
+                      <div style={{ display: "inline-flex", verticalAlign: "middle" }}>
+                        <Progress
+                          type="circle"
+                          percent={Math.round(record.progress)}
+                          size={40}
+                        />
+                      </div>
+                    </Tooltip>
+                  );
+                }
                 const config = statusConfig[record.status] || statusConfig[TaskStatus.PENDING];
                 return (
                   <Tooltip title={config.text}>
@@ -415,22 +429,6 @@ const TasksPage: React.FC = () => {
                   </Tooltip>
                 );
               }}
-            />
-            <Table.Column
-              title={t("tasks:columns.progress")}
-              key="progress"
-              width={140}
-              render={(_unused, record: Task) =>
-                record.status === TaskStatus.RUNNING ? (
-                  <Tooltip title={record.message || undefined}>
-                    <div>
-                      <Progress percent={Math.round(record.progress)} size="small" />
-                    </div>
-                  </Tooltip>
-                ) : (
-                  <span style={{ color: "var(--mf-text-secondary, #999)" }}>—</span>
-                )
-              }
             />
             <Table.Column
               title={t("tasks:columns.log")}
