@@ -114,7 +114,7 @@ const EditTaskDialog: React.FC<EditTaskDialogProps> = ({
       await updateMutation.mutateAsync({ taskId, config: nested });
       message.success(t("editDialog.saved"));
       onSaved?.(taskId);
-      close();
+      onClose();
     } catch (error: unknown) {
       const detail = getErrorDetail(error);
       if (detail) {
